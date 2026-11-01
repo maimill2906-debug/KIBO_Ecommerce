@@ -125,10 +125,11 @@ class VoucherModel {
 
         $code = strtoupper(trim($data['mavoucher'] ?? ''));
         $name = trim($data['tenvoucher'] ?? '');
-        $type = trim($data['loaigiamgia'] ?? 'SoTien');
-        $val = (float)($data['giatrigiam'] ?? 0);
-        $min = max(0, (float)($data['donhangtoithieu'] ?? 0));
-        $qty = max(0, (int)($data['soluongconlai'] ?? 0));
+        $typeRaw = trim($data['loaigiamgia'] ?? ($data['loai'] ?? 'SoTien'));
+        $type = ($typeRaw === 'Phần trăm' || $typeRaw === 'PhanTram') ? 'PhanTram' : 'SoTien';
+        $val = (float)($data['giatrigiam'] ?? ($data['giatri'] ?? 0));
+        $min = max(0, (float)($data['donhangtoithieu'] ?? ($data['dontoithieu'] ?? 0)));
+        $qty = max(0, (int)($data['soluongconlai'] ?? ($data['soluongphathanh'] ?? 0)));
         $start = !empty($data['ngaybatdau']) ? date('Y-m-d H:i:s', strtotime($data['ngaybatdau'])) : date('Y-m-d 00:00:00');
         $end = !empty($data['ngayketthuc']) ? date('Y-m-d H:i:s', strtotime($data['ngayketthuc'])) : date('Y-m-d 23:59:59', strtotime('+30 days'));
 

@@ -584,7 +584,7 @@ if (empty($initialOrders)) {
                   <th style="width: 20%;">Tên ưu đãi</th>
                   <th style="width: 14%;">Mức giảm</th>
                   <th style="width: 13%;">Đơn tối thiểu</th>
-                  <th style="width: 12%;">Còn lại / Tổng</th>
+                  <th style="width: 12%;">Lượt còn lại</th>
                   <th style="width: 13%;">Hạn dùng</th>
                   <th style="width: 14%;">Trạng thái</th>
                 </tr>
@@ -593,24 +593,30 @@ if (empty($initialOrders)) {
                 <?php if (!empty($dbVouchers)): ?>
                   <?php foreach ($dbVouchers as $vc): 
                     $isExpired = (!empty($vc['ngayketthuc']) && strtotime($vc['ngayketthuc']) < time());
-                    $isOutOfStock = ((int)$vc['soluongconlai'] <= 0);
+                    $soLuongConLai = (int)($vc['soluongconlai'] ?? 0);
+                    $isOutOfStock = ($soLuongConLai <= 0);
                     $isActive = !empty($vc['kichhoat']) && !$isExpired && !$isOutOfStock;
+                    
+                    $loaiGiam = $vc['loaigiamgia'] ?? ($vc['loai'] ?? 'SoTien');
+                    $giaTriGiam = (float)($vc['giatrigiam'] ?? ($vc['giatri'] ?? 0));
+                    $donHangToiThieu = (float)($vc['donhangtoithieu'] ?? ($vc['dontoithieu'] ?? 0));
+                    
                     $discountStr = '';
-                    if ($vc['loai'] === 'Phần trăm') {
-                      $discountStr = $vc['giatri'] . '%';
+                    if ($loaiGiam === 'PhanTram' || $loaiGiam === 'Phần trăm') {
+                      $discountStr = $giaTriGiam . '%';
                       if (!empty($vc['giamtoida'])) {
                         $discountStr .= ' (tối đa ' . number_format($vc['giamtoida'], 0, ',', '.') . 'đ)';
                       }
                     } else {
-                      $discountStr = number_format($vc['giatri'], 0, ',', '.') . 'đ';
+                      $discountStr = number_format($giaTriGiam, 0, ',', '.') . 'đ';
                     }
                   ?>
                     <tr>
                       <td><strong style="color: #2c1a0e; font-size: 13.5px;"><code><?= htmlspecialchars($vc['mavoucher']) ?></code></strong></td>
                       <td style="color: #333;"><?= htmlspecialchars($vc['tenvoucher'] ?: $vc['mavoucher']) ?></td>
                       <td style="color: #c94336; font-weight: bold;"><?= $discountStr ?></td>
-                      <td><?= number_format($vc['dontoithieu'] ?? 0, 0, ',', '.') ?>đ</td>
-                      <td><?= (int)$vc['soluongconlai'] ?> / <?= (int)$vc['soluongphathanh'] ?></td>
+                      <td><?= number_format($donHangToiThieu, 0, ',', '.') ?>đ</td>
+                      <td><?= $soLuongConLai ?> lượt</td>
                       <td style="color: <?= $isExpired ? '#c94336' : '#666' ?>; font-size: 12.5px;">
                         <?= !empty($vc['ngayketthuc']) ? date('d/m/Y', strtotime($vc['ngayketthuc'])) : 'Không hạn' ?>
                         <?= $isExpired ? '<br><small style="color: #c94336;">(Hết hạn)</small>' : '' ?>
