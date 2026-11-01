@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 56" width="160" height="56" fill="none">
+  <!-- House Icon (x=0..50, y=2..54) -->
+  <g class="logo-house">
+    <!-- Brown House Base -->
+    <rect x="8" y="20" width="34" height="32" rx="1.5" fill="#2c1a0e" />
+    
+    <!-- White Paw inside house -->
+    <!-- Main pad -->
+    <path d="M25 46 C21 46 17 43 17 39.5 C17 37 19.5 35 22 36 C23.5 36.6 24.2 36 25 36 C25.8 36 26.5 36.6 28 36 C30.5 35 33 37 33 39.5 C33 43 29 46 25 46 Z" fill="#ffffff" />
+    <!-- 4 Toe dots -->
+    <circle cx="19.5" cy="33.5" r="2.2" fill="#ffffff" />
+    <circle cx="23" cy="30" r="2.2" fill="#ffffff" />
+    <circle cx="27" cy="30" r="2.2" fill="#ffffff" />
+    <circle cx="30.5" cy="33.5" r="2.2" fill="#ffffff" />
+
+    <!-- Green Gable Roof -->
+    <!-- Chevron / polygon roof -->
+    <polygon points="25,3 49,23 44,27 25,11 6,27 1,23" fill="#589442" />
+  </g>
+
+  <!-- Text Group (x=58..) -->
+  <!-- KIB in Dark Brown -->
+  <text x="58" y="27" font-family="'Open Sans', 'Segoe UI', Arial, sans-serif" font-weight="800" font-size="24" fill="#2c1a0e" letter-spacing="0.5">KIB</text>
+  <!-- O in Green -->
+  <text x="103" y="27" font-family="'Open Sans', 'Segoe UI', Arial, sans-serif" font-weight="800" font-size="24" fill="#589442">O</text>
+
+  <!-- Horizontal Dividing Line -->
+  <line x1="57" y1="34" x2="128" y2="34" stroke="#2c1a0e" stroke-width="1.6" stroke-linecap="square" />
+
+  <!-- PET'S HOME Subtext -->
+  <text x="58" y="47" font-family="'Open Sans', 'Segoe UI', Arial, sans-serif" font-weight="700" font-size="10.5" fill="#2c1a0e" letter-spacing="2.8">PET'S HOME</text>
+</svg>
