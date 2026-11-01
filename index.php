@@ -263,7 +263,7 @@ switch ($action) {
         require_once __DIR__ . '/models/VoucherModel.php';
         $raw = file_get_contents('php://input');
         $input = json_decode($raw, true) ?: $_POST;
-        $code = trim($input['code'] ?? '');
+        $code = trim($input['mavoucher'] ?? ($input['code'] ?? ''));
         $res = VoucherModel::toggleActive($code);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;

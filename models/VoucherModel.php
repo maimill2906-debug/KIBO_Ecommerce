@@ -177,11 +177,21 @@ class VoucherModel {
         $db = Database::getConnection();
         if (!$db) return ['success' => false, 'message' => 'Lỗi kết nối cơ sở dữ liệu'];
 
+        $code = strtoupper(trim($code));
+        if (empty($code)) {
+            return ['success' => false, 'message' => 'Thiếu mã voucher cần cập nhật trạng thái.'];
+        }
+
         try {
             $stmt = $db->prepare("UPDATE voucher SET kichhoat = NOT COALESCE(kichhoat, true) WHERE UPPER(mavoucher) = UPPER(?) RETURNING kichhoat");
             $stmt->execute([$code]);
-            $newState = $stmt->fetchColumn();
-            return ['success' => true, 'kichhoat' => (bool)$newState];
+            $res = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$res && $stmt->rowCount() === 0) {
+                return ['success' => false, 'message' => "Không tìm thấy mã voucher '{$code}' trong hệ thống."];
+            }
+            $active = !empty($res['kichhoat']);
+            $msg = $active ? "Đã bật kích hoạt mã voucher {$code}" : "Đã tắt (vô hiệu hóa) mã voucher {$code}";
+            return ['success' => true, 'kichhoat' => $active, 'message' => $msg];
         } catch (Exception $e) {
             return ['success' => false, 'message' => 'Lỗi chuyển trạng thái: ' . $e->getMessage()];
         }

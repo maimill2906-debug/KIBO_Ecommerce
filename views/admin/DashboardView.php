@@ -622,7 +622,7 @@ if (empty($initialOrders)) {
                         <?= $isExpired ? '<br><small style="color: #c94336;">(Hết hạn)</small>' : '' ?>
                       </td>
                       <td>
-                        <button type="button" onclick="adminToggleVoucher('<?= htmlspecialchars($vc['mavoucher']) ?>')" 
+                        <button type="button" onclick="adminToggleVoucher('<?= htmlspecialchars($vc['mavoucher']) ?>', this)" 
                                 style="padding: 4px 10px; font-size: 12px; border-radius: 3px; border: 1px solid <?= !empty($vc['kichhoat']) ? '#2e7d32' : '#999' ?>; background: <?= !empty($vc['kichhoat']) ? '#e8f5e9' : '#f5f5f5' ?>; color: <?= !empty($vc['kichhoat']) ? '#2e7d32' : '#666' ?>; font-weight: bold; cursor: pointer;">
                           <?= !empty($vc['kichhoat']) ? 'Đang bật' : 'Đã tắt' ?>
                         </button>
@@ -667,6 +667,7 @@ if (empty($initialOrders)) {
     // 2. CHUYỂN ĐỔI TAB MƯỢT MÀ
     function switchAdminTab(tab) {
       currentTab = tab;
+      try { sessionStorage.setItem('kibo_active_admin_tab', tab); } catch (e) {}
       
       // Update sidebar active buttons
       const navButtons = document.querySelectorAll('#adminNav button');
@@ -1048,7 +1049,8 @@ if (empty($initialOrders)) {
       }
     }
 
-    async function adminToggleVoucher(code) {
+    async function adminToggleVoucher(code, btn) {
+      if (btn) btn.disabled = true;
       try {
         const resp = await fetch('index.php?action=admin_voucher_toggle', {
           method: 'POST',
@@ -1057,13 +1059,22 @@ if (empty($initialOrders)) {
         });
         const res = await resp.json();
         if (res.success) {
-          showAdminToast('Cập nhật', res.message, 'success');
-          setTimeout(() => location.reload(), 600);
+          showAdminToast('Cập nhật thành công', res.message, 'success');
+          if (btn) {
+            const isActive = !!res.kichhoat;
+            btn.textContent = isActive ? 'Đang bật' : 'Đã tắt';
+            btn.style.borderColor = isActive ? '#2e7d32' : '#999';
+            btn.style.background = isActive ? '#e8f5e9' : '#f5f5f5';
+            btn.style.color = isActive ? '#2e7d32' : '#666';
+            btn.disabled = false;
+          }
         } else {
           showAdminToast('Lỗi', res.message || 'Không thể thay đổi', 'error');
+          if (btn) btn.disabled = false;
         }
       } catch (err) {
         showAdminToast('Lỗi kết nối', err.message, 'error');
+        if (btn) btn.disabled = false;
       }
     }
 
@@ -1299,6 +1310,11 @@ if (empty($initialOrders)) {
       renderInventory();
       renderOrders();
       renderOverview();
+
+      const savedTab = sessionStorage.getItem('kibo_active_admin_tab');
+      if (savedTab && ['overview', 'orders', 'inventory', 'fund', 'vouchers', 'reports', 'returns'].includes(savedTab)) {
+        switchAdminTab(savedTab);
+      }
 
       const adminFlash = <?= json_encode($adminLoginSuccess) ?>;
       if (adminFlash) {
