@@ -39,11 +39,34 @@ if ($isValidCode) {
         $total = (float)($dbOrder['total'] ?? ($subtotal + $shipping - $discount));
         $fundAmount = (float)($dbOrder['fundAmount'] ?? DonHangModel::tinhQuy($subtotal, $discount));
 
+        // Phân quyền hiển thị thông tin bảo mật: Chỉ hiển thị đầy đủ SĐT & Địa chỉ nếu là chủ đơn hàng hoặc Admin
+        $currUser = $_SESSION['user'] ?? null;
+        $orderMaKH = $dbOrder['makh'] ?? '';
+        $isOwner = ($currUser && !empty($currUser['MaKH']) && !empty($orderMaKH) && $currUser['MaKH'] === $orderMaKH)
+                   || ($currUser && ($currUser['VaiTro'] ?? '') === 'Admin');
+
+        $rawPhone = $dbOrder['phone'] ?? '';
+        $rawAddr = $dbOrder['address'] ?? '';
+
+        if (!$isOwner) {
+            $maskedPhone = (strlen($rawPhone) >= 7) ? (substr($rawPhone, 0, 4) . '***' . substr($rawPhone, -3)) : '0912***789';
+            $addrParts = explode(',', $rawAddr);
+            if (count($addrParts) > 1) {
+                array_shift($addrParts);
+                $maskedAddr = '***, ' . trim(implode(', ', $addrParts));
+            } else {
+                $maskedAddr = '*** (Đã ẩn địa chỉ chi tiết)';
+            }
+        } else {
+            $maskedPhone = $rawPhone;
+            $maskedAddr = $rawAddr;
+        }
+
         $orderData = [
             'code' => $dbOrder['orderId'],
             'customer' => $dbOrder['customerName'],
-            'phone' => $dbOrder['phone'] ?? '',
-            'address' => $dbOrder['address'],
+            'phone' => $maskedPhone,
+            'address' => $maskedAddr,
             'itemsList' => $itemsList,
             'subtotal' => $subtotal,
             'shipping' => $shipping,

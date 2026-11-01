@@ -354,26 +354,22 @@ class DonHangModel {
     }
 
     public static function getOrdersByCustomer($maKH, $phone = '', $email = '') {
+        $maKH = trim((string)$maKH);
+        if (empty($maKH)) return [];
         $db = Database::getConnection();
         if ($db) {
             try {
-                $cleanPhone = preg_replace('/[^\d]/', '', (string)$phone);
-                $email = strtolower(trim((string)$email));
-
                 $sql = "SELECT dh.*, qct.sotiendonggop, qct.trangthaiquy
                         FROM don_hang dh
                         LEFT JOIN quy_cuu_tro qct ON dh.madonhang = qct.madonhang
                         WHERE dh.makh = ?
-                           OR (LENGTH(?) >= 9 AND REGEXP_REPLACE(dh.sodienthoainhan, '[^0-9]', '', 'g') = ?)
-                           OR (LENGTH(?) >= 9 AND REGEXP_REPLACE(dh.sodienthoainhan, '[^0-9]', '', 'g') IN (
-                               SELECT REGEXP_REPLACE(sodienthoai, '[^0-9]', '', 'g') FROM sdt_kh WHERE makh = ?
-                           ))
-                           OR (LENGTH(?) > 3 AND dh.makh IN (SELECT makh FROM khach_hang WHERE LOWER(email) = ?))
                         ORDER BY dh.ngaydathang DESC";
                 $stmt = $db->prepare($sql);
-                $stmt->execute([$maKH, $cleanPhone, $cleanPhone, $cleanPhone, $maKH, $email, $email]);
+                $stmt->execute([$maKH]);
                 return $stmt->fetchAll();
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+                error_log("Lỗi getOrdersByCustomer: " . $e->getMessage());
+            }
         }
         return [];
     }

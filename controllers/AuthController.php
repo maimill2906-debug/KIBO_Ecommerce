@@ -38,6 +38,7 @@ class AuthController {
                   (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false);
 
         if ($user) {
+            session_regenerate_id(true);
             $_SESSION['user'] = $user;
             $welcomeName = !empty($user['HoTen']) ? $user['HoTen'] : $user['TenDangNhap'];
             $_SESSION['login_success'] = 'Đăng nhập thành công! Xin chào ' . $welcomeName;

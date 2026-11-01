@@ -8,6 +8,22 @@ if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
     @session_start();
 }
 
+/**
+ * Kiểm tra phân quyền Quản trị viên (Admin)
+ * Trả về HTTP 403 JSON nếu người dùng chưa đăng nhập hoặc không phải Admin
+ */
+function requireAdmin() {
+    if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        @session_start();
+    }
+    if (empty($_SESSION['user']) || ($_SESSION['user']['VaiTro'] ?? '') !== 'Admin') {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'message' => 'Truy cập bị từ chối: Yêu cầu quyền quản trị viên (Admin).'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
 $action = $_GET['action'] ?? 'home';
 
 switch ($action) {
@@ -104,7 +120,8 @@ switch ($action) {
         if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
             @session_start();
         }
-        $maKH = $_SESSION['user']['MaKH'] ?? ($input['makh'] ?? '');
+        // Bảo mật: Chỉ lấy MaKH từ Session, tuyệt đối không lấy MaKH từ client gửi lên
+        $maKH = $_SESSION['user']['MaKH'] ?? '';
         $items = $input['items'] ?? [];
         if ($maKH) {
             $ok = GioHangModel::syncCart($maKH, $items);
@@ -142,6 +159,7 @@ switch ($action) {
         break;
 
     case 'admin_create_product':
+        requireAdmin();
         header('Content-Type: application/json; charset=utf-8');
         require_once __DIR__ . '/models/SanPhamModel.php';
         $raw = file_get_contents('php://input');
@@ -151,6 +169,7 @@ switch ($action) {
         exit;
 
     case 'admin_create_category':
+        requireAdmin();
         header('Content-Type: application/json; charset=utf-8');
         require_once __DIR__ . '/models/SanPhamModel.php';
         $raw = file_get_contents('php://input');
@@ -162,6 +181,7 @@ switch ($action) {
         exit;
 
     case 'admin_update_order_status':
+        requireAdmin();
         header('Content-Type: application/json; charset=utf-8');
         require_once __DIR__ . '/models/DonHangModel.php';
         $raw = file_get_contents('php://input');
@@ -207,7 +227,8 @@ switch ($action) {
         }
         require_once __DIR__ . '/models/KhachHangModel.php';
         $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
-        $maKH = $currentUser['MaKH'] ?? ($input['makh'] ?? '');
+        // Bảo mật: Chỉ lấy MaKH từ session hiện tại
+        $maKH = $currentUser['MaKH'] ?? '';
         $hoten = $input['hoten'] ?? '';
         $phone = $input['phone'] ?? '';
         $address = $input['address'] ?? '';

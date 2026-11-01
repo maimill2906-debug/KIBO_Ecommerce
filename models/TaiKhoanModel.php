@@ -8,38 +8,17 @@
 require_once __DIR__ . '/../config/database.php';
 
 class TaiKhoanModel {
-    private static $mockAccounts = [
-        [
-            'MaTK' => 'TK001',
-            'TenDangNhap' => 'admin@kibo.vn',
-            'MatKhau' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-            'MatKhauPlain' => '123456',
-            'VaiTro' => 'Admin',
-            'TrangThai' => 'Hoạt động',
-            'HoTen' => 'Quản trị viên KIBO'
-        ],
-        [
-            'MaTK' => 'TK002',
-            'TenDangNhap' => 'user1@gmail.com',
-            'MatKhau' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-            'MatKhauPlain' => '123456',
-            'VaiTro' => 'User',
-            'TrangThai' => 'Hoạt động',
-            'HoTen' => 'Nguyễn Lê Quỳnh Mai'
-        ],
-        [
-            'MaTK' => 'TK003',
-            'TenDangNhap' => 'hoangphuc@gmail.com',
-            'MatKhau' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-            'MatKhauPlain' => '123456',
-            'VaiTro' => 'User',
-            'TrangThai' => 'Hoạt động',
-            'HoTen' => 'Lã Nguyễn Hoàng Phúc'
-        ]
-    ];
-
     public static function authenticate($username, $password) {
         $username = trim($username);
+        if (empty($username) || empty($password)) {
+            return null;
+        }
+
+        // Từ chối đăng nhập nếu tendangnhap kết thúc @kibo.local (tài khoản vãng lai)
+        if (str_ends_with(strtolower($username), '@kibo.local')) {
+            return null;
+        }
+
         $db = Database::getConnection();
         if ($db) {
             try {
@@ -55,7 +34,8 @@ class TaiKhoanModel {
 
                 if ($acc) {
                     $hash = $acc['matkhau'];
-                    if ($password === '123456' || $password === $hash || password_verify($password, $hash)) {
+                    // Chỉ dùng password_verify, tuyệt đối không dùng backdoor 123456 hoặc so sánh plain text
+                    if (password_verify($password, $hash)) {
                         return [
                             'MaTK' => $acc['matk'],
                             'TenDangNhap' => $acc['tendangnhap'],
@@ -68,15 +48,11 @@ class TaiKhoanModel {
                         ];
                     }
                 }
-            } catch (Exception $e) {}
-        }
-
-        foreach (self::$mockAccounts as $acc) {
-            if (strtolower($acc['TenDangNhap']) === strtolower($username) &&
-                ($acc['MatKhauPlain'] === $password || $password === '123456' || $acc['MatKhau'] === $password)) {
-                return $acc;
+            } catch (Exception $e) {
+                error_log("Lỗi authenticate: " . $e->getMessage());
             }
         }
+
         return null;
     }
 
@@ -88,13 +64,12 @@ class TaiKhoanModel {
                         FROM tai_khoan tk
                         LEFT JOIN khach_hang kh ON tk.matk = kh.matk
                         ORDER BY tk.matk ASC";
-                $rows = $db->query($sql)->fetchAll();
-                if (!empty($rows)) {
-                    return $rows;
-                }
-            } catch (Exception $e) {}
+                return $db->query($sql)->fetchAll();
+            } catch (Exception $e) {
+                error_log("Lỗi getAll TaiKhoan: " . $e->getMessage());
+            }
         }
-        return self::$mockAccounts;
+        return [];
     }
 
     public static function registerUser($data) {
@@ -112,6 +87,9 @@ class TaiKhoanModel {
         // 2. Kiểm tra định dạng Email
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return ['success' => false, 'message' => 'Email không đúng định dạng (Ví dụ: name@example.com).'];
+        }
+        if (str_ends_with(strtolower($email), '@kibo.local')) {
+            return ['success' => false, 'message' => 'Tên miền email này được bảo lưu cho hệ thống.'];
         }
 
         // 3. Kiểm tra Mật khẩu đủ 8 ký tự
@@ -191,7 +169,8 @@ class TaiKhoanModel {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
-            return ['success' => false, 'message' => 'Lỗi tạo tài khoản: ' . $e->getMessage()];
+            error_log("Lỗi tạo tài khoản: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Đăng ký tài khoản không thành công. Vui lòng thử lại sau!'];
         }
     }
 }
