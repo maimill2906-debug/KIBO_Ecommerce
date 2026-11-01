@@ -187,6 +187,49 @@
        ==================================================================== -->
   <script>
     const KIBO_CART_KEY = 'kibo_cart_items_v2';
+    const CART_OWNER_KEY = 'kibo_cart_owner';
+
+    async function syncCartWithOwner() {
+      const u = window.KIBO_USER;
+      const currentOwner = localStorage.getItem(CART_OWNER_KEY);
+
+      if (u && u.makh) {
+        if (currentOwner !== u.makh) {
+          try {
+            const resp = await fetch('index.php?action=get_cart');
+            const data = await resp.json();
+            const dbCart = (data && data.cart) ? data.cart : [];
+            const localCart = getCart();
+
+            const map = {};
+            localCart.forEach(it => { map[it.id] = it; });
+            dbCart.forEach(it => {
+              if (map[it.id]) {
+                map[it.id].quantity = Math.max(map[it.id].quantity, it.quantity);
+              } else {
+                map[it.id] = it;
+              }
+            });
+            const merged = Object.values(map).filter(it => it && /^BT\d+$/.test(it.id));
+            localStorage.setItem(KIBO_CART_KEY, JSON.stringify(merged));
+            localStorage.setItem(CART_OWNER_KEY, u.makh);
+            updateCartHeader();
+            fetch('index.php?action=sync_cart', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ items: merged })
+            }).catch(() => {});
+          } catch (e) {}
+        }
+      } else {
+        if (currentOwner) {
+          localStorage.removeItem(KIBO_CART_KEY);
+          localStorage.removeItem(CART_OWNER_KEY);
+          updateCartHeader();
+        }
+      }
+    }
+    syncCartWithOwner();
 
     function getCart() {
       try {

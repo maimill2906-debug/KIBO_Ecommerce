@@ -505,40 +505,24 @@ async function applyVoucher() {
     });
     const res = await resp.json();
     if (res.valid) {
-      currentVoucherDiscount = res.discount || 20000;
-      appliedVoucherCode = code;
+      currentVoucherDiscount = res.discount || 0;
+      appliedVoucherCode = res.code || code;
       msgEl.style.display = 'block';
       msgEl.style.color = '#2e7d32';
-      msgEl.textContent = `Áp dụng mã ${code} thành công (-${formatVND(currentVoucherDiscount)})!`;
-    } else {
-      if (code === 'KIBO20' || code === 'KIBOFREESHIP' || code === 'CHAOBANMOI') {
-        currentVoucherDiscount = 20000;
-        appliedVoucherCode = code;
-        msgEl.style.display = 'block';
-        msgEl.style.color = '#2e7d32';
-        msgEl.textContent = `Áp dụng mã ${code} thành công (-20.000₫)!`;
-      } else {
-        currentVoucherDiscount = 0;
-        appliedVoucherCode = null;
-        msgEl.style.display = 'block';
-        msgEl.style.color = '#d32f2f';
-        msgEl.textContent = res.message || 'Mã voucher không hợp lệ hoặc đã hết hạn.';
-      }
-    }
-  } catch (err) {
-    if (code === 'KIBO20' || code === 'KIBOFREESHIP' || code === 'CHAOBANMOI') {
-      currentVoucherDiscount = 20000;
-      appliedVoucherCode = code;
-      msgEl.style.display = 'block';
-      msgEl.style.color = '#2e7d32';
-      msgEl.textContent = `Áp dụng mã ${code} thành công (-20.000₫)!`;
+      msgEl.textContent = `Áp dụng mã ${appliedVoucherCode} thành công (-${formatVND(currentVoucherDiscount)})!`;
     } else {
       currentVoucherDiscount = 0;
       appliedVoucherCode = null;
       msgEl.style.display = 'block';
       msgEl.style.color = '#d32f2f';
-      msgEl.textContent = 'Mã voucher không hợp lệ hoặc đã hết hạn.';
+      msgEl.textContent = res.message || 'Mã giảm giá không hợp lệ hoặc đã hết hạn.';
     }
+  } catch (err) {
+    currentVoucherDiscount = 0;
+    appliedVoucherCode = null;
+    msgEl.style.display = 'block';
+    msgEl.style.color = '#d32f2f';
+    msgEl.textContent = 'Lỗi kết nối khi kiểm tra mã giảm giá.';
   }
   renderAllViews();
 }

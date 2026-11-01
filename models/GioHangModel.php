@@ -19,17 +19,13 @@ class GioHangModel {
         try {
             $db->beginTransaction();
 
-            // 1. Kiểm tra hoặc tạo giỏ hàng cho khách hàng
+            require_once __DIR__ . '/IdGen.php';
             $stmt = $db->prepare("SELECT magiohang FROM gio_hang WHERE makh = ? LIMIT 1");
             $stmt->execute([$maKH]);
             $maGioHang = $stmt->fetchColumn();
 
             if (!$maGioHang) {
-                // Tạo mã giỏ hàng mới GH + số
-                $maxGH = $db->query("SELECT MAX(CAST(SUBSTRING(magiohang FROM 3) AS INTEGER)) FROM gio_hang WHERE magiohang ~ '^GH[0-9]+$'")->fetchColumn();
-                $nextGHNum = ($maxGH ? (int)$maxGH : 0) + 1;
-                $maGioHang = 'GH' . str_pad($nextGHNum, 3, '0', STR_PAD_LEFT);
-
+                $maGioHang = IdGen::next($db, 'gio_hang', 'magiohang', 'GH', 3);
                 $stmtInsertGH = $db->prepare("INSERT INTO gio_hang (magiohang, makh, ngaycapnhat) VALUES (?, ?, NOW())");
                 $stmtInsertGH->execute([$maGioHang, $maKH]);
             } else {
@@ -37,29 +33,22 @@ class GioHangModel {
                 $stmtUpdateGH->execute([$maGioHang]);
             }
 
-            // 2. Xóa các chi tiết giỏ hàng cũ để lưu chi tiết giỏ hàng mới nhất
             $stmtDel = $db->prepare("DELETE FROM chi_tiet_gio_hang WHERE magiohang = ?");
             $stmtDel->execute([$maGioHang]);
 
-            // 3. Thêm các sản phẩm hiện có trong giỏ hàng vào bảng chi_tiet_gio_hang
             if (!empty($items) && is_array($items)) {
+                $stmtChkBT = $db->prepare("SELECT 1 FROM bien_the WHERE mabienthe = ? LIMIT 1");
                 $stmtAdd = $db->prepare("INSERT INTO chi_tiet_gio_hang (magiohang, mabienthe, soluong) VALUES (?, ?, ?)");
                 foreach ($items as $item) {
-                    $qty = (int)($item['quantity'] ?? $item['qty'] ?? 1);
-                    if ($qty <= 0) continue;
+                    $maBT = trim($item['id'] ?? ($item['mabienthe'] ?? ''));
+                    $qty = (int)($item['quantity'] ?? ($item['qty'] ?? 1));
+                    if ($qty < 1 || $qty > 99) continue;
+                    if (!preg_match('/^BT[0-9]+$/', $maBT)) continue;
 
-                    $maBT = 'BT001';
-                    if (!empty($item['id']) && str_starts_with($item['id'], 'BT')) {
-                        $maBT = $item['id'];
-                    } else {
-                        // Tra cứu biến thể theo tên sản phẩm
-                        $findBT = $db->prepare("SELECT bt.mabienthe FROM bien_the bt JOIN san_pham sp ON bt.masp = sp.masp WHERE sp.tensp ILIKE ? LIMIT 1");
-                        $findBT->execute(['%' . ($item['name'] ?? '') . '%']);
-                        $found = $findBT->fetchColumn();
-                        if ($found) $maBT = $found;
+                    $stmtChkBT->execute([$maBT]);
+                    if ($stmtChkBT->fetch()) {
+                        $stmtAdd->execute([$maGioHang, $maBT, $qty]);
                     }
-
-                    $stmtAdd->execute([$maGioHang, $maBT, $qty]);
                 }
             }
 
@@ -69,6 +58,7 @@ class GioHangModel {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
+            error_log("Lỗi syncCart: " . $e->getMessage());
             return false;
         }
     }

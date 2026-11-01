@@ -127,6 +127,21 @@ switch ($action) {
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 
+    case 'get_cart':
+        header('Content-Type: application/json; charset=utf-8');
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            @session_start();
+        }
+        $maKH = $_SESSION['user']['MaKH'] ?? '';
+        if ($maKH) {
+            require_once __DIR__ . '/models/GioHangModel.php';
+            $cart = GioHangModel::getCartFromDb($maKH);
+            echo json_encode(['success' => true, 'cart' => $cart], JSON_UNESCAPED_UNICODE);
+        } else {
+            echo json_encode(['success' => false, 'cart' => []]);
+        }
+        exit;
+
     case 'sync_cart':
         header('Content-Type: application/json; charset=utf-8');
         require_once __DIR__ . '/models/GioHangModel.php';
@@ -159,13 +174,30 @@ switch ($action) {
 
     case 'submit_return':
         header('Content-Type: application/json; charset=utf-8');
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            @session_start();
+        }
+        $maKH = $_SESSION['user']['MaKH'] ?? '';
         require_once __DIR__ . '/models/DoiTraModel.php';
         $raw = file_get_contents('php://input');
         $input = json_decode($raw, true) ?: $_POST;
         $maDH = trim($input['madonhang'] ?? '');
         $lyDo = trim($input['lydo'] ?? '');
         $hinhAnh = trim($input['hinhanh'] ?? '');
-        $res = DoiTraModel::taoYeuCau($maDH, $lyDo, $hinhAnh);
+        $res = DoiTraModel::taoYeuCau($maDH, $lyDo, $hinhAnh, $maKH);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'admin_process_return':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/DoiTraModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $maYC = trim($input['mayeucau'] ?? '');
+        $actionType = trim($input['action_type'] ?? ($input['hanhdong'] ?? ''));
+        $note = trim($input['ghichu'] ?? '');
+        $res = DoiTraModel::xuLy($maYC, $actionType, $note);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 
@@ -203,8 +235,37 @@ switch ($action) {
         $input = json_decode($raw, true) ?: $_POST;
         $orderId = $input['madonhang'] ?? '';
         $newStatus = $input['trangthai'] ?? '';
-        $ok = DonHangModel::capNhatTrangThai($orderId, $newStatus);
-        echo json_encode(['success' => (bool)$ok, 'madonhang' => $orderId, 'trangthai' => $newStatus]);
+        $res = DonHangModel::capNhatTrangThai($orderId, $newStatus);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'admin_voucher_list':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/VoucherModel.php';
+        $list = VoucherModel::getAllAdmin();
+        echo json_encode(['success' => true, 'vouchers' => $list], JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'admin_voucher_save':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/VoucherModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $res = VoucherModel::saveVoucher($input);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'admin_voucher_toggle':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/VoucherModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $code = trim($input['code'] ?? '');
+        $res = VoucherModel::toggleActive($code);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 
     case 'login':

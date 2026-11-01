@@ -169,13 +169,18 @@ foreach ($allReturns as $r) {
                         <a href="index.php?action=tracking&order=<?= urlencode($ord['madonhang']) ?>" style="padding: 5px 12px; border: 1px solid #767676; background: #efefef; color: #111; border-radius: 3px; text-decoration: none; font-size: 12.5px; font-weight: 500; display: inline-block;">
                           Chi tiết
                         </a>
+                        <?php 
+                          $giaoTs = !empty($ord['ngaygiaothanhcong']) ? strtotime($ord['ngaygiaothanhcong']) : strtotime($ord['ngaydathang']);
+                          $remainSecs = (3 * 86400) - (time() - $giaoTs);
+                          $remainDays = (int)ceil($remainSecs / 86400);
+                        ?>
                         <?php if (isset($returnMap[$ord['madonhang']])): ?>
                           <div style="margin-top: 6px; font-size: 11.5px; color: #0284c7; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 3px; padding: 2px 6px; font-weight: 600;">
                             Đổi trả: <?= htmlspecialchars($returnMap[$ord['madonhang']]['TrangThaiYeuCau']) ?>
                           </div>
-                        <?php elseif ($st === 'Giao thành công' || $st === 'Giao hàng thành công'): ?>
+                        <?php elseif (($st === 'Giao thành công' || $st === 'Giao hàng thành công') && $remainDays > 0): ?>
                           <button type="button" onclick="openReturnModal('<?= htmlspecialchars($ord['madonhang']) ?>')" style="margin-top: 6px; padding: 4px 8px; border: 1px solid #c8c8c8; background: #fff; color: #333; border-radius: 3px; font-size: 11.5px; cursor: pointer; display: block; width: 100%;">
-                            Đổi trả (3 ngày)
+                            Đổi trả (Còn <?= $remainDays ?> ngày)
                           </button>
                         <?php elseif ($st === 'Chờ xác nhận'): ?>
                           <button type="button" onclick="cancelOrder('<?= htmlspecialchars($ord['madonhang']) ?>')" style="margin-top: 6px; padding: 4px 8px; border: 1px solid #d32f2f; background: #fff5f5; color: #d32f2f; border-radius: 3px; font-size: 11.5px; font-weight: 600; cursor: pointer; display: block; width: 100%;">

@@ -17,30 +17,15 @@ require_once __DIR__ . '/../components/helpers.php';
 require_once __DIR__ . '/../../models/SanPhamModel.php';
 require_once __DIR__ . '/../../models/DonHangModel.php';
 require_once __DIR__ . '/../../models/DoiTraModel.php';
+require_once __DIR__ . '/../../models/VoucherModel.php';
 
 $dbReturns = DoiTraModel::getAll();
+$dbVouchers = VoucherModel::getAllAdmin();
 
-// Dữ liệu Tồn kho đọc trực tiếp từ Model / Supabase
-$dbProds = SanPhamModel::getAllForView();
-$initialInventory = [];
-foreach ($dbProds as $p) {
-    $initialInventory[] = [
-        'id' => $p['id'],
-        'name' => $p['name'],
-        'sku' => 'KBO-' . $p['id'],
-        'category' => $p['category'] ?: 'Thú cưng',
-        'sold' => 150,
-        'stock' => 45,
-        'color' => '#c94336',
-        'art' => 'royal'
-    ];
-}
+// Dữ liệu Tồn kho & Đã bán tính trực tiếp từ CSDL thật (bien_the & chi_tiet_don_hang)
+$initialInventory = SanPhamModel::getInventoryWithSales();
 if (empty($initialInventory)) {
-    $initialInventory = [
-        ['id' => 'ganador', 'name' => 'Ganador Adult vị gà nướng 3kg', 'sku' => 'KBO-DOG-031', 'category' => 'Chó', 'sold' => 184, 'stock' => 42, 'color' => '#e2b442', 'art' => 'ganador'],
-        ['id' => 'royal-mini', 'name' => 'Royal Canin Mini Adult 1.5kg', 'sku' => 'KBO-DOG-014', 'category' => 'Chó', 'sold' => 156, 'stock' => 8, 'color' => '#c94336', 'art' => 'royal'],
-        ['id' => 'nekko-tuna', 'name' => 'Pate Nekko cá ngừ 70g', 'sku' => 'KBO-CAT-082', 'category' => 'Mèo', 'sold' => 298, 'stock' => 5, 'color' => '#dd7556', 'art' => 'nekko']
-    ];
+    $initialInventory = [];
 }
 
 // Dữ liệu Đơn hàng đọc trực tiếp từ Model / Supabase
@@ -67,9 +52,7 @@ foreach ($dbOrders as $o) {
     ];
 }
 if (empty($initialOrders)) {
-    $initialOrders = [
-        ['id' => 'KB-8921', 'customer' => 'Nguyễn Lê Quỳnh Mai', 'phone' => '0772 906 756', 'address' => '234 Lê Văn Việt, Phường Tăng Nhơn Phú B, TP. Thủ Đức, TP. Hồ Chí Minh', 'items' => 'KIBO Cá Hồi & Gạo Lứt', 'itemsList' => [['name' => 'KIBO Cá Hồi & Gạo Lứt', 'variant' => 'Túi 1.5kg', 'qty' => 1, 'price' => 285000]], 'date' => '25/10/2026', 'subtotal' => '285.000đ', 'shipping' => '0đ', 'discount' => '0đ', 'total' => '285.000đ', 'fund' => '14.250đ', 'shelter' => 'Trạm Cứu Hộ Động Vật Nông Lâm', 'status' => 'Giao hàng thành công']
-    ];
+    $initialOrders = [];
 }
 ?>
 <!DOCTYPE html>
@@ -161,6 +144,9 @@ if (empty($initialOrders)) {
         </button>
         <button type="button" onclick="switchAdminTab('fund')">
           <?= kibo_icon('heart', 17) ?> <span>Quỹ cứu trợ</span>
+        </button>
+        <button type="button" onclick="switchAdminTab('vouchers')">
+          <?= kibo_icon('ticket', 17) ?> <span>Mã giảm giá</span>
         </button>
         <button type="button" onclick="switchAdminTab('reports')">
           <?= kibo_icon('chart', 17) ?> <span>Báo cáo</span>
@@ -519,18 +505,21 @@ if (empty($initialOrders)) {
             <table class="ops-table">
               <thead>
                 <tr>
-                  <th style="width: 14%;">Mã yêu cầu</th>
-                  <th style="width: 14%;">Mã đơn hàng</th>
-                  <th style="width: 32%;">Lý do đổi trả</th>
-                  <th style="width: 15%;">Ngày gửi</th>
+                  <th style="width: 12%;">Mã yêu cầu</th>
+                  <th style="width: 12%;">Mã đơn hàng</th>
+                  <th style="width: 26%;">Lý do đổi trả</th>
+                  <th style="width: 13%;">Ngày gửi</th>
                   <th style="width: 13%;">Trạng thái</th>
-                  <th style="width: 12%;">Hướng xử lý</th>
+                  <th style="width: 10%;">Hướng xử lý</th>
+                  <th style="width: 14%;">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 <?php if (!empty($dbReturns)): ?>
                   <?php foreach ($dbReturns as $ret): 
-                    $stClass = ($ret['TrangThaiYeuCau'] === 'Đã hoàn tất') ? 'good' : (($ret['TrangThaiYeuCau'] === 'Từ chối') ? 'out' : 'low');
+                    $st = $ret['TrangThaiYeuCau'] ?? 'Chờ xử lý';
+                    $stClass = ($st === 'Đã hoàn tất' || $st === 'Đã đồng ý đổi' || $st === 'Đã hoàn tiền') ? 'good' : (($st === 'Đã từ chối' || $st === 'Từ chối') ? 'out' : 'low');
+                    $isPending = ($st === 'Chờ xử lý');
                   ?>
                     <tr>
                       <td><code><?= htmlspecialchars($ret['MaYeuCau']) ?></code></td>
@@ -544,17 +533,100 @@ if (empty($initialOrders)) {
                         <?= date('d/m/Y H:i', strtotime($ret['NgayYeuCau'])) ?>
                       </td>
                       <td>
-                        <span class="ops-stock-status <?= $stClass ?>"><?= htmlspecialchars($ret['TrangThaiYeuCau']) ?></span>
+                        <span class="ops-stock-status <?= $stClass ?>"><?= htmlspecialchars($st) ?></span>
                       </td>
                       <td style="font-size: 13px; color: #555;">
-                        <?= htmlspecialchars($ret['HuongXuLy'] ?: 'Đang tiếp nhận xử lý') ?>
+                        <?= htmlspecialchars($ret['HuongXuLy'] ?: ($isPending ? 'Chưa xử lý' : 'Đã duyệt')) ?>
+                      </td>
+                      <td>
+                        <?php if ($isPending): ?>
+                          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                            <button type="button" onclick="adminProcessReturn('<?= htmlspecialchars($ret['MaYeuCau']) ?>', 'doi')" style="padding: 4px 8px; font-size: 12px; background: #2e7d32; color: #fff; border: none; border-radius: 3px; cursor: pointer;" title="Đồng ý đổi hàng">Đổi</button>
+                            <button type="button" onclick="adminProcessReturn('<?= htmlspecialchars($ret['MaYeuCau']) ?>', 'hoantien')" style="padding: 4px 8px; font-size: 12px; background: #1565c0; color: #fff; border: none; border-radius: 3px; cursor: pointer;" title="Hoàn tiền và hủy phần trích quỹ">Hoàn tiền</button>
+                            <button type="button" onclick="adminProcessReturn('<?= htmlspecialchars($ret['MaYeuCau']) ?>', 'tuchoi')" style="padding: 4px 6px; font-size: 12px; background: #c94336; color: #fff; border: none; border-radius: 3px; cursor: pointer;" title="Từ chối yêu cầu">Từ chối</button>
+                          </div>
+                        <?php else: ?>
+                          <span style="font-size: 12px; color: #888;">Đã đóng</span>
+                        <?php endif; ?>
                       </td>
                     </tr>
                   <?php endforeach; ?>
                 <?php else: ?>
                   <tr>
-                    <td colspan="6" style="text-align: center; padding: 30px; color: #777;">
+                    <td colspan="7" style="text-align: center; padding: 30px; color: #777;">
                       Chưa có yêu cầu đổi trả nào được ghi nhận.
+                    </td>
+                  </tr>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
+      <!-- ====================================================================
+           TAB 7: QUẢN LÝ MÃ GIẢM GIÁ (VOUCHERS - BẢNG VOUCHER)
+           ==================================================================== -->
+      <div id="tabContent_vouchers" class="tab-pane" style="display: none;">
+        <article class="ops-card" style="margin-top: 18px;">
+          <div class="ops-card-head">
+            <div>
+              <h2>Danh sách Mã giảm giá (Vouchers)</h2>
+              <p>Quản lý mã khuyến mãi, tỷ lệ giảm, đơn tối thiểu và lượt sử dụng</p>
+            </div>
+            <button type="button" class="ops-primary-button" onclick="openAddVoucherModal()">+ Thêm mã giảm giá</button>
+          </div>
+          <div class="ops-table-wrap">
+            <table class="ops-table">
+              <thead>
+                <tr>
+                  <th style="width: 14%;">Mã Voucher</th>
+                  <th style="width: 20%;">Tên ưu đãi</th>
+                  <th style="width: 14%;">Mức giảm</th>
+                  <th style="width: 13%;">Đơn tối thiểu</th>
+                  <th style="width: 12%;">Còn lại / Tổng</th>
+                  <th style="width: 13%;">Hạn dùng</th>
+                  <th style="width: 14%;">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if (!empty($dbVouchers)): ?>
+                  <?php foreach ($dbVouchers as $vc): 
+                    $isExpired = (!empty($vc['ngayketthuc']) && strtotime($vc['ngayketthuc']) < time());
+                    $isOutOfStock = ((int)$vc['soluongconlai'] <= 0);
+                    $isActive = !empty($vc['kichhoat']) && !$isExpired && !$isOutOfStock;
+                    $discountStr = '';
+                    if ($vc['loai'] === 'Phần trăm') {
+                      $discountStr = $vc['giatri'] . '%';
+                      if (!empty($vc['giamtoida'])) {
+                        $discountStr .= ' (tối đa ' . number_format($vc['giamtoida'], 0, ',', '.') . 'đ)';
+                      }
+                    } else {
+                      $discountStr = number_format($vc['giatri'], 0, ',', '.') . 'đ';
+                    }
+                  ?>
+                    <tr>
+                      <td><strong style="color: #2c1a0e; font-size: 13.5px;"><code><?= htmlspecialchars($vc['mavoucher']) ?></code></strong></td>
+                      <td style="color: #333;"><?= htmlspecialchars($vc['tenvoucher'] ?: $vc['mavoucher']) ?></td>
+                      <td style="color: #c94336; font-weight: bold;"><?= $discountStr ?></td>
+                      <td><?= number_format($vc['dontoithieu'] ?? 0, 0, ',', '.') ?>đ</td>
+                      <td><?= (int)$vc['soluongconlai'] ?> / <?= (int)$vc['soluongphathanh'] ?></td>
+                      <td style="color: <?= $isExpired ? '#c94336' : '#666' ?>; font-size: 12.5px;">
+                        <?= !empty($vc['ngayketthuc']) ? date('d/m/Y', strtotime($vc['ngayketthuc'])) : 'Không hạn' ?>
+                        <?= $isExpired ? '<br><small style="color: #c94336;">(Hết hạn)</small>' : '' ?>
+                      </td>
+                      <td>
+                        <button type="button" onclick="adminToggleVoucher('<?= htmlspecialchars($vc['mavoucher']) ?>')" 
+                                style="padding: 4px 10px; font-size: 12px; border-radius: 3px; border: 1px solid <?= !empty($vc['kichhoat']) ? '#2e7d32' : '#999' ?>; background: <?= !empty($vc['kichhoat']) ? '#e8f5e9' : '#f5f5f5' ?>; color: <?= !empty($vc['kichhoat']) ? '#2e7d32' : '#666' ?>; font-weight: bold; cursor: pointer;">
+                          <?= !empty($vc['kichhoat']) ? 'Đang bật' : 'Đã tắt' ?>
+                        </button>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <tr>
+                    <td colspan="7" style="text-align: center; padding: 30px; color: #777;">
+                      Chưa có mã giảm giá nào được tạo.
                     </td>
                   </tr>
                 <?php endif; ?>
@@ -581,6 +653,7 @@ if (empty($initialOrders)) {
       orders: { title: 'Quản lý đơn hàng', desc: 'Theo dõi và cập nhật trạng thái đơn hàng.' },
       inventory: { title: 'Quản lý tồn kho', desc: 'Kiểm tra số lượng và bổ sung hàng hóa.' },
       fund: { title: 'Đối soát Quỹ cứu trợ', desc: 'Theo dõi khoản trích 5% và lịch sử giải ngân.' },
+      vouchers: { title: 'Quản lý mã giảm giá', desc: 'Tạo mới, kích hoạt hoặc vô hiệu hóa các mã ưu đãi khách hàng.' },
       reports: { title: 'Báo cáo kinh doanh', desc: 'Tổng hợp số liệu theo thời gian và danh mục.' },
       returns: { title: 'Quản lý yêu cầu đổi trả', desc: 'Tiếp nhận và xử lý yêu cầu đổi trả 3 ngày theo quy định CSDL.' }
     };
@@ -591,7 +664,7 @@ if (empty($initialOrders)) {
       
       // Update sidebar active buttons
       const navButtons = document.querySelectorAll('#adminNav button');
-      const tabs = ['overview', 'orders', 'inventory', 'fund', 'reports', 'returns'];
+      const tabs = ['overview', 'orders', 'inventory', 'fund', 'vouchers', 'reports', 'returns'];
       navButtons.forEach((btn, index) => {
         btn.className = (tabs[index] === tab) ? 'active' : '';
       });
@@ -897,6 +970,127 @@ if (empty($initialOrders)) {
       } finally {
         btnSubmit.disabled = false;
         btnSubmit.textContent = 'Lưu sản phẩm';
+      }
+    }
+
+    // --- VOUCHER MANAGEMENT FUNCTIONS ---
+    function handleVoucherTypeChange(val) {
+      const isPercent = (val === 'Phần trăm');
+      const lbl = document.getElementById('lblVoucherValue');
+      if (lbl) lbl.textContent = isPercent ? 'Tỷ lệ giảm (%) *' : 'Số tiền giảm (₫) *';
+      const wrap = document.getElementById('wrapVoucherMaxDiscount');
+      if (wrap) wrap.style.display = isPercent ? 'block' : 'none';
+    }
+
+    function openAddVoucherModal() {
+      const form = document.getElementById('formAddVoucher');
+      if (form) form.reset();
+      handleVoucherTypeChange('Cố định');
+      const modal = document.getElementById('addVoucherModalBackdrop');
+      if (modal) modal.style.display = 'grid';
+    }
+
+    function closeAddVoucherModal() {
+      const modal = document.getElementById('addVoucherModalBackdrop');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function submitNewVoucher(e) {
+      e.preventDefault();
+      const code = document.getElementById('newVoucherCode').value.trim().toUpperCase();
+      const name = document.getElementById('newVoucherName').value.trim();
+      const type = document.getElementById('newVoucherType').value;
+      const value = parseFloat(document.getElementById('newVoucherValue').value) || 0;
+      const minSpend = parseFloat(document.getElementById('newVoucherMinSpend').value) || 0;
+      const maxDiscInp = document.getElementById('newVoucherMaxDiscount');
+      const maxDisc = (maxDiscInp && maxDiscInp.value) ? parseFloat(maxDiscInp.value) : null;
+      const qty = parseInt(document.getElementById('newVoucherQty').value) || 100;
+      const endDate = document.getElementById('newVoucherEndDate').value || null;
+
+      const btn = document.getElementById('btnSaveNewVoucher');
+      btn.disabled = true;
+      btn.textContent = '⏳ Đang lưu...';
+
+      try {
+        const resp = await fetch('index.php?action=admin_voucher_save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mavoucher: code,
+            tenvoucher: name,
+            loai: type,
+            giatri: value,
+            dontoithieu: minSpend,
+            giamtoida: maxDisc,
+            soluongphathanh: qty,
+            ngayketthuc: endDate
+          })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          closeAddVoucherModal();
+          showAdminToast('Thành công', 'Đã lưu voucher ' + code, 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          showAdminToast('Lỗi', res.message || 'Không thể tạo voucher', 'error');
+        }
+      } catch (err) {
+        showAdminToast('Lỗi kết nối', err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Lưu Voucher';
+      }
+    }
+
+    async function adminToggleVoucher(code) {
+      try {
+        const resp = await fetch('index.php?action=admin_voucher_toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mavoucher: code })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          showAdminToast('Cập nhật', res.message, 'success');
+          setTimeout(() => location.reload(), 600);
+        } else {
+          showAdminToast('Lỗi', res.message || 'Không thể thay đổi', 'error');
+        }
+      } catch (err) {
+        showAdminToast('Lỗi kết nối', err.message, 'error');
+      }
+    }
+
+    // --- RETURN ORDER PROCESSING FUNCTION ---
+    async function adminProcessReturn(maYeuCau, huongXuLy) {
+      let lyDo = '';
+      if (huongXuLy === 'tuchoi') {
+        lyDo = prompt('Nhập lý do từ chối yêu cầu đổi trả:');
+        if (lyDo === null) return;
+        if (!lyDo.trim()) {
+          alert('Vui lòng nhập lý do từ chối.');
+          return;
+        }
+      } else {
+        const actionLabel = (huongXuLy === 'doi') ? 'đồng ý đổi hàng' : 'hoàn tiền và hủy phần trích quỹ';
+        if (!confirm(`Xác nhận duyệt ${actionLabel} cho yêu cầu ${maYeuCau}?`)) return;
+      }
+
+      try {
+        const resp = await fetch('index.php?action=admin_process_return', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mayeucau: maYeuCau, huongxuly: huongXuLy, lydotuchoi: lyDo })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          showAdminToast('Thành công', res.message, 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          showAdminToast('Thất bại', res.message || 'Không thể xử lý', 'error');
+        }
+      } catch (err) {
+        showAdminToast('Lỗi kết nối', err.message, 'error');
       }
     }
 
@@ -1314,6 +1508,79 @@ if (empty($initialOrders)) {
       <div style="padding: 10px 16px; background: #f7f7f7; border-top: 1px solid #ddd; display: flex; justify-content: flex-end;">
         <button type="button" onclick="closeOrderDetailModal()" style="padding: 6px 16px; border: 1px solid #ccc; background: #fff; color: #333; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Đóng</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL THÊM VOUCHER MỚI -->
+  <div id="addVoucherModalBackdrop" onclick="if(event.target === this) closeAddVoucherModal()" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 999999; place-items: center; padding: 16px; overflow-y: auto;">
+    <div style="background: #ffffff; width: min(520px, 95vw); border-radius: 4px; border: 1px solid #dcdcdc; box-shadow: 0 4px 16px rgba(0,0,0,0.15); overflow: hidden; font-family: Arial, sans-serif;">
+      <div style="background: #f7f7f7; padding: 12px 16px; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="margin: 0; font-size: 15px; font-weight: bold; color: #333;">Thêm mã giảm giá mới</h3>
+        <button type="button" onclick="closeAddVoucherModal()" style="background: none; border: none; font-size: 18px; color: #666; cursor: pointer; line-height: 1; padding: 0 4px;">✕</button>
+      </div>
+      <form id="formAddVoucher" onsubmit="submitNewVoucher(event)">
+        <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Mã Voucher (Code) *</label>
+              <input type="text" id="newVoucherCode" required placeholder="VD: TET2026, FREESHIP"
+                     style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; font-weight: bold; background: #fff; box-sizing: border-box; outline: none; text-transform: uppercase;">
+            </div>
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Tên ưu đãi</label>
+              <input type="text" id="newVoucherName" placeholder="VD: Giảm 20k đơn từ 200k" 
+                     style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; background: #fff; box-sizing: border-box; outline: none;">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Loại giảm giá *</label>
+              <select id="newVoucherType" onchange="handleVoucherTypeChange(this.value)" style="width: 100%; height: 36px; padding: 0 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; background: #fff; box-sizing: border-box; outline: none;">
+                <option value="Cố định">Số tiền cố định (VNĐ)</option>
+                <option value="Phần trăm">Phần trăm (%)</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;" id="lblVoucherValue">Số tiền giảm (₫) *</label>
+              <input type="number" id="newVoucherValue" required min="1" step="1" placeholder="20000"
+                     style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; background: #fff; box-sizing: border-box; outline: none;">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Đơn tối thiểu (₫)</label>
+              <input type="number" id="newVoucherMinSpend" min="0" step="1000" value="0"
+                     style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; background: #fff; box-sizing: border-box; outline: none;">
+            </div>
+            <div id="wrapVoucherMaxDiscount" style="display: none;">
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Giảm tối đa (₫)</label>
+              <input type="number" id="newVoucherMaxDiscount" min="0" step="1000" placeholder="Để trống nếu không giới hạn"
+                     style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; background: #fff; box-sizing: border-box; outline: none;">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Số lượng phát hành *</label>
+              <input type="number" id="newVoucherQty" required min="1" step="1" value="100"
+                     style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; background: #fff; box-sizing: border-box; outline: none;">
+            </div>
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Ngày kết thúc</label>
+              <input type="date" id="newVoucherEndDate"
+                     style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; background: #fff; box-sizing: border-box; outline: none;">
+            </div>
+          </div>
+        </div>
+        <div style="padding: 10px 16px; background: #f7f7f7; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" onclick="closeAddVoucherModal()" style="padding: 6px 14px; border: 1px solid #ccc; background: #fff; color: #333; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Hủy bỏ</button>
+          <button type="submit" id="btnSaveNewVoucher" style="padding: 6px 16px; border: none; background: #2c1a0e; color: #ffffff; border-radius: 4px; font-weight: bold; font-size: 13.5px; cursor: pointer;">
+            Lưu Voucher
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </body>
