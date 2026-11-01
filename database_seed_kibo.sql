@@ -54,18 +54,18 @@ SET tentram = EXCLUDED.tentram, trangthaihoptac = EXCLUDED.trangthaihoptac;
 
 -- 5. BẢNG CHỨNG TỪ GIẢI NGÂN QUỸ (chung_tu_giai_ngan)
 INSERT INTO chung_tu_giai_ngan (machungtu, matram, sotiengiaingan, ngaychuyenkhoan, mucdichsudung, filehoadonchungtu) VALUES
-('CT001', 'TCH01', 12500000, '2026-09-30', 'Chi phí thức ăn hạt và điều trị phẫu thuật triệt sản 35 ca chó mèo cơ nhỡ', 'assets/docs/chung_tu_nong_lam_092026.pdf'),
-('CT002', 'TCH02', 8900000, '2026-10-15', 'Tài trợ cát vệ sinh, vắc-xin 4 bệnh và thuốc đặc trị nấm mốc', 'assets/docs/chung_tu_sg_time_102026.pdf')
-ON CONFLICT (machungtu) DO NOTHING;
+('CT001', 'TCH01', 14250, '2026-10-26', 'Chi phí thức ăn hạt và cứu trợ y tế chó mèo cơ nhỡ', 'assets/docs/chung_tu_nong_lam_102026.pdf')
+ON CONFLICT (machungtu) DO UPDATE
+SET sotiengiaingan = EXCLUDED.sotiengiaingan, ngaychuyenkhoan = EXCLUDED.ngaychuyenkhoan;
 
 
 -- 6. BẢNG TÀI KHOẢN (tai_khoan) - vaitro: 'Admin' hoặc 'User'
 INSERT INTO tai_khoan (matk, tendangnhap, matkhau, vaitro, trangthai, ngaytao) VALUES
-('TK001', 'admin@kibo.vn', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin', 'Hoạt động', '2026-01-01 08:00:00+07'),
-('TK002', 'user1@gmail.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', 'Hoạt động', '2026-06-01 10:30:00+07'),
-('TK003', 'hoangphuc@gmail.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'User', 'Hoạt động', '2026-07-15 14:00:00+07')
+('TK001', 'admin@kibo.vn', '$2y$10$O0YEgnPpbqHtUjbZPKjSgOi/xrJz9SRVGkPMVFB0EehQKITEO/Ziq', 'Admin', 'Hoạt động', '2026-01-01 08:00:00+07'),
+('TK002', 'user1@gmail.com', '$2y$10$O0YEgnPpbqHtUjbZPKjSgOi/xrJz9SRVGkPMVFB0EehQKITEO/Ziq', 'User', 'Hoạt động', '2026-06-01 10:30:00+07'),
+('TK003', 'hoangphuc@gmail.com', '$2y$10$O0YEgnPpbqHtUjbZPKjSgOi/xrJz9SRVGkPMVFB0EehQKITEO/Ziq', 'User', 'Hoạt động', '2026-07-15 14:00:00+07')
 ON CONFLICT (matk) DO UPDATE 
-SET tendangnhap = EXCLUDED.tendangnhap, vaitro = EXCLUDED.vaitro;
+SET tendangnhap = EXCLUDED.tendangnhap, matkhau = EXCLUDED.matkhau, vaitro = EXCLUDED.vaitro;
 
 
 -- 7. BẢNG KHÁCH HÀNG (khach_hang)
@@ -128,11 +128,11 @@ INSERT INTO chi_tiet_don_hang (madonhang, mabienthe, soluong, dongia, thanhtien)
 ON CONFLICT DO NOTHING;
 
 
--- 15. BẢNG QUỸ CỨU TRỢ ĐỘNG VẬT (quy_cuu_tro) - trangthaiquy: 'Đã tích lũy' hoặc 'Đã giải ngân'
+-- 15. BẢNG QUỸ CỨU TRỢ ĐỘNG VẬT (quy_cuu_tro) - trangthaiquy: 'Chờ trích quỹ', 'Đã trích quỹ', 'Đã giải ngân', 'Đã hủy'
 INSERT INTO quy_cuu_tro (madonggop, madonhang, sotiendonggop, ngayghinhan, matracuu, trangthaiquy, machungtu) VALUES
 ('QCT001', 'KB-8921', 14250, '2026-10-25 09:15:00+07', 'KB-8921', 'Đã giải ngân', 'CT001'),
-('QCT002', 'KB-8922', 21250, '2026-10-30 14:20:00+07', 'KB-8922', 'Đã tích lũy', NULL),
-('QCT003', 'KB-8923', 9250, '2026-10-31 08:45:00+07', 'KB-8923', 'Đã tích lũy', NULL)
+('QCT002', 'KB-8922', 21250, '2026-10-30 14:20:00+07', 'KB-8922', 'Chờ trích quỹ', NULL),
+('QCT003', 'KB-8923', 9250, '2026-10-31 08:45:00+07', 'KB-8923', 'Chờ trích quỹ', NULL)
 ON CONFLICT (madonggop) DO UPDATE 
 SET sotiendonggop = EXCLUDED.sotiendonggop, trangthaiquy = EXCLUDED.trangthaiquy;
 
