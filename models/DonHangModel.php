@@ -19,6 +19,33 @@ class DonHangModel {
         return (float)round($net * $tyLe);
     }
 
+    public static function tinhPhiShip($tongTienHang, $diaChiNhan = '', $quanHuyen = '', $tinhThanh = '') {
+        $biz = require __DIR__ . '/../config/business.php';
+        $shipConf = $biz['ship'] ?? ['phi_co_ban' => 20000, 'mien_phi_noi_thanh' => 200000, 'mien_phi_khac' => 500000];
+        $noiThanhArr = $biz['noi_thanh_hcm'] ?? [];
+
+        $isHCM = (stripos($tinhThanh, 'Hồ Chí Minh') !== false || stripos($tinhThanh, 'HCM') !== false || stripos($diaChiNhan, 'Hồ Chí Minh') !== false || stripos($diaChiNhan, 'TP.HCM') !== false);
+        $isNoiThanh = $isHCM && in_array($quanHuyen, $noiThanhArr, true);
+        if ($isHCM && !$isNoiThanh) {
+            foreach ($noiThanhArr as $dist) {
+                if (stripos($diaChiNhan, $dist) !== false || stripos($quanHuyen, $dist) !== false) {
+                    $isNoiThanh = true;
+                    break;
+                }
+            }
+        }
+        $ngoaiThanhHuyen = ['Củ Chi', 'Hóc Môn', 'Bình Chánh', 'Nhà Bè', 'Cần Giờ', 'CC', 'HM', 'BC', 'NB', 'CG'];
+        foreach ($ngoaiThanhHuyen as $nth) {
+            if (stripos($diaChiNhan, $nth) !== false || stripos($quanHuyen, $nth) !== false) {
+                $isNoiThanh = false;
+                break;
+            }
+        }
+
+        $shipThreshold = $isNoiThanh ? (float)$shipConf['mien_phi_noi_thanh'] : (float)$shipConf['mien_phi_khac'];
+        return ($tongTienHang >= $shipThreshold) ? 0.0 : (float)$shipConf['phi_co_ban'];
+    }
+
     public static function getAll() {
         $db = Database::getConnection();
         if ($db) {
@@ -167,7 +194,11 @@ class DonHangModel {
         return null;
     }
 
-    public static function taoDonHang($orderData) {
+    public static function getOrderByCode($maDonHang) {
+        return self::traCuu($maDonHang);
+    }
+
+    public static function taoDonHang($orderData, $maKHOption = null) {
         $db = Database::getConnection();
         if (!$db) {
             return ['success' => false, 'message' => 'Lỗi kết nối cơ sở dữ liệu'];
@@ -177,8 +208,8 @@ class DonHangModel {
             $db->beginTransaction();
 
             // 1. Validate người nhận
-            $tenNhan = trim($orderData['tennguoinhan'] ?? '');
-            $sdtNhan = preg_replace('/[^\d]/', '', trim($orderData['sodienthoainhan'] ?? ''));
+            $tenNhan = trim($orderData['tennguoinhan'] ?? ($orderData['customer']['name'] ?? ''));
+            $sdtNhan = preg_replace('/[^\d]/', '', trim($orderData['sodienthoainhan'] ?? ($orderData['customer']['phone'] ?? '')));
             if (mb_strlen($tenNhan) < 2) {
                 throw new Exception('Họ và tên người nhận phải có ít nhất 2 ký tự.');
             }
@@ -187,7 +218,14 @@ class DonHangModel {
             }
 
             // 2. Validate phương thức thanh toán
-            $phuongThuc = trim($orderData['phuongthuctt'] ?? ($orderData['phuongthuc'] ?? 'Thanh toán khi nhận hàng (COD)'));
+            $phuongThucRaw = trim($orderData['phuongthuctt'] ?? ($orderData['phuongthuc'] ?? ($orderData['paymentMethod'] ?? 'cod')));
+            if (strcasecmp($phuongThucRaw, 'cod') === 0 || stripos($phuongThucRaw, 'khi nhận hàng') !== false) {
+                $phuongThuc = 'Thanh toán khi nhận hàng (COD)';
+            } elseif (strcasecmp($phuongThucRaw, 'vietqr') === 0 || stripos($phuongThucRaw, 'VietQR') !== false) {
+                $phuongThuc = 'Chuyển khoản VietQR';
+            } else {
+                $phuongThuc = $phuongThucRaw;
+            }
             $allowedPT = ['Thanh toán khi nhận hàng (COD)', 'Chuyển khoản VietQR'];
             if (!in_array($phuongThuc, $allowedPT, true)) {
                 throw new Exception('Phương thức thanh toán không hợp lệ.');
@@ -255,8 +293,8 @@ class DonHangModel {
             $tinhThanh = trim($orderData['tinhthanh'] ?? '');
             $quanHuyen = trim($orderData['quanhuyen'] ?? '');
             $phuongXa  = trim($orderData['phuongxa'] ?? '');
-            $dcChiTiet = trim($orderData['diachichitiet'] ?? ($orderData['diachigiaohang'] ?? ''));
-            $diaChiNhan = trim($orderData['diachigiaohang'] ?? '');
+            $dcChiTiet = trim($orderData['diachichitiet'] ?? ($orderData['diachigiaohang'] ?? ($orderData['customer']['address'] ?? '')));
+            $diaChiNhan = trim($orderData['diachigiaohang'] ?? ($orderData['customer']['address'] ?? ''));
             if (empty($diaChiNhan)) {
                 $diaChiNhan = implode(', ', array_filter([$dcChiTiet, $phuongXa, $quanHuyen, $tinhThanh]));
             }
@@ -264,34 +302,11 @@ class DonHangModel {
                 $diaChiNhan = 'TP. Hồ Chí Minh';
             }
 
-            $biz = require __DIR__ . '/../config/business.php';
-            $shipConf = $biz['ship'] ?? ['phi_co_ban' => 20000, 'mien_phi_noi_thanh' => 200000, 'mien_phi_khac' => 500000];
-            $noiThanhArr = $biz['noi_thanh_hcm'] ?? [];
-
-            $isHCM = (stripos($tinhThanh, 'Hồ Chí Minh') !== false || stripos($tinhThanh, 'HCM') !== false || stripos($diaChiNhan, 'Hồ Chí Minh') !== false || stripos($diaChiNhan, 'TP.HCM') !== false);
-            $isNoiThanh = $isHCM && in_array($quanHuyen, $noiThanhArr, true);
-            if ($isHCM && !$isNoiThanh) {
-                foreach ($noiThanhArr as $dist) {
-                    if (stripos($diaChiNhan, $dist) !== false || stripos($quanHuyen, $dist) !== false) {
-                        $isNoiThanh = true;
-                        break;
-                    }
-                }
-            }
-            $ngoaiThanhHuyen = ['Củ Chi', 'Hóc Môn', 'Bình Chánh', 'Nhà Bè', 'Cần Giờ', 'CC', 'HM', 'BC', 'NB', 'CG'];
-            foreach ($ngoaiThanhHuyen as $nth) {
-                if (stripos($diaChiNhan, $nth) !== false || stripos($quanHuyen, $nth) !== false) {
-                    $isNoiThanh = false;
-                    break;
-                }
-            }
-
-            $shipThreshold = $isNoiThanh ? (float)$shipConf['mien_phi_noi_thanh'] : (float)$shipConf['mien_phi_khac'];
-            $phiShip = ($tongTienHang >= $shipThreshold) ? 0.0 : (float)$shipConf['phi_co_ban'];
+            $phiShip = self::tinhPhiShip($tongTienHang, $diaChiNhan, $quanHuyen, $tinhThanh);
 
             // 6. Kiểm tra & Áp dụng Voucher (nếu có)
             $tienGiam = 0.0;
-            $maVoucher = !empty($orderData['mavoucher']) ? trim($orderData['mavoucher']) : null;
+            $maVoucher = !empty($orderData['mavoucher']) ? trim($orderData['mavoucher']) : (!empty($orderData['voucherCode']) ? trim($orderData['voucherCode']) : null);
             if ($maVoucher) {
                 $stmtV = $db->prepare("SELECT * FROM voucher WHERE UPPER(mavoucher) = UPPER(?) FOR UPDATE");
                 $stmtV->execute([$maVoucher]);
@@ -340,24 +355,27 @@ class DonHangModel {
             $tongThanhToan = max(0, $tongTienHang - $tienGiam + $phiShip);
             $tienDongGop = self::tinhQuy($tongTienHang, $tienGiam);
 
-            // 8. Định danh khách hàng (session hoặc khách vãng lai)
-            $maKH = null;
-            if (!empty($_SESSION['user']['MaKH'])) {
-                $maKH = $_SESSION['user']['MaKH'];
-            }
+            // 8. Định danh khách hàng (truyền trực tiếp, session hoặc khách vãng lai)
+            $maKH = $maKHOption ?: (!empty($_SESSION['user']['MaKH']) ? $_SESSION['user']['MaKH'] : null);
             if (!$maKH) {
+                $guestEmail = 'guest_' . $sdtNhan . '@kibo.local';
                 $findKH = $db->prepare("SELECT kh.makh 
                                         FROM khach_hang kh 
-                                        JOIN sdt_kh s ON kh.makh = s.makh 
-                                        WHERE s.sodienthoai = ? LIMIT 1");
-                $findKH->execute([$sdtNhan]);
+                                        LEFT JOIN sdt_kh s ON kh.makh = s.makh 
+                                        WHERE s.sodienthoai = ? OR LOWER(kh.email) = LOWER(?) LIMIT 1");
+                $findKH->execute([$sdtNhan, $guestEmail]);
                 $existMaKH = $findKH->fetchColumn();
                 if ($existMaKH) {
                     $maKH = $existMaKH;
+                    // Đảm bảo sdt_kh đã có
+                    $chkSDT = $db->prepare("SELECT 1 FROM sdt_kh WHERE makh = ? AND sodienthoai = ?");
+                    $chkSDT->execute([$maKH, $sdtNhan]);
+                    if (!$chkSDT->fetch()) {
+                        $db->prepare("INSERT INTO sdt_kh (makh, sodienthoai) VALUES (?, ?)")->execute([$maKH, $sdtNhan]);
+                    }
                 } else {
                     require_once __DIR__ . '/IdGen.php';
                     $maKH = IdGen::next($db, 'khach_hang', 'makh', 'KV', 3);
-                    $guestEmail = 'guest_' . $sdtNhan . '@kibo.local';
                     $stmtNewGuest = $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, NULL, ?, ?, 0)");
                     $stmtNewGuest->execute([$maKH, $tenNhan, $guestEmail]);
 
@@ -435,6 +453,7 @@ class DonHangModel {
 
             return [
                 'success' => true,
+                'orderId' => $maDonHang,
                 'order_code' => $maDonHang,
                 'tongthanhtoan' => $tongThanhToan,
                 'ship' => $phiShip,
