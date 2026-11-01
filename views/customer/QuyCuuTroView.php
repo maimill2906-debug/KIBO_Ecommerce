@@ -7,6 +7,9 @@ $pageTitle = 'Quỹ Cứu Trợ 5% — KIBO PET\'S HOME | Minh Bạch & Lan Tỏ
 $activeMenu = 'rescue';
 require __DIR__ . '/header.php';
 
+require_once __DIR__ . '/../../models/QuyCuuTroModel.php';
+$fundInfo = QuyCuuTroModel::getFundSummary();
+
 $shelterImage = 'https://images.unsplash.com/photo-1718885433034-908d5bca08cf?auto=format&fit=crop&w=900&q=85';
 ?>
 
@@ -20,8 +23,8 @@ $shelterImage = 'https://images.unsplash.com/photo-1718885433034-908d5bca08cf?au
       
       <div class="fund-counter" aria-live="polite">
         <small>TỔNG QUỸ ĐÃ TÍCH LŨY</small>
-        <strong id="liveFundCounter">2.340.000 <sup>đ</sup></strong>
-        <span><i></i> Đang cập nhật theo thời gian thực</span>
+        <strong id="liveFundCounter"><?= number_format($fundInfo['TongTichLuy'], 0, ',', '.') ?> <sup>đ</sup></strong>
+        <span><i></i> Đang cập nhật theo thời gian thực (Đã giải ngân: <?= number_format($fundInfo['TongGiaiNgan'], 0, ',', '.') ?>đ)</span>
       </div>
     </div>
   </section>

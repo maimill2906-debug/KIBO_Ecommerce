@@ -6,56 +6,76 @@
 // ====================================================================
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/TrangThai.php';
 
 class QuyCuuTroModel {
 
-    // Thống kê tổng quan Quỹ Cứu Trợ 5% hiển thị trên trang chủ KIBO
+    // Thống kê tổng quan Quỹ Cứu Trợ 5% hiển thị trên trang chủ KIBO (100% số liệu thực tế từ DB)
     public static function getFundSummary() {
         $db = Database::getConnection();
         if ($db) {
             try {
-                $sqlTichLuy = "SELECT COALESCE(SUM(sotiendonggop), 0) as tong_tich_luy, COUNT(madonggop) as so_don FROM quy_cuu_tro";
-                $rowTL = $db->query($sqlTichLuy)->fetch();
+                // 1. Tích lũy = SUM(sotiendonggop) với trangthaiquy IN ('Đã trích quỹ', 'Đã giải ngân')
+                $sqlTL = "SELECT COALESCE(SUM(sotiendonggop), 0) as tong_tich_luy, COUNT(madonggop) as so_don 
+                          FROM quy_cuu_tro 
+                          WHERE trangthaiquy IN ('" . TrangThai::QUY_DA_TRICH . "', '" . TrangThai::QUY_DA_GIAI_NGAN . "')";
+                $rowTL = $db->query($sqlTL)->fetch();
 
-                $sqlGiaiNgan = "SELECT COALESCE(SUM(sotiengiaingan), 0) as tong_giai_ngan FROM chung_tu_giai_ngan";
-                $rowGN = $db->query($sqlGiaiNgan)->fetch();
+                // 2. Đang chờ trích = SUM với 'Chờ trích quỹ'
+                $sqlCho = "SELECT COALESCE(SUM(sotiendonggop), 0) as dang_cho_trich, COUNT(madonggop) as so_don_cho 
+                           FROM quy_cuu_tro 
+                           WHERE trangthaiquy = '" . TrangThai::QUY_CHO_TRICH . "'";
+                $rowCho = $db->query($sqlCho)->fetch();
 
+                // 3. Giải ngân = SUM(sotiengiaingan) từ chung_tu_giai_ngan; kỳ giải ngân gần nhất = MAX(ngaychuyenkhoan)
+                $sqlGN = "SELECT COALESCE(SUM(sotiengiaingan), 0) as tong_giai_ngan, MAX(ngaychuyenkhoan) as ky_giai_ngan 
+                          FROM chung_tu_giai_ngan";
+                $rowGN = $db->query($sqlGN)->fetch();
+
+                // 4. Số trạm = COUNT với trangthaihoptac = 'Đang hợp tác'
                 $sqlTram = "SELECT COUNT(matram) as so_tram FROM tram_cuu_ho WHERE trangthaihoptac = 'Đang hợp tác'";
                 $rowTram = $db->query($sqlTram)->fetch();
 
-                $tongTichLuy = (float)($rowTL['tong_tich_luy'] ?? 0);
-                $tongGiaiNgan = (float)($rowGN['tong_giai_ngan'] ?? 0);
-                $soDon = (int)($rowTL['so_don'] ?? 0);
-                $soTram = (int)($rowTram['so_tram'] ?? 0);
+                $kyGN = !empty($rowGN['ky_giai_ngan']) ? date('d/m/Y', strtotime($rowGN['ky_giai_ngan'])) : 'Đang cập nhật';
 
-                if ($tongTichLuy > 0 || $tongGiaiNgan > 0) {
-                    return [
-                        'TongTichLuy'    => $tongTichLuy > 10000000 ? $tongTichLuy : 148650000,
-                        'TongGiaiNgan'   => $tongGiaiNgan > 10000000 ? $tongGiaiNgan : 132400000,
-                        'SoDonDongGop'   => $soDon > 10 ? $soDon : 4820,
-                        'SoBeBaoTro'     => 385,
-                        'SoTramDoiTac'   => $soTram > 0 ? $soTram : 18,
-                        'SoTinhThanh'    => 9,
-                        'KyGiaiNgan'     => '30/10/2026',
-                        'TramDoiTac'     => 'Trạm Cứu Hộ Động Vật Nông Lâm, Trạm Sài Gòn Time & các trạm đối tác'
-                    ];
-                }
-            } catch (Exception $e) {}
+                return [
+                    'TongTichLuy'    => (float)($rowTL['tong_tich_luy'] ?? 0),
+                    'SoDonDongGop'   => (int)($rowTL['so_don'] ?? 0),
+                    'DangChoTrich'   => (float)($rowCho['dang_cho_trich'] ?? 0),
+                    'SoDonChoTrich'  => (int)($rowCho['so_don_cho'] ?? 0),
+                    'TongGiaiNgan'   => (float)($rowGN['tong_giai_ngan'] ?? 0),
+                    'KyGiaiNgan'     => $kyGN,
+                    'SoTramDoiTac'   => (int)($rowTram['so_tram'] ?? 0),
+                    'error'          => null
+                ];
+            } catch (Exception $e) {
+                error_log("Lỗi getFundSummary: " . $e->getMessage());
+                return [
+                    'TongTichLuy'    => 0,
+                    'SoDonDongGop'   => 0,
+                    'DangChoTrich'   => 0,
+                    'SoDonChoTrich'  => 0,
+                    'TongGiaiNgan'   => 0,
+                    'KyGiaiNgan'     => 'N/A',
+                    'SoTramDoiTac'   => 0,
+                    'error'          => $e->getMessage()
+                ];
+            }
         }
 
         return [
-            'TongTichLuy'    => 148650000,
-            'TongGiaiNgan'   => 132400000,
-            'SoDonDongGop'   => 4820,
-            'SoBeBaoTro'     => 385,
-            'SoTramDoiTac'   => 18,
-            'SoTinhThanh'    => 9,
-            'KyGiaiNgan'     => '30/10/2026',
-            'TramDoiTac'     => 'Trạm Cứu Hộ Động Vật Nông Lâm, Trạm Sài Gòn Time & các trạm liên kết'
+            'TongTichLuy'    => 0,
+            'SoDonDongGop'   => 0,
+            'DangChoTrich'   => 0,
+            'SoDonChoTrich'  => 0,
+            'TongGiaiNgan'   => 0,
+            'KyGiaiNgan'     => 'N/A',
+            'SoTramDoiTac'   => 0,
+            'error'          => 'Không thể kết nối cơ sở dữ liệu'
         ];
     }
 
-    public function getRecentTransactions($limit = 10) {
+    public static function getRecentTransactions($limit = 10) {
         $db = Database::getConnection();
         if ($db) {
             try {
@@ -66,47 +86,30 @@ class QuyCuuTroModel {
                         ORDER BY qct.ngayghinhan DESC
                         LIMIT ?";
                 $stmt = $db->prepare($sql);
-                $stmt->execute([$limit]);
+                $stmt->execute([(int)$limit]);
                 $rows = $stmt->fetchAll();
 
-                if (!empty($rows)) {
-                    $results = [];
-                    foreach ($rows as $r) {
-                        $results[] = [
-                            'MaDonHang' => $r['madonhang'],
-                            'MaTraCuu' => $r['matracuu'] ?? $r['madonhang'],
-                            'SoTienDongGop' => (float)$r['sotiendonggop'],
-                            'NgayGhiNhan' => date('d/m/Y H:i', strtotime($r['ngayghinhan'])),
-                            'TrangThaiQuy' => $r['trangthaiquy'],
-                            'TramNhan' => $r['tentram'] ?? 'Trạm Cứu Hộ Động Vật Nông Lâm'
-                        ];
-                    }
-                    return $results;
+                $results = [];
+                foreach ($rows as $r) {
+                    $results[] = [
+                        'MaDonHang' => $r['madonhang'],
+                        'MaTraCuu' => $r['matracuu'] ?? $r['madonhang'],
+                        'SoTienDongGop' => (float)$r['sotiendonggop'],
+                        'NgayGhiNhan' => date('d/m/Y H:i', strtotime($r['ngayghinhan'])),
+                        'TrangThaiQuy' => $r['trangthaiquy'],
+                        'TramNhan' => $r['tentram'] ?? 'Trạm cứu hộ đối tác'
+                    ];
                 }
-            } catch (Exception $e) {}
+                return $results;
+            } catch (Exception $e) {
+                error_log("Lỗi getRecentTransactions: " . $e->getMessage());
+            }
         }
 
-        return [
-            [
-                'MaDonHang' => 'KB-8921',
-                'MaTraCuu' => 'KB-8921',
-                'SoTienDongGop' => 14250,
-                'NgayGhiNhan' => '25/10/2026 09:15',
-                'TrangThaiQuy' => 'Đã giải ngân',
-                'TramNhan' => 'Trạm Cứu Hộ Động Vật Nông Lâm'
-            ],
-            [
-                'MaDonHang' => 'KB-8922',
-                'MaTraCuu' => 'KB-8922',
-                'SoTienDongGop' => 21250,
-                'NgayGhiNhan' => '30/10/2026 14:20',
-                'TrangThaiQuy' => 'Đã tích lũy',
-                'TramNhan' => 'Trạm Cứu Hộ Động Vật Sài Gòn Time'
-            ]
-        ];
+        return [];
     }
 
-    public function searchByOrder($keyword) {
+    public static function searchByOrder($keyword) {
         return self::lookup($keyword);
     }
 
@@ -134,11 +137,13 @@ class QuyCuuTroModel {
                         'SoTienDongGop' => (float)$r['sotiendonggop'],
                         'NgayGhiNhan' => date('d/m/Y H:i', strtotime($r['ngayghinhan'])),
                         'TrangThaiQuy' => $r['trangthaiquy'],
-                        'TramNhan' => $r['tentram'] ?? 'Trạm Cứu Hộ Động Vật Nông Lâm',
-                        'MucDich' => $r['mucdichsudung'] ?? 'Chi phí thức ăn hạt và phẫu thuật thú cưng cơ nhỡ'
+                        'TramNhan' => $r['tentram'] ?? 'Trạm cứu hộ đối tác',
+                        'MucDich' => $r['mucdichsudung'] ?? 'Chi phí thức ăn và y tế cứu trợ'
                     ];
                 }
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+                error_log("Lỗi lookup QuyCuuTro: " . $e->getMessage());
+            }
         }
 
         return null;

@@ -199,17 +199,17 @@ foreach ($dbFeatured as $p) {
     </div>
     <div class="impact-numbers">
       <p>
-        <strong><?= number_format($fundSummary['TongTichLuy'] ?? 148650000, 0, ',', '.') ?>đ</strong>
+        <strong><?= number_format($fundSummary['TongTichLuy'] ?? 0, 0, ',', '.') ?>đ</strong>
         <small>Quỹ đã tích lũy</small>
       </p>
       <i></i>
       <p>
-        <strong><?= number_format($fundSummary['SoDonDongGop'] ?? 4820, 0, ',', '.') ?></strong>
+        <strong><?= number_format($fundSummary['SoDonDongGop'] ?? 0, 0, ',', '.') ?></strong>
         <small>Đơn hàng sẻ chia</small>
       </p>
       <i></i>
       <p>
-        <strong><?= str_pad($fundSummary['SoTramDoiTac'] ?? 18, 2, '0', STR_PAD_LEFT) ?></strong>
+        <strong><?= str_pad((string)($fundSummary['SoTramDoiTac'] ?? 0), 2, '0', STR_PAD_LEFT) ?></strong>
         <small>Trạm đồng hành</small>
       </p>
     </div>
