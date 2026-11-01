@@ -33,7 +33,7 @@ class AdminController {
     public function dashboardJson() {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
-            'orders' => $this->donHangModel->getAllOrders(),
+            'orders' => DonHangModel::getAll(),
             'fundSummary' => $this->quyModel->getFundSummary(),
             'disbursements' => $this->tramModel->getDisbursements()
         ], JSON_UNESCAPED_UNICODE);

@@ -18,46 +18,6 @@ class DonHangModel {
         $net = max(0, $tongTienHang - $tienGiam);
         return (float)round($net * $tyLe);
     }
-    private static $mockOrders = [
-        [
-            'orderId' => 'KB-8921',
-            'customerName' => 'Nguyễn Lê Quỳnh Mai',
-            'phone' => '0772906756',
-            'address' => '234 Lê Văn Việt, Phường Tăng Nhơn Phú B, TP. Thủ Đức, TP. Hồ Chí Minh',
-            'items' => [
-                ['name' => 'KIBO Cá Hồi & Gạo Lứt', 'variant' => 'Túi 1.5kg', 'qty' => 1, 'price' => 285000]
-            ],
-            'subtotal' => 285000,
-            'shipping' => 0,
-            'discount' => 0,
-            'total' => 285000,
-            'fundAmount' => 14250,
-            'lookupCode' => 'KB-8921',
-            'status' => 'Giao hàng thành công',
-            'carrierStatus' => 'GHN đã giao hàng thành công',
-            'date' => '25/10/2026',
-            'allocatedStation' => 'Trạm Cứu Hộ Động Vật Nông Lâm'
-        ],
-        [
-            'orderId' => 'KB-8922',
-            'customerName' => 'Nguyễn Lê Quỳnh Mai',
-            'phone' => '0772906756',
-            'address' => '234 Lê Văn Việt, Phường Tăng Nhơn Phú B, TP. Thủ Đức, TP. Hồ Chí Minh',
-            'items' => [
-                ['name' => 'Royal Canin Kitten 36', 'variant' => 'Túi 2kg', 'qty' => 1, 'price' => 445000]
-            ],
-            'subtotal' => 445000,
-            'shipping' => 0,
-            'discount' => 20000,
-            'total' => 425000,
-            'fundAmount' => 21250,
-            'lookupCode' => 'KB-8922',
-            'status' => 'Đang giao hàng',
-            'carrierStatus' => 'GHTK đang vận chuyển tới bạn',
-            'date' => '30/10/2026',
-            'allocatedStation' => 'Trạm Cứu Hộ Động Vật Sài Gòn Time'
-        ]
-    ];
 
     public static function getAll() {
         $db = Database::getConnection();
@@ -119,7 +79,7 @@ class DonHangModel {
                 }
             } catch (Exception $e) {}
         }
-        return self::$mockOrders;
+        return [];
     }
 
     public static function getOrderItems($maDonHang, $db = null) {
@@ -204,12 +164,6 @@ class DonHangModel {
             } catch (Exception $e) {}
         }
 
-        // Mock fallback
-        foreach (self::$mockOrders as $o) {
-            if (strcasecmp($o['orderId'], $maDonHang) === 0 || strcasecmp($o['lookupCode'], $maDonHang) === 0) {
-                return $o;
-            }
-        }
         return null;
     }
 

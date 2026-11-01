@@ -10,145 +10,6 @@ require_once __DIR__ . '/IdGen.php';
 
 class SanPhamModel {
 
-    private static $mock = [
-        [
-            'id' => 'SP001',
-            'name' => 'KIBO Cá Hồi & Gạo Lứt',
-            'category' => 'Thức Ăn Hạt',
-            'category_slug' => 'thuc-an-hat',
-            'brand' => 'KIBO Original',
-            'brand_slug' => 'kibo-original',
-            'specs' => 'Túi 1.5kg • Cho mèo trưởng thành',
-            'price' => 285000,
-            'originalPrice' => 320000,
-            'badge' => 'MỚI',
-            'badge_type' => 'dark',
-            'image' => 'assets/images/products/sp_kibo_cahoi.png',
-            'desc' => 'Công thức cá hồi Na Uy tươi kết hợp gạo lứt giàu chất xơ, hỗ trợ tim mạch, sáng mắt và mượt lông cho mèo trưởng thành.',
-            'status' => 'Còn hàng',
-            'is_sale' => true
-        ],
-        [
-            'id' => 'SP002',
-            'name' => 'Royal Canin Kitten 36',
-            'category' => 'Thức Ăn Hạt',
-            'category_slug' => 'thuc-an-hat',
-            'brand' => 'Royal Canin',
-            'brand_slug' => 'royal-canin',
-            'specs' => 'Túi 2kg • Mèo con dưới 12 tháng',
-            'price' => 445000,
-            'originalPrice' => 445000,
-            'badge' => '',
-            'badge_type' => '',
-            'image' => 'assets/images/products/sp_royal_canin_kitten.png',
-            'desc' => 'Dinh dưỡng cân bằng tăng cường hệ miễn dịch tự nhiên, hỗ trợ hệ tiêu hóa nhạy cảm của mèo con giai đoạn cai sữa.',
-            'status' => 'Còn hàng',
-            'is_sale' => false
-        ],
-        [
-            'id' => 'SP003',
-            'name' => 'KIBO Pate Cá Ngừ Tươi',
-            'category' => 'Pate & Ướt',
-            'category_slug' => 'pate-uot',
-            'brand' => 'KIBO Original',
-            'brand_slug' => 'kibo-original',
-            'specs' => 'Hộp 85g • Pack 12 hộp',
-            'price' => 170000,
-            'originalPrice' => 200000,
-            'badge' => '-15%',
-            'badge_type' => 'sale',
-            'image' => 'assets/images/products/sp_kibo_pate_cangu.png',
-            'desc' => 'Pate cá ngừ đại dương tươi cắt lát hấp tự nhiên, bổ sung nước và Taurine thiết yếu cho boss kén ăn.',
-            'status' => 'Còn hàng',
-            'is_sale' => true
-        ],
-        [
-            'id' => 'SP004',
-            'name' => 'Cát Cature Smart Pellet 7L',
-            'category' => 'Cát & Phụ Kiện',
-            'category_slug' => 'cat-phu-kien',
-            'brand' => 'Cature',
-            'brand_slug' => 'cature',
-            'specs' => 'Túi 7L (2.8kg) • Gỗ thông',
-            'price' => 185000,
-            'originalPrice' => 210000,
-            'badge' => 'HOT',
-            'badge_type' => 'sale',
-            'image' => 'assets/images/products/sp_cature_pellet.png',
-            'desc' => 'Cát gỗ thông tự nhiên kiểm soát mùi 7 ngày, vón siêu nhanh, phân hủy sinh học và xả được bồn cầu.',
-            'status' => 'Còn hàng',
-            'is_sale' => true
-        ],
-        [
-            'id' => 'SP005',
-            'name' => "Hill's Science Diet Adult",
-            'category' => 'Thức Ăn Hạt',
-            'category_slug' => 'thuc-an-hat',
-            'brand' => "Hill's Science",
-            'brand_slug' => 'hills-science',
-            'specs' => 'Túi 3kg • Công thức Hairball',
-            'price' => 620000,
-            'originalPrice' => 680000,
-            'badge' => '',
-            'badge_type' => '',
-            'image' => 'assets/images/products/sp_hills_science.png',
-            'desc' => 'Chế độ ăn khoa học giúp hạn chế búi lông dạ dày, hỗ trợ tiêu hóa êm dịu và tăng cường sức khỏe da lông.',
-            'status' => 'Còn hàng',
-            'is_sale' => true
-        ],
-        [
-            'id' => 'SP006',
-            'name' => 'Whiskas Gà Nước Sốt',
-            'category' => 'Pate & Ướt',
-            'category_slug' => 'pate-uot',
-            'brand' => 'Whiskas',
-            'brand_slug' => 'whiskas',
-            'specs' => 'Túi 85g • Pack 24 túi',
-            'price' => 216000,
-            'originalPrice' => 240000,
-            'badge' => '-10%',
-            'badge_type' => 'sale',
-            'image' => 'assets/images/products/sp_whiskas_ga.png',
-            'desc' => 'Miếng thịt gà mềm ngập trong nước sốt thịt đậm đà, kích thích vị giác và bổ sung canxi cho mèo cưng năng động.',
-            'status' => 'Còn hàng',
-            'is_sale' => true
-        ],
-        [
-            'id' => 'SP007',
-            'name' => 'KIBO Thanh Nhai Sạch Răng',
-            'category' => 'Bánh Thưởng',
-            'category_slug' => 'banh-thuong',
-            'brand' => 'KIBO Original',
-            'brand_slug' => 'kibo-original',
-            'specs' => 'Hộp 50g • Vị bạc hà & gà',
-            'price' => 89000,
-            'originalPrice' => 89000,
-            'badge' => 'MỚI',
-            'badge_type' => 'dark',
-            'image' => 'assets/images/products/sp_kibo_thanh_nhai.png',
-            'desc' => 'Thanh gặm nha khoa thiết kế rãnh 360 độ giúp giảm mảng bám, chống cao răng và lưu hương bạc hà thơm tho.',
-            'status' => 'Còn hàng',
-            'is_sale' => false
-        ],
-        [
-            'id' => 'SP008',
-            'name' => 'Purina Pro Plan Senior 7+',
-            'category' => 'Thức Ăn Hạt',
-            'category_slug' => 'thuc-an-hat',
-            'brand' => 'Purina',
-            'brand_slug' => 'purina',
-            'specs' => 'Túi 1.5kg • Mèo cao tuổi',
-            'price' => 395000,
-            'originalPrice' => 430000,
-            'badge' => '',
-            'badge_type' => '',
-            'image' => 'assets/images/products/sp_purina_pro_plan.png',
-            'desc' => 'Công thức Longevis độc quyền kéo dài tuổi thọ và duy trì độ linh hoạt xương khớp cho mèo từ 7 tuổi trở lên.',
-            'status' => 'Còn hàng',
-            'is_sale' => true
-        ]
-    ];
-
     public static function createSlug($str) {
         $str = mb_strtolower($str, 'UTF-8');
         $str = preg_replace('/(à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ)/', 'a', $str);
@@ -251,6 +112,48 @@ class SanPhamModel {
         return array_slice($all, 0, $limit);
     }
 
+    public static function getInventoryWithSales() {
+        $db = Database::getConnection();
+        if (!$db) return [];
+        try {
+            $sql = "SELECT 
+                        sp.masp AS id,
+                        sp.tensp AS name,
+                        COALESCE(dm.tendanhmuc, 'Thú cưng') AS category,
+                        COALESCE(SUM(bt.soluongton), 0) AS stock,
+                        COALESCE(sales.sold_count, 0) AS sold
+                    FROM san_pham sp
+                    LEFT JOIN danh_muc dm ON sp.madanhmuc = dm.madanhmuc
+                    LEFT JOIN bien_the bt ON sp.masp = bt.masp
+                    LEFT JOIN (
+                        SELECT bt2.masp, SUM(ct.soluong) AS sold_count
+                        FROM chi_tiet_don_hang ct
+                        JOIN bien_the bt2 ON ct.mabienthe = bt2.mabienthe
+                        GROUP BY bt2.masp
+                    ) sales ON sp.masp = sales.masp
+                    GROUP BY sp.masp, sp.tensp, dm.tendanhmuc, sales.sold_count
+                    ORDER BY sp.masp ASC";
+            $rows = $db->query($sql)->fetchAll();
+            $inventory = [];
+            foreach ($rows as $r) {
+                $inventory[] = [
+                    'id' => $r['id'],
+                    'name' => $r['name'],
+                    'sku' => 'KBO-' . $r['id'],
+                    'category' => $r['category'],
+                    'sold' => (int)$r['sold'],
+                    'stock' => (int)$r['stock'],
+                    'color' => '#c94336',
+                    'art' => 'royal'
+                ];
+            }
+            return $inventory;
+        } catch (Exception $e) {
+            error_log("Lỗi getInventoryWithSales: " . $e->getMessage());
+            return [];
+        }
+    }
+
     public static function getFilterStats() {
         $db = Database::getConnection();
         if ($db) {
@@ -287,45 +190,31 @@ class SanPhamModel {
                     ];
                 }
 
-                if (!empty($categories) && !empty($brands)) {
-                    return [
-                        'categories' => $categories,
-                        'brands' => $brands,
-                        'price' => ['min' => 50000, 'max' => 850000],
-                        'statuses' => [
-                            ['name' => 'Tất cả',        'value' => 'all'],
-                            ['name' => 'Còn hàng',      'value' => 'in_stock'],
-                            ['name' => 'Sắp về hàng',   'value' => 'upcoming'],
-                            ['name' => 'Đang giảm giá', 'value' => 'on_sale']
-                        ]
-                    ];
-                }
-            } catch (Exception $e) {}
+                return [
+                    'categories' => $categories,
+                    'brands' => $brands,
+                    'price' => ['min' => 50000, 'max' => 850000],
+                    'statuses' => [
+                        ['name' => 'Tất cả',        'value' => 'all'],
+                        ['name' => 'Còn hàng',      'value' => 'in_stock'],
+                        ['name' => 'Sắp về hàng',   'value' => 'upcoming'],
+                        ['name' => 'Đang giảm giá', 'value' => 'on_sale']
+                    ]
+                ];
+            } catch (Exception $e) {
+                error_log("Lỗi getFilterStats: " . $e->getMessage());
+            }
         }
 
         return [
-            'categories' => [
-                ['name' => 'Thức Ăn Hạt', 'slug' => 'thuc-an-hat', 'count' => 42],
-                ['name' => 'Pate & Ướt',   'slug' => 'pate-uot',     'count' => 28],
-                ['name' => 'Bánh Thưởng', 'slug' => 'banh-thuong',  'count' => 19],
-                ['name' => 'Cát & Phụ Kiện', 'slug' => 'cat-phu-kien', 'count' => 35],
-            ],
-            'brands' => [
-                ['name' => 'KIBO Original',  'slug' => 'kibo-original',  'count' => 24],
-                ['name' => 'Royal Canin',    'slug' => 'royal-canin',    'count' => 18],
-                ['name' => 'Whiskas',        'slug' => 'whiskas',        'count' => 12],
-                ['name' => "Hill's Science", 'slug' => 'hills-science',  'count' => 9],
-                ['name' => 'Purina',         'slug' => 'purina',         'count' => 15],
-            ],
-            'price' => [
-                'min' => 50000,
-                'max' => 850000
-            ],
+            'categories' => [],
+            'brands' => [],
+            'price' => ['min' => 0, 'max' => 0],
             'statuses' => [
-                ['name' => 'Tất cả',         'value' => 'all'],
-                ['name' => 'Còn hàng',       'value' => 'in_stock'],
-                ['name' => 'Sắp về hàng',    'value' => 'upcoming'],
-                ['name' => 'Đang giảm giá',  'value' => 'on_sale'],
+                ['name' => 'Tất cả',        'value' => 'all'],
+                ['name' => 'Còn hàng',      'value' => 'in_stock'],
+                ['name' => 'Sắp về hàng',   'value' => 'upcoming'],
+                ['name' => 'Đang giảm giá', 'value' => 'on_sale']
             ]
         ];
     }
@@ -338,14 +227,11 @@ class SanPhamModel {
                 if (!empty($rows)) {
                     return $rows;
                 }
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+                error_log("Lỗi getDanhSachDanhMuc: " . $e->getMessage());
+            }
         }
-        return [
-            ['madanhmuc' => 'DM01', 'tendanhmuc' => 'Thức Ăn Hạt', 'mota' => 'Thức ăn hạt dinh dưỡng', 'trangthai' => 'Hoạt động'],
-            ['madanhmuc' => 'DM02', 'tendanhmuc' => 'Pate & Ướt', 'mota' => 'Pate lon & gói thơm ngậy', 'trangthai' => 'Hoạt động'],
-            ['madanhmuc' => 'DM03', 'tendanhmuc' => 'Bánh Thưởng', 'mota' => 'Bánh snack & súp thưởng', 'trangthai' => 'Hoạt động'],
-            ['madanhmuc' => 'DM04', 'tendanhmuc' => 'Cát & Phụ Kiện', 'mota' => 'Cát vệ sinh và đồ chơi', 'trangthai' => 'Hoạt động']
-        ];
+        return [];
     }
 
     public static function themDanhMuc($tenDanhMuc, $moTa = '') {
@@ -384,7 +270,7 @@ class SanPhamModel {
                 }
             } catch (Exception $e) {}
         }
-        return ['Thức Ăn Hạt', 'Pate & Ướt', 'Bánh Thưởng', 'Cát & Phụ Kiện'];
+        return [];
     }
 
     public static function getAllProductsWithVariants() {

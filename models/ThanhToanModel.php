@@ -8,24 +8,6 @@
 require_once __DIR__ . '/../config/database.php';
 
 class ThanhToanModel {
-    private static $mockPayments = [
-        [
-            'MaGiaoDich' => 'GD001',
-            'MaDonHang' => 'KB-8921',
-            'PhuongThucTT' => 'Chuyển khoản VietQR',
-            'SoTien' => 285000,
-            'ThoiGianTT' => '2026-10-25 09:16:00',
-            'TrangThaiTT' => 'Thành công'
-        ],
-        [
-            'MaGiaoDich' => 'GD002',
-            'MaDonHang' => 'KB-8922',
-            'PhuongThucTT' => 'Chuyển khoản VietQR',
-            'SoTien' => 425000,
-            'ThoiGianTT' => '2026-10-30 14:21:00',
-            'TrangThaiTT' => 'Thành công'
-        ]
-    ];
 
     public static function getByOrder($maDonHang) {
         $db = Database::getConnection();
@@ -40,9 +22,6 @@ class ThanhToanModel {
                 $row = $stmt->fetch();
                 if ($row) return $row;
             } catch (Exception $e) {}
-        }
-        foreach (self::$mockPayments as $p) {
-            if ($p['MaDonHang'] === $maDonHang) return $p;
         }
         return null;
     }

@@ -8,46 +8,6 @@
 require_once __DIR__ . '/../config/database.php';
 
 class KhachHangModel {
-    private static $mockCustomers = [
-        [
-            'MaKH' => 'KH001',
-            'MaTK' => 'TK002',
-            'HoTen' => 'Nguyễn Lê Quỳnh Mai',
-            'Email' => 'user1@gmail.com',
-            'NgaySinh' => '1998-05-20',
-            'DiemTichLuy' => 120,
-            'SoDienThoai' => ['0772906756'],
-            'DiaChi' => [
-                [
-                    'MaDiaChi' => 'DC001',
-                    'DiaChiChiTiet' => '234 Lê Văn Việt',
-                    'PhuongXa' => 'Tăng Nhơn Phú B',
-                    'QuanHuyen' => 'TP. Thủ Đức',
-                    'TinhThanh' => 'TP. Hồ Chí Minh',
-                    'MacDinh' => true
-                ]
-            ]
-        ],
-        [
-            'MaKH' => 'KH002',
-            'MaTK' => 'TK003',
-            'HoTen' => 'Lã Nguyễn Hoàng Phúc',
-            'Email' => 'hoangphuc@gmail.com',
-            'NgaySinh' => '2000-11-12',
-            'DiemTichLuy' => 45,
-            'SoDienThoai' => ['0987654321'],
-            'DiaChi' => [
-                [
-                    'MaDiaChi' => 'DC002',
-                    'DiaChiChiTiet' => 'Số 70 Tô Ký',
-                    'PhuongXa' => 'Tân Chánh Hiệp',
-                    'QuanHuyen' => 'Quận 12',
-                    'TinhThanh' => 'TP. Hồ Chí Minh',
-                    'MacDinh' => true
-                ]
-            ]
-        ]
-    ];
 
     public static function getAll() {
         $db = Database::getConnection();
@@ -67,7 +27,7 @@ class KhachHangModel {
                 }
             } catch (Exception $e) {}
         }
-        return self::$mockCustomers;
+        return [];
     }
 
     public static function getById($maKH) {
@@ -97,7 +57,7 @@ class KhachHangModel {
                 if ($row) return $row;
             } catch (Exception $e) {}
         }
-        return self::getById($identifier);
+        return null;
     }
 
     public static function updateProfile($maKH, $hoten, $phone, $address) {
