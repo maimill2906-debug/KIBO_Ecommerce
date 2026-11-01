@@ -37,7 +37,7 @@ if (!empty($currentUser)) {
         $custEmail = $currentUser['TenDangNhap'] ?? '';
         $custPhone = $currentUser['SoDienThoai'] ?? '';
         $custAddress = $currentUser['DiaChi'] ?? '';
-        $custMaKH = $currentUser['MaKH'] ?? 'KH001';
+        $custMaKH = $currentUser['MaKH'] ?? '';
     }
 }
 ?>
@@ -339,20 +339,14 @@ let currentStep = '<?= $initialStep ?>';
 function getCart() {
   try {
     const stored = localStorage.getItem('kibo_cart_items_v2');
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(item => item && item.id && /^BT\d+$/.test(item.id));
+      }
+    }
   } catch (e) {}
-  // Mặc định mẫu giống ảnh: Combo Trị nấm cho Chó 1.075.000đ
-  const defaultSample = [{
-    id: 'combo-tri-nam',
-    name: 'Combo Trị nấm cho Chó',
-    variant: 'HỘP COMBO',
-    price: 1075000,
-    quantity: 1,
-    color: '#e2b442',
-    art: 'ganador'
-  }];
-  localStorage.setItem('kibo_cart_items_v2', JSON.stringify(defaultSample));
-  return defaultSample;
+  return [];
 }
 
 function saveCart(cart) {
@@ -746,25 +740,20 @@ async function handleFinalCheckout() {
 
   try {
     const payload = {
-      madonhang: orderCode,
-      makh: <?= json_encode(!empty($custMaKH) ? $custMaKH : (!empty($currentUser['MaKH']) ? $currentUser['MaKH'] : 'KH001')) ?>,
-      mavoucher: appliedVoucherCode,
-      tongtienhang: subtotal,
-      tiengiamgia: currentVoucherDiscount,
-      phivanchuyen: shipping,
-      tongthanhtoan: grandTotal,
-      tennguoinhan: name,
-      sodienthoainhan: phone,
-      diachigiaohang: fullAddress,
-      ghichu: note,
-      phuongthuc: paymentMethod,
       items: cart.map(i => ({
         id: i.id,
-        name: i.name,
-        variant: i.variant,
-        price: i.price,
         quantity: i.quantity
-      }))
+      })),
+      mavoucher: appliedVoucherCode,
+      tennguoinhan: name,
+      sodienthoainhan: phone,
+      tinhthanh: city,
+      quanhuyen: district,
+      phuongxa: ward,
+      diachichitiet: address,
+      diachigiaohang: fullAddress,
+      ghichu: note,
+      phuongthuctt: paymentMethod
     };
 
     // Lưu lại thông tin nhận hàng vào localStorage để ghi nhớ cho các lần mua tiếp theo
@@ -783,7 +772,20 @@ async function handleFinalCheckout() {
       body: JSON.stringify(payload)
     });
     const res = await resp.json();
-    const finalCode = res.order_code || orderCode;
+
+    if (!res || !res.success) {
+      showCustomerToast(res.message || 'Đặt hàng không thành công. Vui lòng kiểm tra lại!', 'error');
+      if (btnConfirm) {
+        btnConfirm.disabled = false;
+        btnConfirm.style.cursor = 'pointer';
+        btnConfirm.style.opacity = '1';
+        btnConfirm.innerHTML = 'XÁC NHẬN ĐẶT HÀNG';
+      }
+      return;
+    }
+
+    const finalCode = res.order_code;
+    const finalFund = res.fund_amount;
 
     // Dọn giỏ hàng sau khi đặt thành công
     saveCart([]);
@@ -793,23 +795,19 @@ async function handleFinalCheckout() {
     const successModal = document.getElementById('orderSuccessModal');
     if (successModal) {
       document.getElementById('successOrderCode').textContent = '#' + finalCode;
-      document.getElementById('successFundAmount').textContent = formatVND(Math.round(subtotal * 0.05));
+      document.getElementById('successFundAmount').textContent = formatVND(finalFund);
       document.getElementById('successTrackingBtn').href = `index.php?action=tracking&order=${finalCode}`;
       successModal.style.display = 'grid';
     } else {
       window.location.href = `index.php?action=tracking&order=${finalCode}`;
     }
   } catch (err) {
-    saveCart([]);
-    renderAllViews();
-    const successModal = document.getElementById('orderSuccessModal');
-    if (successModal) {
-      document.getElementById('successOrderCode').textContent = '#' + orderCode;
-      document.getElementById('successFundAmount').textContent = formatVND(Math.round(subtotal * 0.05));
-      document.getElementById('successTrackingBtn').href = `index.php?action=tracking&order=${orderCode}`;
-      successModal.style.display = 'grid';
-    } else {
-      window.location.href = `index.php?action=tracking&order=${orderCode}`;
+    showCustomerToast('Lỗi kết nối khi gửi đơn hàng: ' + err.message, 'error');
+    if (btnConfirm) {
+      btnConfirm.disabled = false;
+      btnConfirm.style.cursor = 'pointer';
+      btnConfirm.style.opacity = '1';
+      btnConfirm.innerHTML = 'XÁC NHẬN ĐẶT HÀNG';
     }
   } finally {
     if (btnConfirm) {

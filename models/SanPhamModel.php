@@ -6,6 +6,7 @@
 // ====================================================================
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/IdGen.php';
 
 class SanPhamModel {
 
@@ -164,58 +165,85 @@ class SanPhamModel {
 
     public static function getAllForView() {
         $db = Database::getConnection();
-        if ($db) {
-            try {
-                $sql = "SELECT 
-                            sp.masp,
-                            sp.tensp,
-                            sp.thuonghieu,
-                            sp.motachitiet,
-                            sp.hinhanhchinh,
-                            sp.trangthai,
-                            dm.madanhmuc,
-                            dm.tendanhmuc,
-                            COALESCE(MIN(bt.giaban), 0) as giaban_min,
-                            COALESCE(MIN(bt.tenbienthe), 'Tiêu chuẩn') as bienthe_min,
-                            COUNT(bt.mabienthe) as so_bienthe
-                        FROM san_pham sp
-                        LEFT JOIN danh_muc dm ON sp.madanhmuc = dm.madanhmuc
-                        LEFT JOIN bien_the bt ON sp.masp = bt.masp
-                        GROUP BY sp.masp, sp.tensp, sp.thuonghieu, sp.motachitiet, sp.hinhanhchinh, sp.trangthai, dm.madanhmuc, dm.tendanhmuc
-                        ORDER BY sp.masp ASC";
-                $stmt = $db->query($sql);
-                $rows = $stmt->fetchAll();
+        if (!$db) return [];
 
-                if (!empty($rows)) {
-                    $results = [];
-                    foreach ($rows as $r) {
-                        $price = (float)$r['giaban_min'];
-                        $origPrice = $price > 0 ? round($price * 1.12, -3) : $price;
-                        $results[] = [
-                            'id' => $r['masp'],
-                            'name' => $r['tensp'],
-                            'category' => $r['tendanhmuc'] ?? 'Thức Ăn Hạt',
-                            'category_slug' => self::createSlug($r['tendanhmuc'] ?? 'thuc-an-hat'),
-                            'brand' => $r['thuonghieu'] ?? 'KIBO Original',
-                            'brand_slug' => self::createSlug($r['thuonghieu'] ?? 'kibo-original'),
-                            'specs' => $r['bienthe_min'],
-                            'price' => $price,
-                            'originalPrice' => $origPrice,
-                            'badge' => ($r['masp'] === 'SP001' ? 'MỚI' : ($r['masp'] === 'SP004' ? 'HOT' : '')),
-                            'badge_type' => ($r['masp'] === 'SP001' ? 'dark' : ($r['masp'] === 'SP004' ? 'sale' : '')),
-                            'image' => $r['hinhanhchinh'] ?: 'assets/images/products/sp_kibo_cahoi.png',
-                            'desc' => $r['motachitiet'] ?: '',
-                            'status' => ($r['trangthai'] === 'Đang bán' ? 'Còn hàng' : 'Hết hàng'),
-                            'is_sale' => ($origPrice > $price)
-                        ];
-                    }
-                    return $results;
-                }
-            } catch (Exception $e) {
-                // Fallback to mock on query error
+        try {
+            // 1. Lấy toàn bộ biến thể kèm giá bán, giá gốc và tồn kho
+            $sqlBT = "SELECT bt.mabienthe, bt.masp, bt.tenbienthe, bt.giaban, bt.giagoc, bt.soluongton, bt.hinhanhbienthe 
+                      FROM bien_the bt ORDER BY bt.giaban ASC, bt.mabienthe ASC";
+            $allBT = $db->query($sqlBT)->fetchAll();
+            $variantsBySp = [];
+            foreach ($allBT as $bt) {
+                $variantsBySp[$bt['masp']][] = [
+                    'mabienthe' => $bt['mabienthe'],
+                    'tenbienthe' => $bt['tenbienthe'],
+                    'giaban' => (float)$bt['giaban'],
+                    'giagoc' => $bt['giagoc'] !== null ? (float)$bt['giagoc'] : null,
+                    'soluongton' => (int)$bt['soluongton'],
+                    'hinhanhbienthe' => $bt['hinhanhbienthe']
+                ];
             }
+
+            // 2. Lấy sản phẩm kèm danh mục
+            $sql = "SELECT 
+                        sp.masp,
+                        sp.tensp,
+                        sp.thuonghieu,
+                        sp.motachitiet,
+                        sp.hinhanhchinh,
+                        sp.trangthai,
+                        dm.madanhmuc,
+                        dm.tendanhmuc
+                    FROM san_pham sp
+                    LEFT JOIN danh_muc dm ON sp.madanhmuc = dm.madanhmuc
+                    ORDER BY sp.masp ASC";
+            $rows = $db->query($sql)->fetchAll();
+
+            $results = [];
+            foreach ($rows as $r) {
+                $spId = $r['masp'];
+                $spVariants = $variantsBySp[$spId] ?? [];
+                $minVariant = !empty($spVariants) ? $spVariants[0] : null;
+
+                $price = $minVariant ? $minVariant['giaban'] : 0.0;
+                $origPrice = ($minVariant && $minVariant['giagoc'] !== null && $minVariant['giagoc'] > $price) ? $minVariant['giagoc'] : null;
+                $hasSale = ($origPrice !== null && $origPrice > $price);
+                $badge = '';
+                $badgeType = '';
+                if ($hasSale) {
+                    $pct = round((($origPrice - $price) / $origPrice) * 100);
+                    $badge = "-{$pct}%";
+                    $badgeType = 'sale';
+                }
+
+                $totalStock = array_reduce($spVariants, function($carry, $item) { return $carry + $item['soluongton']; }, 0);
+                $statusText = ($r['trangthai'] === 'Đang bán' && $totalStock > 0) ? 'Còn hàng' : 'Hết hàng';
+
+                $results[] = [
+                    'id' => $spId,
+                    'variant_id' => $minVariant ? $minVariant['mabienthe'] : 'BT001',
+                    'variants' => $spVariants,
+                    'name' => $r['tensp'],
+                    'category' => $r['tendanhmuc'] ?? 'Thức Ăn Hạt',
+                    'category_slug' => self::createSlug($r['tendanhmuc'] ?? 'thuc-an-hat'),
+                    'brand' => $r['thuonghieu'] ?? 'KIBO Original',
+                    'brand_slug' => self::createSlug($r['thuonghieu'] ?? 'kibo-original'),
+                    'specs' => $minVariant ? $minVariant['tenbienthe'] : 'Tiêu chuẩn',
+                    'price' => $price,
+                    'originalPrice' => $origPrice,
+                    'badge' => $badge,
+                    'badge_type' => $badgeType,
+                    'image' => $r['hinhanhchinh'] ?: 'assets/images/products/sp_kibo_cahoi.png',
+                    'desc' => $r['motachitiet'] ?: '',
+                    'status' => $statusText,
+                    'is_sale' => $hasSale
+                ];
+            }
+            return $results;
+        } catch (Exception $e) {
+            error_log("Lỗi getAllForView: " . $e->getMessage());
+            return [];
         }
-        return self::$mock;
     }
 
     public static function getFeaturedProducts($limit = 3) {
@@ -330,16 +358,7 @@ class SanPhamModel {
         if (!$db) return ['success' => false, 'error' => 'Chưa kết nối CSDL'];
 
         try {
-            $countStmt = $db->query("SELECT COUNT(*) FROM danh_muc");
-            $nextNum = ((int)$countStmt->fetchColumn()) + 1;
-            $maDM = 'DM' . str_pad($nextNum, 2, '0', STR_PAD_LEFT);
-
-            // Kiểm tra trùng mã
-            $chk = $db->prepare("SELECT madanhmuc FROM danh_muc WHERE madanhmuc = ?");
-            $chk->execute([$maDM]);
-            if ($chk->fetch()) {
-                $maDM = 'DM' . rand(10, 99);
-            }
+            $maDM = IdGen::next($db, 'danh_muc', 'madanhmuc', 'DM', 2);
 
             $sql = "INSERT INTO danh_muc (madanhmuc, tendanhmuc, mota, trangthai) VALUES (?, ?, ?, 'Hoạt động')";
             $stmt = $db->prepare($sql);
@@ -389,18 +408,7 @@ class SanPhamModel {
         try {
             $db->beginTransaction();
 
-            // Sinh mã SP duy nhất
-            $countStmt = $db->query("SELECT COUNT(*) FROM san_pham");
-            $nextNum = ((int)$countStmt->fetchColumn()) + 1;
-            $maSP = 'SP' . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
-
-            // Kiểm tra trùng lặp mã SP
-            $chk = $db->prepare("SELECT masp FROM san_pham WHERE masp = ?");
-            $chk->execute([$maSP]);
-            if ($chk->fetch()) {
-                $maSP = 'SP' . rand(100, 999);
-            }
-
+            $maSP = IdGen::next($db, 'san_pham', 'masp', 'SP', 3);
             $maDM = $data['madanhmuc'] ?? 'DM01';
             $tenSP = trim($data['tensp'] ?? 'Sản phẩm mới');
             $thuongHieu = trim($data['thuonghieu'] ?? 'KIBO Original');
@@ -414,10 +422,7 @@ class SanPhamModel {
             $stmtSP->execute([$maSP, $maDM, $tenSP, $thuongHieu, $mota, $hinhAnh, $trangThai]);
 
             // Sinh mã biến thể
-            $btCountStmt = $db->query("SELECT COUNT(*) FROM bien_the");
-            $nextBtNum = ((int)$btCountStmt->fetchColumn()) + 1;
-            $maBT = 'BT' . str_pad($nextBtNum, 3, '0', STR_PAD_LEFT);
-
+            $maBT = IdGen::next($db, 'bien_the', 'mabienthe', 'BT', 3);
             $tenBT = trim($data['tenbienthe'] ?: 'Túi tiêu chuẩn');
             $giaBan = max(1000, (float)($data['giaban'] ?? 150000));
             $tonKho = max(0, (int)($data['soluongton'] ?? 50));

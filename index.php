@@ -73,43 +73,58 @@ switch ($action) {
         if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
             @session_start();
         }
-        if (!empty($_SESSION['user'])) {
-            $sessUser = $_SESSION['user'];
-            $targetKH = $sessUser['MaKH'] ?? '';
-            if (empty($targetKH) && !empty($sessUser['TenDangNhap'])) {
-                require_once __DIR__ . '/models/KhachHangModel.php';
-                $custData = KhachHangModel::getCustomerDetail($sessUser['TenDangNhap']);
-                if (!empty($custData['MaKH'])) {
-                    $targetKH = $custData['MaKH'];
-                    $_SESSION['user']['MaKH'] = $targetKH;
-                }
-            }
-            if (!empty($targetKH)) {
-                $input['makh'] = $targetKH;
-            }
-            // Tự động đồng bộ và lưu thông tin nhận hàng vào hồ sơ khách hàng nếu có
-            $tenNhan = trim($input['tennguoinhan'] ?? '');
-            $sdtNhan = trim($input['sodienthoainhan'] ?? '');
-            $dcNhan = trim($input['diachigiaohang'] ?? '');
-            if (!empty($targetKH) && (!empty($sdtNhan) || !empty($dcNhan))) {
-                @KhachHangModel::updateProfile($targetKH, $tenNhan ?: ($sessUser['HoTen'] ?? ''), $sdtNhan, $dcNhan);
-                if (!empty($sdtNhan)) $_SESSION['user']['SoDienThoai'] = $sdtNhan;
-                if (!empty($dcNhan)) $_SESSION['user']['DiaChi'] = $dcNhan;
-                if (!empty($tenNhan)) $_SESSION['user']['HoTen'] = $tenNhan;
-            }
-        }
+        $targetKH = $_SESSION['user']['MaKH'] ?? '';
 
-        $orderCode = DonHangModel::taoDonHang($input);
-        if ($orderCode) {
+        $result = DonHangModel::taoDonHang($input);
+        if ($result['success']) {
             require_once __DIR__ . '/models/GioHangModel.php';
             if (!empty($targetKH)) {
                 GioHangModel::clearCartInDb($targetKH);
             }
-            echo json_encode(['success' => true, 'order_code' => $orderCode]);
-        } else {
-            $fallbackCode = $input['madonhang'] ?? ('KB-' . rand(1000, 9999));
-            echo json_encode(['success' => true, 'order_code' => $fallbackCode, 'mode' => 'fallback']);
         }
+        echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'cancel_order':
+        header('Content-Type: application/json; charset=utf-8');
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            @session_start();
+        }
+        $currentUser = $_SESSION['user'] ?? null;
+        if (!$currentUser || empty($currentUser['MaKH'])) {
+            echo json_encode(['success' => false, 'message' => 'Vui lòng đăng nhập để thực hiện hủy đơn.']);
+            exit;
+        }
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $orderId = trim($input['madonhang'] ?? '');
+        if (empty($orderId)) {
+            echo json_encode(['success' => false, 'message' => 'Mã đơn hàng không hợp lệ.']);
+            exit;
+        }
+
+        require_once __DIR__ . '/models/DonHangModel.php';
+        require_once __DIR__ . '/models/TrangThai.php';
+        $db = Database::getConnection();
+        $stmtChk = $db->prepare("SELECT makh, trangthaidonhang FROM don_hang WHERE madonhang = ?");
+        $stmtChk->execute([$orderId]);
+        $ord = $stmtChk->fetch();
+
+        if (!$ord) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy đơn hàng.']);
+            exit;
+        }
+        if ($ord['makh'] !== $currentUser['MaKH']) {
+            echo json_encode(['success' => false, 'message' => 'Bạn không có quyền thao tác trên đơn hàng này.']);
+            exit;
+        }
+        if ($ord['trangthaidonhang'] !== TrangThai::DH_CHO_XAC_NHAN) {
+            echo json_encode(['success' => false, 'message' => 'Chỉ có thể hủy khi đơn hàng ở trạng thái \'Chờ xác nhận\'.']);
+            exit;
+        }
+
+        $res = DonHangModel::capNhatTrangThai($orderId, TrangThai::DH_DA_HUY);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 
     case 'sync_cart':

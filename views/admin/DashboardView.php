@@ -1025,7 +1025,7 @@ if (empty($initialOrders)) {
           renderOverview();
           showAdminToast('Cập nhật thành công', `Đơn hàng #${orderId} đã chuyển sang trạng thái: "${newStatus}".`, 'success');
         } else {
-          showAdminToast('Lỗi', 'Không thể cập nhật trạng thái đơn hàng.', 'error');
+          showAdminToast('Bị từ chối', res.message || 'Không thể cập nhật trạng thái đơn hàng.', 'error');
         }
       } catch (e) {
         showAdminToast('Lỗi kết nối', e.message, 'error');

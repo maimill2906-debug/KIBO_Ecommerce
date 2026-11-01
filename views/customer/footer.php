@@ -191,20 +191,14 @@
     function getCart() {
       try {
         const stored = localStorage.getItem(KIBO_CART_KEY);
-        if (stored) return JSON.parse(stored);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            return parsed.filter(item => item && item.id && /^BT\d+$/.test(item.id));
+          }
+        }
       } catch (e) {}
-      // Mặc định 1 món demo
-      const fallback = [{
-        id: 'cature-pellet',
-        name: 'Cát Cature Smart Pellet 7L',
-        variant: 'TÚI 7L',
-        price: 185000,
-        quantity: 1,
-        color: '#75978a',
-        art: 'cature'
-      }];
-      localStorage.setItem(KIBO_CART_KEY, JSON.stringify(fallback));
-      return fallback;
+      return [];
     }
 
     function saveCart(cart) {

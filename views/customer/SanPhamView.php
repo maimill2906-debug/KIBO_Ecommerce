@@ -7,6 +7,7 @@ $pageTitle = 'Sản Phẩm — KIBO PET\'S HOME | Thức Ăn & Phụ Kiện Thú
 $activeMenu = 'products';
 require __DIR__ . '/header.php';
 require_once __DIR__ . '/../../models/SanPhamModel.php';
+require_once __DIR__ . '/../../models/DonHangModel.php';
 
 $modelProds = SanPhamModel::getAllForView();
 $catalogProducts = [];
@@ -30,11 +31,13 @@ foreach ($modelProds as $mp) {
     $idx++;
     $catalogProducts[] = [
         'id' => $mp['id'],
+        'variant_id' => $mp['variant_id'] ?? 'BT001',
+        'variants' => $mp['variants'] ?? [],
         'name' => $mp['name'],
         'brand' => $mp['brand'] ?: 'KIBO Original',
         'volume' => $mp['specs'] ?: 'Tiêu chuẩn',
         'price' => (float)$mp['price'],
-        'oldPrice' => (float)$mp['originalPrice'],
+        'oldPrice' => (float)($mp['originalPrice'] ?? $mp['price']),
         'pet' => $mp['category'] ?: 'Thức ăn thú cưng',
         'badge' => $mp['badge'] ?: '',
         'art' => $pal['art'],
@@ -241,8 +244,8 @@ $totalCatalogCount = count($catalogProducts);
                 <strong><?= number_format($product['price'], 0, ',', '.') ?>₫</strong>
                 <del><?= number_format($product['oldPrice'], 0, ',', '.') ?>₫</del>
               </div>
-              <div class="fund-contrib-line">Góp vào quỹ: <strong><?= number_format(round($product['price'] * 0.05), 0, ',', '.') ?>₫</strong></div>
-              <button type="button" class="btn add-cart-button" onclick="event.stopPropagation(); addToCart({ id: '<?= $product['id'] ?>', name: '<?= addslashes($product['name']) ?>', price: <?= $product['price'] ?>, variant: '<?= $product['volume'] ?>', art: '<?= $product['art'] ?>', color: '<?= $product['color'] ?>', quantity: 1 })">
+              <div class="fund-contrib-line">Góp vào quỹ: <strong><?= number_format(DonHangModel::tinhQuy($product['price']), 0, ',', '.') ?>₫</strong></div>
+              <button type="button" class="btn add-cart-button" onclick="event.stopPropagation(); addToCart({ id: '<?= $product['variant_id'] ?>', name: '<?= addslashes($product['name']) ?>', price: <?= $product['price'] ?>, variant: '<?= addslashes($product['volume']) ?>', art: '<?= $product['art'] ?>', color: '<?= $product['color'] ?>', quantity: 1 })">
                 <?= kibo_icon('cart', 16) ?> Thêm vào giỏ
               </button>
             </div>

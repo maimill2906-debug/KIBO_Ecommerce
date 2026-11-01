@@ -27,14 +27,14 @@ $activeMenu = 'account';
 require __DIR__ . '/header.php';
 
 $cust = KhachHangModel::getCustomerDetail($currentUser['TenDangNhap']);
-$maKH = $cust['MaKH'] ?? ($currentUser['MaKH'] ?? 'KH001');
+$maKH = $cust['MaKH'] ?? ($currentUser['MaKH'] ?? '');
 $hoten = $cust['HoTen'] ?? ($currentUser['HoTen'] ?? 'Khách hàng KIBO');
 $email = $cust['Email'] ?? ($currentUser['TenDangNhap'] ?? '');
 $phone = $cust['SoDienThoaiChinh'] ?? ($currentUser['SoDienThoai'] ?? 'Chưa cập nhật');
 $diachi = $cust['diachichitiet'] ?? ($currentUser['DiaChi'] ?? 'Chưa cập nhật');
 $diem = $cust['DiemTichLuy'] ?? 0;
 
-$myOrders = DonHangModel::getOrdersByCustomer($maKH, $phone, $email);
+$myOrders = DonHangModel::getOrdersByCustomer($maKH);
 
 $allReturns = DoiTraModel::getAll();
 $returnMap = [];
@@ -176,6 +176,10 @@ foreach ($allReturns as $r) {
                         <?php elseif ($st === 'Giao thành công' || $st === 'Giao hàng thành công'): ?>
                           <button type="button" onclick="openReturnModal('<?= htmlspecialchars($ord['madonhang']) ?>')" style="margin-top: 6px; padding: 4px 8px; border: 1px solid #c8c8c8; background: #fff; color: #333; border-radius: 3px; font-size: 11.5px; cursor: pointer; display: block; width: 100%;">
                             Đổi trả (3 ngày)
+                          </button>
+                        <?php elseif ($st === 'Chờ xác nhận'): ?>
+                          <button type="button" onclick="cancelOrder('<?= htmlspecialchars($ord['madonhang']) ?>')" style="margin-top: 6px; padding: 4px 8px; border: 1px solid #d32f2f; background: #fff5f5; color: #d32f2f; border-radius: 3px; font-size: 11.5px; font-weight: 600; cursor: pointer; display: block; width: 100%;">
+                            Hủy đơn
                           </button>
                         <?php endif; ?>
                       </td>
@@ -377,6 +381,26 @@ async function handleReturnSubmit(e) {
   } finally {
     btn.disabled = false;
     btn.innerHTML = 'Gửi yêu cầu';
+  }
+}
+
+async function cancelOrder(orderId) {
+  if (!confirm(`Bạn có chắc chắn muốn hủy đơn hàng #${orderId} không?`)) return;
+  try {
+    const res = await fetch('index.php?action=cancel_order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ madonhang: orderId })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(data.message || 'Hủy đơn hàng thành công!');
+      window.location.reload();
+    } else {
+      alert(data.message || 'Không thể hủy đơn hàng.');
+    }
+  } catch (e) {
+    alert('Lỗi kết nối khi gửi yêu cầu hủy đơn.');
   }
 }
 </script>

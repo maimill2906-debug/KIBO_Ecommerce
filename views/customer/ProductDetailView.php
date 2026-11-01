@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../components/helpers.php';
 require_once __DIR__ . '/../../models/SanPhamModel.php';
+require_once __DIR__ . '/../../models/DonHangModel.php';
 
 $allProducts = [
     'SP001' => [
@@ -127,11 +128,13 @@ $modelProd = SanPhamModel::getProductById($productId);
 if ($modelProd) {
     $product = [
         'id' => $modelProd['id'],
+        'variant_id' => $modelProd['variant_id'] ?? 'BT001',
+        'variants' => $modelProd['variants'] ?? [],
         'name' => $modelProd['name'],
         'brand' => $modelProd['brand'] ?: 'KIBO Original',
         'category' => $modelProd['category'] ?: 'Thức Ăn Hạt',
         'price' => (float)$modelProd['price'],
-        'oldPrice' => (float)$modelProd['originalPrice'],
+        'oldPrice' => (float)($modelProd['originalPrice'] ?? $modelProd['price']),
         'art' => 'royal',
         'color' => '#c94336',
         'status' => $modelProd['status'] ?: 'Còn hàng',
@@ -141,13 +144,15 @@ if ($modelProd) {
     ];
 } else {
     $product = $allProducts[$productId] ?? $allProducts['SP001'];
+    $product['variant_id'] = 'BT001';
+    $product['variants'] = [];
 }
 
 $pageTitle = $product['name'] . ' — KIBO PET\'S HOME';
 $activeMenu = 'products';
 require __DIR__ . '/header.php';
 
-$rescueContribution = number_format(round($product['price'] * 0.05), 0, ',', '.');
+$rescueContribution = number_format(DonHangModel::tinhQuy($product['price']), 0, ',', '.');
 $discountPercent = ($product['oldPrice'] > $product['price']) ? round((1 - $product['price'] / $product['oldPrice']) * 100) : 0;
 ?>
 
@@ -204,6 +209,23 @@ $discountPercent = ($product['oldPrice'] > $product['price']) ? round((1 - $prod
       <div class="pdp-short-desc">
         <p><?= htmlspecialchars($product['short_desc']) ?></p>
       </div>
+
+      <?php if (!empty($product['variants']) && count($product['variants']) > 1): ?>
+        <div class="pdp-quantity-row" style="margin-bottom: 14px;">
+          <label style="display: block; font-size: 13px; font-weight: 700; color: #555; margin-bottom: 6px;">Quy cách / Phân loại</label>
+          <select id="pdpVariantSelect" onchange="handleVariantChange(this)" style="width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; background: #fff;">
+            <?php foreach ($product['variants'] as $v): ?>
+              <option value="<?= $v['mabienthe'] ?>" data-name="<?= htmlspecialchars($v['tenbienthe']) ?>" data-price="<?= $v['giaban'] ?>">
+                <?= htmlspecialchars($v['tenbienthe']) ?> — <?= number_format($v['giaban'], 0, ',', '.') ?>₫ (Còn <?= $v['soluongton'] ?>)
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      <?php elseif (!empty($product['variants'])): ?>
+        <input type="hidden" id="pdpVariantSelect" value="<?= $product['variants'][0]['mabienthe'] ?>" data-name="<?= htmlspecialchars($product['variants'][0]['tenbienthe']) ?>" data-price="<?= $product['variants'][0]['giaban'] ?>">
+      <?php else: ?>
+        <input type="hidden" id="pdpVariantSelect" value="BT001" data-name="<?= htmlspecialchars($product['specs']) ?>" data-price="<?= $product['price'] ?>">
+      <?php endif; ?>
 
       <div class="pdp-quantity-row">
         <label>Số lượng</label>
@@ -299,9 +321,40 @@ function switchThumbColor(color, btn) {
   }
 }
 
+function handleVariantChange(sel) {
+  const opt = sel.selectedOptions[0];
+  if (!opt) return;
+  const price = parseFloat(opt.dataset.price) || 0;
+  const priceDisplay = new Intl.NumberFormat('vi-VN').format(price) + '₫';
+  const priceEl = document.querySelector('.pdp-price-main');
+  if (priceEl) priceEl.textContent = priceDisplay;
+  const fundEl = document.querySelector('.pdp-fund-line strong');
+  if (fundEl) fundEl.textContent = new Intl.NumberFormat('vi-VN').format(Math.round(price * 0.05)) + '₫';
+}
+
 function handlePdpBuy() {
   const qtyInput = document.getElementById('pdpQty');
   const qty = parseInt(qtyInput ? qtyInput.value : pdpQuantity) || 1;
+  const varSel = document.getElementById('pdpVariantSelect');
+  let varId = '<?= $product['variant_id'] ?? 'BT001' ?>';
+  let varName = '<?= addslashes($product['specs']) ?>';
+  let varPrice = <?= (float)$product['price'] ?>;
+
+  if (varSel) {
+    if (varSel.tagName === 'SELECT') {
+      const opt = varSel.selectedOptions[0];
+      if (opt) {
+        varId = opt.value;
+        varName = opt.dataset.name || varName;
+        varPrice = parseFloat(opt.dataset.price) || varPrice;
+      }
+    } else {
+      varId = varSel.value;
+      varName = varSel.dataset.name || varName;
+      varPrice = parseFloat(varSel.dataset.price) || varPrice;
+    }
+  }
+
   const btn = document.getElementById('btnPdpAddToCart');
   if (btn) {
     const origHtml = btn.innerHTML;
@@ -316,10 +369,10 @@ function handlePdpBuy() {
   }
 
   addToCart({
-    id: '<?= $product['id'] ?>',
+    id: varId,
     name: '<?= addslashes($product['name']) ?>',
-    price: <?= (float)$product['price'] ?>,
-    variant: '<?= addslashes($product['specs']) ?>',
+    price: varPrice,
+    variant: varName,
     quantity: qty,
     art: '<?= $product['art'] ?? 'royal' ?>',
     color: '<?= $product['color'] ?? '#c94336' ?>'
