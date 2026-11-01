@@ -622,10 +622,16 @@ if (empty($initialOrders)) {
                         <?= $isExpired ? '<br><small style="color: #c94336;">(Hết hạn)</small>' : '' ?>
                       </td>
                       <td>
-                        <button type="button" onclick="adminToggleVoucher('<?= htmlspecialchars($vc['mavoucher']) ?>', this)" 
-                                style="padding: 4px 10px; font-size: 12px; border-radius: 3px; border: 1px solid <?= !empty($vc['kichhoat']) ? '#2e7d32' : '#999' ?>; background: <?= !empty($vc['kichhoat']) ? '#e8f5e9' : '#f5f5f5' ?>; color: <?= !empty($vc['kichhoat']) ? '#2e7d32' : '#666' ?>; font-weight: bold; cursor: pointer;">
-                          <?= !empty($vc['kichhoat']) ? 'Đang bật' : 'Đã tắt' ?>
-                        </button>
+                        <?php if ($isExpired): ?>
+                          <span style="display: inline-block; padding: 4px 8px; font-size: 12px; border-radius: 3px; background: #ffebee; color: #c94336; font-weight: bold;">Hết hạn</span>
+                        <?php elseif ($isOutOfStock): ?>
+                          <span style="display: inline-block; padding: 4px 8px; font-size: 12px; border-radius: 3px; background: #fff3e0; color: #e65100; font-weight: bold;">Hết lượt</span>
+                        <?php else: ?>
+                          <button type="button" onclick="adminToggleVoucher('<?= htmlspecialchars($vc['mavoucher']) ?>', this)" 
+                                  style="padding: 4px 10px; font-size: 12px; border-radius: 3px; border: 1px solid <?= !empty($vc['kichhoat']) ? '#2e7d32' : '#999' ?>; background: <?= !empty($vc['kichhoat']) ? '#e8f5e9' : '#f5f5f5' ?>; color: <?= !empty($vc['kichhoat']) ? '#2e7d32' : '#666' ?>; font-weight: bold; cursor: pointer;">
+                            <?= !empty($vc['kichhoat']) ? 'Đang bật' : 'Đã tắt' ?>
+                          </button>
+                        <?php endif; ?>
                       </td>
                     </tr>
                   <?php endforeach; ?>
