@@ -61,13 +61,13 @@ Khi cập nhật file Word (Mục Thiết kế CSDL vật lý & Từ điển d�
 
 | Tên cột | Kiểu dữ liệu | Ràng buộc | Ý nghĩa / Ghi chú |
 | :--- | :--- | :--- | :--- |
-| `matracuu` | **VARCHAR(20)** | PRIMARY KEY | Mã tra cứu quỹ theo chuẩn mới |
+| `madonggop` | VARCHAR(10) | PRIMARY KEY | Sinh mã tự tăng `QCTXXXX` (sử dụng advisory lock) |
 | `madonhang` | **VARCHAR(20)** *(cũ là VARCHAR(10))* | NOT NULL, **UNIQUE (`uq_quy_madonhang`)** | Mỗi đơn hàng gắn duy nhất với 1 bản ghi trích quỹ |
-| `matram` | VARCHAR(10) | FOREIGN KEY $\rightarrow$ `tram_cuu_ho(matram)` | Trạm cứu hộ nhận tài trợ |
-| `sotientrich` | NUMERIC(12,2) | NOT NULL, >= 0 | Công thức: `round((tongtienhang - tiengiamgia) * 0.05)` |
-| `ngaytrich` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Thời điểm ghi nhận trích quỹ |
+| `sotiendonggop` | NUMERIC(12,2) | NOT NULL, >= 0 | Công thức: `round((tongtienhang - tiengiamgia) * 0.05)` |
+| `ngayghinhan` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Thời điểm ghi nhận trích quỹ |
+| `matracuu` | **VARCHAR(20)** | NOT NULL | Mã tra cứu quỹ (đồng bộ với madonhang để khách tra cứu) |
 | `trangthaiquy` | VARCHAR(30) | **CHECK (`chk_quy_trangthai`)** | **Giá trị mới: `Chờ trích quỹ`, `Đã trích quỹ`, `Đã giải ngân`, `Đã hủy`** |
-| `ngaygiaingan` | TIMESTAMPTZ | NULLABLE | Thời điểm giải ngân thực tế cho trạm |
+| `machungtu` | VARCHAR(10) | NULLABLE, FOREIGN KEY $\rightarrow$ `chung_tu_giai_ngan(machungtu)` | Mã chứng từ giải ngân khi chuyển tiền sang trạm cứu hộ |
 
 > **Quy tắc chuyển trạng thái quỹ:**
 > 1. Lúc khách tạo đơn hàng $\rightarrow$ `Chờ trích quỹ`.
