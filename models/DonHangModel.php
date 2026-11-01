@@ -6,8 +6,18 @@
 // ====================================================================
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/TrangThai.php';
 
 class DonHangModel {
+    public static function tinhQuy($tongTienHang, $tienGiam = 0) {
+        static $tyLe = null;
+        if ($tyLe === null) {
+            $business = require __DIR__ . '/../config/business.php';
+            $tyLe = (float)($business['quy_ty_le'] ?? 0.05);
+        }
+        $net = max(0, $tongTienHang - $tienGiam);
+        return (float)round($net * $tyLe);
+    }
     private static $mockOrders = [
         [
             'orderId' => 'KB-8921',

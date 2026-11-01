@@ -158,7 +158,7 @@ foreach ($allReturns as $r) {
                         <?= number_format($ord['tongthanhtoan'], 0, ',', '.') ?>₫
                       </td>
                       <td style="padding: 12px; text-align: right; color: #2e7d32; font-weight: 600;">
-                        <?= number_format($ord['sotiendonggop'] ?? round($ord['tongthanhtoan'] * 0.05), 0, ',', '.') ?>₫
+                        <?= number_format($ord['sotiendonggop'] ?? DonHangModel::tinhQuy($ord['tongtienhang'] ?? $ord['tongthanhtoan'], $ord['tiengiamgia'] ?? 0), 0, ',', '.') ?>₫
                       </td>
                       <td style="padding: 12px; text-align: center;">
                         <span style="background: <?= $stColor ?>; color: #fff; padding: 4px 10px; border-radius: 3px; font-size: 12px; font-weight: bold; display: inline-block;">

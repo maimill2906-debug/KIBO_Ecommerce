@@ -48,10 +48,10 @@
           <?= kibo_icon('phone', 22) ?>
           <span>
             <small>HOTLINE TƯ VẤN</small>
-            <strong>0772 906 756</strong>
+            <strong><?= htmlspecialchars(kibo_business('hotline') ?? '1900 6868') ?></strong>
           </span>
         </p>
-        <p style="margin-top: 14px;">Thứ 2 - Chủ nhật: 8:00 - 21:00<br>support@kibo.vn</p>
+        <p style="margin-top: 14px;">Thứ 2 - Chủ nhật: 8:00 - 21:00<br><?= htmlspecialchars(kibo_business('email') ?? 'support@kibo.vn') ?></p>
       </div>
     </div>
 

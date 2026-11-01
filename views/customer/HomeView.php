@@ -177,7 +177,7 @@ foreach ($dbFeatured as $p) {
                 <strong><?= $p['priceDisplay'] ?></strong>
                 <del><?= $p['old'] ?></del>
               </div>
-              <div class="fund-contrib-line">Góp vào quỹ: <strong><?= number_format(round($p['price'] * 0.05), 0, ',', '.') ?>₫</strong></div>
+              <div class="fund-contrib-line">Góp vào quỹ: <strong><?= number_format(DonHangModel::tinhQuy($p['price']), 0, ',', '.') ?>₫</strong></div>
             </div>
           </article>
         <?php endforeach; ?>

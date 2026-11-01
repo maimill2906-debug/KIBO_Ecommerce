@@ -37,7 +37,7 @@ if ($isValidCode) {
         $shipping = (float)($dbOrder['shipping'] ?? 0);
         $discount = (float)($dbOrder['discount'] ?? 0);
         $total = (float)($dbOrder['total'] ?? ($subtotal + $shipping - $discount));
-        $fundAmount = (float)($dbOrder['fundAmount'] ?? round($subtotal * 0.05));
+        $fundAmount = (float)($dbOrder['fundAmount'] ?? DonHangModel::tinhQuy($subtotal, $discount));
 
         $orderData = [
             'code' => $dbOrder['orderId'],

@@ -641,9 +641,23 @@ function renderAllViews() {
   `).join('');
 
   // 3. TÍNH TIỀN TOÀN BỘ ĐƠN HÀNG
+  const bConfig = window.KIBO_BUSINESS || {};
+  const shipConf = bConfig.ship || { phi_co_ban: 20000, mien_phi_noi_thanh: 200000, mien_phi_khac: 500000 };
+  const noiThanh = bConfig.noi_thanh_hcm || ['Q1','Q3','Q4','Q5','Q6','Q7','Q8','Q10','Q11','Q12','BT','PN','GV','TB','TP','BTH','TD'];
+  const quyTyLe = (typeof bConfig.quy_ty_le === 'number') ? bConfig.quy_ty_le : 0.05;
+
+  const provEl = document.getElementById('provinceSelect');
+  const distEl = document.getElementById('districtSelect');
+  const selProv = provEl ? provEl.value : 'HCM';
+  const selDist = distEl ? distEl.value : 'TD';
+
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const shipping = (subtotal >= 200000 || subtotal === 0) ? 0 : 20000;
-  const rescueFund = Math.round(subtotal * 0.05);
+  const isHCM = (selProv === 'HCM' || selProv === 'TP. Hồ Chí Minh' || selProv === 'Hồ Chí Minh');
+  const isNoiThanh = isHCM && (noiThanh.includes(selDist) || !['CC', 'HM', 'BC', 'NB', 'CG', 'Củ Chi', 'Hóc Môn', 'Bình Chánh', 'Nhà Bè', 'Cần Giờ'].includes(selDist));
+  const freeThreshold = isNoiThanh ? shipConf.mien_phi_noi_thanh : shipConf.mien_phi_khac;
+  const shipping = (subtotal === 0 || subtotal >= freeThreshold) ? 0 : shipConf.phi_co_ban;
+
+  const rescueFund = Math.round(Math.max(0, subtotal - currentVoucherDiscount) * quyTyLe);
   const grandTotal = Math.max(0, subtotal + shipping - currentVoucherDiscount);
 
   // Hiển thị ở Bước 1
@@ -712,7 +726,10 @@ async function handleFinalCheckout() {
 
   const fullAddress = [address, ward, district, city].filter(Boolean).join(', ') || 'TP. Hồ Chí Minh';
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const shipping = (subtotal >= 200000 || subtotal === 0) ? 0 : 20000;
+  const isHCM = (document.getElementById('provinceSelect')?.value === 'HCM' || city.includes('Hồ Chí Minh'));
+  const isNoiThanh = isHCM && (bConfig.noi_thanh_hcm || []).includes(document.getElementById('districtSelect')?.value || 'TD');
+  const freeThreshold = isNoiThanh ? (shipConf.mien_phi_noi_thanh || 200000) : (shipConf.mien_phi_khac || 500000);
+  const shipping = (subtotal === 0 || subtotal >= freeThreshold) ? 0 : (shipConf.phi_co_ban || 20000);
   const grandTotal = Math.max(0, subtotal + shipping - currentVoucherDiscount);
   const orderCode = 'KB-' + Math.floor(1000 + Math.random() * 9000);
 

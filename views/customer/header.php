@@ -26,6 +26,10 @@ $currentUser = $_SESSION['user'] ?? null;
 
   <!-- CSS Chính -->
   <link rel="stylesheet" href="assets/css/style.css?v=<?= time() ?>">
+  <script>
+    window.KIBO_BUSINESS = <?= json_encode(require __DIR__ . '/../../config/business.php') ?>;
+    window.KIBO_USER = <?= json_encode($currentUser ? ['makh' => $currentUser['MaKH'] ?? null, 'vaitro' => $currentUser['VaiTro'] ?? null] : null) ?>;
+  </script>
 </head>
 <body>
 

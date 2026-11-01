@@ -60,6 +60,25 @@ function kibo_logo_svg($variant = 'default', $height = 42) {
     return kibo_logo($isLight);
 }
 
+function kibo_business($key = null) {
+    static $config = null;
+    if ($config === null) {
+        $config = require __DIR__ . '/../../config/business.php';
+    }
+    if ($key === null) {
+        return $config;
+    }
+    $parts = explode('.', $key);
+    $val = $config;
+    foreach ($parts as $p) {
+        if (!is_array($val) || !isset($val[$p])) {
+            return null;
+        }
+        $val = $val[$p];
+    }
+    return $val;
+}
+
 function kibo_product_art($type, $color) {
     $typeUpper = strtoupper($type);
     $pawSvg = kibo_icon('paw', 36);
