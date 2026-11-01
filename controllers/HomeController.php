@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/../models/SanPhamModel.php';
 require_once __DIR__ . '/../models/QuyCuuTroModel.php';
+require_once __DIR__ . '/../models/DonHangModel.php';
 
 class HomeController {
     public function index() {

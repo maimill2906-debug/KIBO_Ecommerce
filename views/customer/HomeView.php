@@ -8,6 +8,7 @@ $activeMenu = 'home';
 require __DIR__ . '/header.php';
 require_once __DIR__ . '/../../models/SanPhamModel.php';
 require_once __DIR__ . '/../../models/QuyCuuTroModel.php';
+require_once __DIR__ . '/../../models/DonHangModel.php';
 
 $heroImage = 'assets/images/hero-banner.jpg';
 $petImage = 'https://images.unsplash.com/photo-1563460716037-460a3ad24ba9?auto=format&fit=crop&w=900&q=85';
