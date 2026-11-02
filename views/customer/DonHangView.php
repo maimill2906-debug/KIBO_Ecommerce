@@ -156,12 +156,29 @@ if (!empty($currentUser)) {
               </div>
 
               <div>
-                <select id="districtSelect" class="delivery-select" onchange="handleDistrictChange(this.value)" required>
-                  <option value="TD" selected>TP. Thủ Đức</option>
-                  <option value="Q1">Quận 1</option>
-                  <option value="Q3">Quận 3</option>
-                  <option value="BT">Bình Thạnh</option>
-                  <option value="Q7">Quận 7</option>
+                <select id="districtSelect" class="delivery-select" onchange="handleDistrictChange(this.value); recalcCartSummary();" required>
+                  <option value="TP. Thủ Đức" selected>TP. Thủ Đức</option>
+                  <option value="Quận 1">Quận 1</option>
+                  <option value="Quận 3">Quận 3</option>
+                  <option value="Quận 4">Quận 4</option>
+                  <option value="Quận 5">Quận 5</option>
+                  <option value="Quận 6">Quận 6</option>
+                  <option value="Quận 7">Quận 7</option>
+                  <option value="Quận 8">Quận 8</option>
+                  <option value="Quận 10">Quận 10</option>
+                  <option value="Quận 11">Quận 11</option>
+                  <option value="Quận 12">Quận 12</option>
+                  <option value="Quận Bình Thạnh">Quận Bình Thạnh</option>
+                  <option value="Quận Phú Nhuận">Quận Phú Nhuận</option>
+                  <option value="Quận Gò Vấp">Quận Gò Vấp</option>
+                  <option value="Quận Tân Bình">Quận Tân Bình</option>
+                  <option value="Quận Tân Phú">Quận Tân Phú</option>
+                  <option value="Quận Bình Tân">Quận Bình Tân</option>
+                  <option value="Huyện Củ Chi">Huyện Củ Chi (Ngoại thành)</option>
+                  <option value="Huyện Hóc Môn">Huyện Hóc Môn (Ngoại thành)</option>
+                  <option value="Huyện Bình Chánh">Huyện Bình Chánh (Ngoại thành)</option>
+                  <option value="Huyện Nhà Bè">Huyện Nhà Bè (Ngoại thành)</option>
+                  <option value="Huyện Cần Giờ">Huyện Cần Giờ (Ngoại thành)</option>
                 </select>
               </div>
 
@@ -434,54 +451,74 @@ function handleProvinceChange(val) {
   const wardSelect = document.getElementById('wardSelect');
   if (val === 'HCM') {
     districtSelect.innerHTML = `
-      <option value="TD" selected>TP. Thủ Đức</option>
-      <option value="Q1">Quận 1</option>
-      <option value="Q3">Quận 3</option>
-      <option value="BT">Bình Thạnh</option>
-      <option value="Q7">Quận 7</option>
+      <option value="TP. Thủ Đức" selected>TP. Thủ Đức</option>
+      <option value="Quận 1">Quận 1</option>
+      <option value="Quận 3">Quận 3</option>
+      <option value="Quận 4">Quận 4</option>
+      <option value="Quận 5">Quận 5</option>
+      <option value="Quận 6">Quận 6</option>
+      <option value="Quận 7">Quận 7</option>
+      <option value="Quận 8">Quận 8</option>
+      <option value="Quận 10">Quận 10</option>
+      <option value="Quận 11">Quận 11</option>
+      <option value="Quận 12">Quận 12</option>
+      <option value="Quận Bình Thạnh">Quận Bình Thạnh</option>
+      <option value="Quận Phú Nhuận">Quận Phú Nhuận</option>
+      <option value="Quận Gò Vấp">Quận Gò Vấp</option>
+      <option value="Quận Tân Bình">Quận Tân Bình</option>
+      <option value="Quận Tân Phú">Quận Tân Phú</option>
+      <option value="Quận Bình Tân">Quận Bình Tân</option>
+      <option value="Huyện Củ Chi">Huyện Củ Chi (Ngoại thành)</option>
+      <option value="Huyện Hóc Môn">Huyện Hóc Môn (Ngoại thành)</option>
+      <option value="Huyện Bình Chánh">Huyện Bình Chánh (Ngoại thành)</option>
+      <option value="Huyện Nhà Bè">Huyện Nhà Bè (Ngoại thành)</option>
+      <option value="Huyện Cần Giờ">Huyện Cần Giờ (Ngoại thành)</option>
     `;
     wardSelect.innerHTML = `
-      <option value="TNPB" selected>Phường Tăng Nhơn Phú B</option>
-      <option value="TNPA">Phường Tăng Nhơn Phú A</option>
-      <option value="HIEPPHU">Phường Hiệp Phú</option>
-      <option value="P25">Phường 25</option>
-      <option value="OTHER">Phường/Xã khác</option>
+      <option value="Phường Tăng Nhơn Phú B" selected>Phường Tăng Nhơn Phú B</option>
+      <option value="Phường Tăng Nhơn Phú A">Phường Tăng Nhơn Phú A</option>
+      <option value="Phường Hiệp Phú">Phường Hiệp Phú</option>
+      <option value="Phường 25">Phường 25</option>
+      <option value="Phường/Xã khác">Phường/Xã khác</option>
     `;
   } else if (val === 'HN') {
     districtSelect.innerHTML = `
-      <option value="HK" selected>Quận Hoàn Kiếm</option>
-      <option value="CG">Quận Cầu Giấy</option>
-      <option value="BD">Quận Ba Đình</option>
+      <option value="Quận Hoàn Kiếm" selected>Quận Hoàn Kiếm</option>
+      <option value="Quận Cầu Giấy">Quận Cầu Giấy</option>
+      <option value="Quận Ba Đình">Quận Ba Đình</option>
+      <option value="Quận Đống Đa">Quận Đống Đa</option>
     `;
     wardSelect.innerHTML = `
-      <option value="HB" selected>Phường Hàng Bạc</option>
-      <option value="DV">Phường Dịch Vọng</option>
-      <option value="OTHER">Phường/Xã khác</option>
+      <option value="Phường Hàng Bạc" selected>Phường Hàng Bạc</option>
+      <option value="Phường Dịch Vọng">Phường Dịch Vọng</option>
+      <option value="Phường/Xã khác">Phường/Xã khác</option>
     `;
   } else {
-    districtSelect.innerHTML = `<option value="TT" selected>Khu vực trung tâm</option>`;
-    wardSelect.innerHTML = `<option value="TT" selected>Phường/Xã trung tâm</option>`;
+    districtSelect.innerHTML = `<option value="Khu vực trung tâm" selected>Khu vực trung tâm</option>`;
+    wardSelect.innerHTML = `<option value="Phường/Xã trung tâm" selected>Phường/Xã trung tâm</option>`;
   }
+  recalcCartSummary();
 }
 
 function handleDistrictChange(val) {
   const wardSelect = document.getElementById('wardSelect');
-  if (val === 'TD') {
+  if (val.includes('Thủ Đức')) {
     wardSelect.innerHTML = `
-      <option value="TNPB" selected>Phường Tăng Nhơn Phú B</option>
-      <option value="TNPA">Phường Tăng Nhơn Phú A</option>
-      <option value="HIEPPHU">Phường Hiệp Phú</option>
-      <option value="LINHTRUNG">Phường Linh Trung</option>
+      <option value="Phường Tăng Nhơn Phú B" selected>Phường Tăng Nhơn Phú B</option>
+      <option value="Phường Tăng Nhơn Phú A">Phường Tăng Nhơn Phú A</option>
+      <option value="Phường Hiệp Phú">Phường Hiệp Phú</option>
+      <option value="Phường Linh Trung">Phường Linh Trung</option>
     `;
-  } else if (val === 'Q1') {
+  } else if (val.includes('Quận 1')) {
     wardSelect.innerHTML = `
-      <option value="PBN" selected>Phường Bến Nghé</option>
-      <option value="PBT">Phường Bến Thành</option>
-      <option value="PDL">Phường Đa Kao</option>
+      <option value="Phường Bến Nghé" selected>Phường Bến Nghé</option>
+      <option value="Phường Bến Thành">Phường Bến Thành</option>
+      <option value="Phường Đa Kao">Phường Đa Kao</option>
     `;
   } else {
-    wardSelect.innerHTML = `<option value="TT" selected>Phường/Xã trung tâm</option>`;
+    wardSelect.innerHTML = `<option value="Phường/Xã trung tâm" selected>Phường/Xã trung tâm</option>`;
   }
+  recalcCartSummary();
 }
 
 async function applyVoucher() {
@@ -626,12 +663,12 @@ function renderAllViews() {
 
   const provEl = document.getElementById('provinceSelect');
   const distEl = document.getElementById('districtSelect');
-  const selProv = provEl ? provEl.value : 'HCM';
-  const selDist = distEl ? distEl.value : 'TD';
+  const selProv = provEl ? (provEl.selectedOptions[0]?.text || provEl.value) : 'TP. Hồ Chí Minh';
+  const selDist = distEl ? (distEl.selectedOptions[0]?.text || distEl.value) : 'TP. Thủ Đức';
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const isHCM = (selProv === 'HCM' || selProv === 'TP. Hồ Chí Minh' || selProv === 'Hồ Chí Minh');
-  const isNoiThanh = isHCM && (noiThanh.includes(selDist) || !['CC', 'HM', 'BC', 'NB', 'CG', 'Củ Chi', 'Hóc Môn', 'Bình Chánh', 'Nhà Bè', 'Cần Giờ'].includes(selDist));
+  const isHCM = (selProv.includes('Hồ Chí Minh') || selProv.includes('HCM'));
+  const isNoiThanh = isHCM && (noiThanh.some(d => selDist.includes(d) || d.includes(selDist)));
   const freeThreshold = isNoiThanh ? shipConf.mien_phi_noi_thanh : shipConf.mien_phi_khac;
   const shipping = (subtotal === 0 || subtotal >= freeThreshold) ? 0 : shipConf.phi_co_ban;
 
@@ -704,8 +741,8 @@ async function handleFinalCheckout() {
 
   const fullAddress = [address, ward, district, city].filter(Boolean).join(', ') || 'TP. Hồ Chí Minh';
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const isHCM = (document.getElementById('provinceSelect')?.value === 'HCM' || city.includes('Hồ Chí Minh'));
-  const isNoiThanh = isHCM && (bConfig.noi_thanh_hcm || []).includes(document.getElementById('districtSelect')?.value || 'TD');
+  const isHCM = (city.includes('Hồ Chí Minh') || city.includes('HCM'));
+  const isNoiThanh = isHCM && (bConfig.noi_thanh_hcm || []).some(d => district === d || district.includes(d));
   const freeThreshold = isNoiThanh ? (shipConf.mien_phi_noi_thanh || 200000) : (shipConf.mien_phi_khac || 500000);
   const shipping = (subtotal === 0 || subtotal >= freeThreshold) ? 0 : (shipConf.phi_co_ban || 20000);
   const grandTotal = Math.max(0, subtotal + shipping - currentVoucherDiscount);

@@ -25,7 +25,9 @@ class KhachHangModel {
                 if (!empty($rows)) {
                     return $rows;
                 }
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+                error_log("Lỗi getOrders KhachHangModel: " . $e->getMessage());
+            }
         }
         return [];
     }
@@ -55,7 +57,9 @@ class KhachHangModel {
                 $stmt->execute([$identifier, $identifier, $identifier]);
                 $row = $stmt->fetch();
                 if ($row) return $row;
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+                error_log("Lỗi getOrders KhachHangModel: " . $e->getMessage());
+            }
         }
         return null;
     }
@@ -131,7 +135,8 @@ class KhachHangModel {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
-            return ['success' => false, 'message' => 'Lỗi cập nhật: ' . $e->getMessage()];
+            error_log("Lỗi updateProfile: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Lỗi cập nhật thông tin cá nhân, vui lòng thử lại sau.'];
         }
     }
 }

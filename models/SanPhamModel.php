@@ -268,7 +268,9 @@ class SanPhamModel {
                 if (!empty($rows)) {
                     return array_column($rows, 'tendanhmuc');
                 }
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+                error_log("Lỗi getCategories SanPhamModel: " . $e->getMessage());
+            }
         }
         return [];
     }

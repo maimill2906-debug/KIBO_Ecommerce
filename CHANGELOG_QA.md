@@ -120,4 +120,70 @@ Hệ thống KIBO đã được tái cấu trúc, vá toàn bộ các lỗ hổn
 27. `views/admin/DashboardView.php` *(Cập nhật - tab voucher, duyệt đổi trả, tồn kho thực)*
 28. `migration_v2.sql` *(Mới - kịch bản di chuyển cấu trúc CSDL)*
 29. `database_seed_kibo.sql` *(Cập nhật - đồng bộ mật khẩu và chứng từ)*
-30. `tests/test_qa_suite.php` *(Mới - bộ test tự động 12 test cases)*
+30. `tests/test_qa_suite.php` *(Mới - bộ test tự động 14 test cases)*
+
+---
+
+# Phiên bản v2.1: Hoàn thiện Triệt để theo Đợt Đánh giá QA Chuyên sâu (14/14 TC Pass)
+
+### 1. Phân quyền và Bảo mật Đổi trả (Mức độ Cao)
+- **Đơn hàng có tài khoản (`matk IS NOT NULL`)**: Bắt buộc người dùng phải đăng nhập hợp lệ và mã khách hàng trong session (`$_SESSION['user']['MaKH']`) phải trùng khớp chính xác với `don_hang.makh`. Nếu chưa đăng nhập hoặc đăng nhập tài khoản khác sẽ bị từ chối ngay lập tức.
+- **Đơn hàng khách vãng lai (`makh LIKE 'KV%'`)**: Yêu cầu người gửi cung cấp thêm số điện thoại nhận hàng (`sdt`), loại bỏ các ký tự không phải số và so khớp tuyệt đối với `don_hang.sodienthoainhan`.
+- **Thông báo bảo mật**: Trả về thông báo đồng nhất *"Không tìm thấy đơn hàng hoặc thông tin xác minh không đúng."* nhằm ngăn chặn hành vi rà quét (enumeration/IDOR).
+
+### 2. Tách biệt Khách Vãng lai, Chống Chiếm đoạt Hồ sơ & Tích điểm (Mức độ Cao)
+- Khi tìm khách vãng lai theo số điện thoại trong `DonHangModel::taoDonHang`, chỉ tìm khách có `matk IS NULL`. 
+- Nếu số điện thoại đã thuộc về khách có tài khoản nhưng người đặt chưa đăng nhập: Hệ thống tự động sinh hồ sơ khách vãng lai mới (`KV...`), tuyệt đối không gán nhầm đơn hàng vào tài khoản đã đăng ký.
+- Điểm tích lũy (`diemtichluy`) chỉ được cộng cho khách có tài khoản (`matk IS NOT NULL`). Khách vãng lai tuyệt đối không nhận điểm tích lũy.
+
+### 3. Tái thiết Tài liệu CSDL Word (`DOC_CSDL_CAP_NHAT_WORD.md`) từ DB Thực tế (Mức độ Cao)
+- Sinh tài liệu 100% từ kết quả truy vấn `information_schema.columns` và `pg_constraint`.
+- Cập nhật chuẩn xác tên cột thực tế trong mã nguồn: `masp` (không dùng `masanpham`), `sotien` (không dùng `sotientt`), `thoigiantt` (không dùng `ngaythanhtoan`).
+- Loại bỏ hoàn toàn các cột ảo không tồn tại trong database: `mactdh`, `hangthanhvien`, `mavoucher` (trong bảng `don_hang`).
+- Chuẩn hóa các giá trị thanh toán thực tế: `Thanh toán khi nhận hàng (COD)`, `Chuyển khoản VietQR`, `Chờ thanh toán`, `Thành công`, `Hoàn tiền`.
+- Cập nhật tài khoản demo chuẩn: `user1@gmail.com` (role `User`), `admin@kibo.vn` (role `Admin`).
+- Bổ sung 2 câu SQL đối chiếu trực tiếp để hội đồng nghiệm thu kiểm tra đối chứng tại chỗ.
+
+### 4. Chuẩn hóa Tính Phí Vận chuyển & Giao diện Quận/Huyện (Mức độ Trung bình)
+- Loại bỏ các mã viết tắt 2 ký tự dễ gây nhận diện sai chuỗi con (`CC`, `HM`, `BC`, `NB`, `CG`, `TP`, `BTH`).
+- Bổ sung danh sách 16 quận nội thành và 5 huyện ngoại thành TP.HCM vào `config/business.php`.
+- Phía máy chủ so khớp chính xác tên quận/huyện bằng equality và ranh giới từ nguyên vẹn (`\bQuận 7\b`), không dùng `stripos` lỏng lẻo. Đảm bảo địa chỉ dạng *"Chung cư CC1, Quận 7"* được tính chuẩn xác là nội thành.
+- Cập nhật form đặt hàng với dropdown Tỉnh/Thành và Quận/Huyện cố định, gửi trường riêng biệt lên server và cập nhật phí ship theo thời gian thực.
+
+### 5. Bộ Kiểm thử Tự động Chuyên sâu (`tests/test_qa_suite.php`)
+- Nâng cấp bộ test lên **14 Test Cases** toàn diện:
+  - TC1: Xác thực mật khẩu demo bảo mật, xóa backdoor '123456'.
+  - TC2: Kiểm tra hàm `requireAdmin()` thật qua subprocess HTTP/CLI.
+  - TC3: Tính tiền phía server (bác bỏ giá client).
+  - TC4: Kiểm tra tồn kho nguyên tử.
+  - TC5: Kiểm duyệt hạn dùng, lượt dùng Voucher.
+  - TC6: So khớp chính sách phí ship quận/huyện nội/ngoại thành chuẩn xác.
+  - TC7: Khách vãng lai sinh mã `KV...`, `matk = NULL`, không gán nhầm tài khoản.
+  - TC8: Quỹ cứu trợ & điểm tích lũy trên tài khoản riêng biệt (không ảnh hưởng dữ liệu demo `KH001`, `KH002`).
+  - TC9: Hủy đơn hàng và hoàn kho/voucher.
+  - TC10: Phân quyền đổi trả (đăng nhập cho tài khoản, SĐT cho vãng lai).
+  - TC11: Máy trạng thái đơn hàng (chặn nhảy cóc trạng thái).
+  - TC12: Duyệt hoàn tiền: Hoàn kho, trừ lại điểm thưởng, cập nhật thanh toán và quỹ cứu trợ.
+  - TC13: Bảo lưu lịch sử đơn hàng theo `MaKH`.
+  - TC14: Minh bạch Quỹ cứu trợ 100% dữ liệu từ CSDL thực.
+- Sử dụng tài khoản test riêng biệt với tiền tố `TEST_` và dọn dẹp sạch sẽ sau mỗi test case.
+
+### 6. Xử lý Lỗi Cơ sở Dữ liệu & Chống Rò rỉ Thông tin (Mức độ Trung bình)
+- Bọc toàn bộ switch route trong `index.php` bằng `try ... catch (Throwable $e)`. Với API trả về HTTP 503 dạng JSON an toàn; với Web render trang thông báo bảo trì thân thiện.
+- Loại bỏ toàn bộ việc in `$e->getMessage()` thô ra client trong các model (`VoucherModel`, `KhachHangModel`, `DonHangModel`).
+- Bổ sung `error_log()` cho các khối `catch` thay vì để trống.
+
+### 7. Máy Trạng thái Đơn hàng & Cơ chế Hoàn Tiền (Mức độ Trung bình)
+- Trong `DonHangModel::capNhatTrangThai`, thiết lập bảng chuyển đổi trạng thái nghiêm ngặt (`Chờ xác nhận -> Chờ đóng gói -> Đã xuất kho -> Đang giao -> Giao thành công`). Chặn tuyệt đối nhảy cóc.
+- Trong `DoiTraModel::xuLy('hoantien')`:
+  - Hoàn trả số lượng tồn kho nguyên tử cho từng sản phẩm trong đơn.
+  - Trừ lại số điểm tích lũy đã được cộng khi giao thành công.
+  - Chuyển trạng thái thanh toán sang `'Hoàn tiền'`.
+  - Hủy khoản trích quỹ cứu trợ tương ứng (`trangthaiquy = 'Đã hủy'`).
+
+### 8. Dọn dẹp Code & Tinh chỉnh Hoàn thiện (Mức độ Thấp)
+- Xóa bỏ hoàn toàn giá trị hardcode `0.05` trong toàn bộ codebase; đọc tập trung từ `config/business.php` (bắn Exception nếu thiếu).
+- Sửa mô tả voucher `FREESHIP` trong file seed và CSDL thực tế thành *"Giảm 10% giá trị đơn hàng từ 200K"*.
+- Cấu hình cờ cookie session bảo mật: `httponly=true`, `samesite=Lax`, `secure` khi chạy HTTPS.
+- Cập nhật `.env.test` tách biệt môi trường kiểm thử.
+

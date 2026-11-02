@@ -8,8 +8,8 @@ class Database {
     private static $conn = null;
     private static $lastError = null;
 
-    private static function loadEnv() {
-        $envFile = __DIR__ . '/../.env';
+    public static function loadEnv($file = null, $override = false) {
+        $envFile = $file ?: (getenv('KIBO_ENV_FILE') ?: __DIR__ . '/../.env');
         if (file_exists($envFile)) {
             $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
             foreach ($lines as $line) {
@@ -20,7 +20,7 @@ class Database {
                     $key = trim($parts[0]);
                     $val = trim($parts[1]);
                     $val = trim($val, "\"'");
-                    if (getenv($key) === false) {
+                    if ($override || getenv($key) === false) {
                         putenv("{$key}={$val}");
                         $_ENV[$key] = $val;
                         $_SERVER[$key] = $val;

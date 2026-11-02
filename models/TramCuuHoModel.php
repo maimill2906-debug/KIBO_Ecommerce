@@ -22,7 +22,9 @@ class TramCuuHoModel {
                 if (!empty($rows)) {
                     return $rows;
                 }
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+                error_log("Lỗi getAll TramCuuHoModel: " . $e->getMessage());
+            }
         }
         return [];
     }
@@ -41,7 +43,9 @@ class TramCuuHoModel {
                 if (!empty($rows)) {
                     return $rows;
                 }
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+                error_log("Lỗi getDisbursements TramCuuHoModel: " . $e->getMessage());
+            }
         }
         return [];
     }

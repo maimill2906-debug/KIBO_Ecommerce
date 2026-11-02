@@ -13,7 +13,10 @@ class DonHangModel {
         static $tyLe = null;
         if ($tyLe === null) {
             $business = require __DIR__ . '/../config/business.php';
-            $tyLe = (float)($business['quy_ty_le'] ?? 0.05);
+            if (!isset($business['quy_ty_le'])) {
+                throw new RuntimeException("Thiếu cấu hình bắt buộc 'quy_ty_le' trong config/business.php");
+            }
+            $tyLe = (float)$business['quy_ty_le'];
         }
         $net = max(0, $tongTienHang - $tienGiam);
         return (float)round($net * $tyLe);
@@ -23,22 +26,50 @@ class DonHangModel {
         $biz = require __DIR__ . '/../config/business.php';
         $shipConf = $biz['ship'] ?? ['phi_co_ban' => 20000, 'mien_phi_noi_thanh' => 200000, 'mien_phi_khac' => 500000];
         $noiThanhArr = $biz['noi_thanh_hcm'] ?? [];
+        $tinhHcmArr = $biz['tinh_thanh_hcm'] ?? ['Hồ Chí Minh', 'TP. Hồ Chí Minh', 'TP Hồ Chí Minh', 'TP.HCM', 'TPHCM', 'Thành phố Hồ Chí Minh', 'HCM'];
 
-        $isHCM = (stripos($tinhThanh, 'Hồ Chí Minh') !== false || stripos($tinhThanh, 'HCM') !== false || stripos($diaChiNhan, 'Hồ Chí Minh') !== false || stripos($diaChiNhan, 'TP.HCM') !== false);
-        $isNoiThanh = $isHCM && in_array($quanHuyen, $noiThanhArr, true);
-        if ($isHCM && !$isNoiThanh) {
-            foreach ($noiThanhArr as $dist) {
-                if (stripos($diaChiNhan, $dist) !== false || stripos($quanHuyen, $dist) !== false) {
-                    $isNoiThanh = true;
+        $cleanTinh = trim($tinhThanh);
+        $cleanQuan = trim($quanHuyen);
+
+        // 1. Xác định tỉnh/thành có phải TP.HCM không
+        $isHCM = false;
+        if (!empty($cleanTinh)) {
+            foreach ($tinhHcmArr as $hcm) {
+                if (strcasecmp($cleanTinh, $hcm) === 0) {
+                    $isHCM = true;
+                    break;
+                }
+            }
+        } elseif (!empty($diaChiNhan)) {
+            foreach ($tinhHcmArr as $hcm) {
+                if (stripos($diaChiNhan, $hcm) !== false) {
+                    $isHCM = true;
                     break;
                 }
             }
         }
-        $ngoaiThanhHuyen = ['Củ Chi', 'Hóc Môn', 'Bình Chánh', 'Nhà Bè', 'Cần Giờ', 'CC', 'HM', 'BC', 'NB', 'CG'];
-        foreach ($ngoaiThanhHuyen as $nth) {
-            if (stripos($diaChiNhan, $nth) !== false || stripos($quanHuyen, $nth) !== false) {
-                $isNoiThanh = false;
-                break;
+
+        // 2. Chỉ khi là TP.HCM mới xét tiếp nội thành (so khớp chính xác, không dùng stripos)
+        $isNoiThanh = false;
+        if ($isHCM) {
+            if (!empty($cleanQuan)) {
+                foreach ($noiThanhArr as $dist) {
+                    $shortDist = preg_replace('/^(Quận|Thành phố)\s+/iu', '', $dist);
+                    if (strcasecmp($cleanQuan, $dist) === 0 || strcasecmp($cleanQuan, $shortDist) === 0) {
+                        $isNoiThanh = true;
+                        break;
+                    }
+                }
+            }
+            // Fallback nếu không có quanhuyen riêng mà chỉ có diaChiNhan: dùng regex ranh giới từ nguyên vẹn \b
+            if (!$isNoiThanh && !empty($diaChiNhan)) {
+                foreach ($noiThanhArr as $dist) {
+                    $pattern = '/\b' . preg_quote($dist, '/') . '\b/iu';
+                    if (preg_match($pattern, $diaChiNhan)) {
+                        $isNoiThanh = true;
+                        break;
+                    }
+                }
             }
         }
 
@@ -93,7 +124,7 @@ class DonHangModel {
                             'shipping' => (float)$r['phivanchuyen'],
                             'discount' => (float)$r['tiengiamgia'],
                             'total' => (float)$r['tongthanhtoan'],
-                            'fundAmount' => (float)($r['sotiendonggop'] ?? round(($r['tongtienhang'] - $r['tiengiamgia']) * 0.05)),
+                            'fundAmount' => (float)($r['sotiendonggop'] ?? self::tinhQuy($r['tongtienhang'], $r['tiengiamgia'])),
                             'lookupCode' => $r['matracuu'] ?? $maDH,
                             'status' => $statusText,
                             'carrierStatus' => ($statusRaw === 'Giao thành công' ? 'Đã giao thành công' : 'Đơn vị vận chuyển đang xử lý'),
@@ -104,7 +135,9 @@ class DonHangModel {
                     }
                     return $mapped;
                 }
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+                error_log("Lỗi getOrdersByCustomer DonHangModel: " . $e->getMessage());
+            }
         }
         return [];
     }
@@ -179,7 +212,7 @@ class DonHangModel {
                         'shipping' => (float)$r['phivanchuyen'],
                         'discount' => (float)$r['tiengiamgia'],
                         'total' => (float)$r['tongthanhtoan'],
-                        'fundAmount' => (float)($r['sotiendonggop'] ?? round(($r['tongtienhang'] - $r['tiengiamgia']) * 0.05)),
+                        'fundAmount' => (float)($r['sotiendonggop'] ?? self::tinhQuy($r['tongtienhang'], $r['tiengiamgia'])),
                         'lookupCode' => $r['matracuu'] ?? $r['madonhang'],
                         'status' => $statusText,
                         'carrierStatus' => ($statusRaw === 'Giao thành công' ? 'Đã giao thành công' : 'Đơn vị vận chuyển đang xử lý'),
@@ -188,7 +221,9 @@ class DonHangModel {
                         'fundStatus' => $r['trangthaiquy'] ?? 'Đã tích lũy'
                     ];
                 }
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+                error_log("Lỗi getOrdersByCustomer DonHangModel: " . $e->getMessage());
+            }
         }
 
         return null;
@@ -358,12 +393,14 @@ class DonHangModel {
             // 8. Định danh khách hàng (truyền trực tiếp, session hoặc khách vãng lai)
             $maKH = $maKHOption ?: (!empty($_SESSION['user']['MaKH']) ? $_SESSION['user']['MaKH'] : null);
             if (!$maKH) {
-                $guestEmail = 'guest_' . $sdtNhan . '@kibo.local';
+                // Khách vãng lai: CHỈ tìm khách vãng lai cũ có matk IS NULL (tuyệt đối không gắn vào tài khoản có matk)
                 $findKH = $db->prepare("SELECT kh.makh 
                                         FROM khach_hang kh 
-                                        LEFT JOIN sdt_kh s ON kh.makh = s.makh 
-                                        WHERE s.sodienthoai = ? OR LOWER(kh.email) = LOWER(?) LIMIT 1");
-                $findKH->execute([$sdtNhan, $guestEmail]);
+                                        JOIN sdt_kh s ON kh.makh = s.makh 
+                                        WHERE s.sodienthoai = ? 
+                                          AND kh.matk IS NULL 
+                                        LIMIT 1");
+                $findKH->execute([$sdtNhan]);
                 $existMaKH = $findKH->fetchColumn();
                 if ($existMaKH) {
                     $maKH = $existMaKH;
@@ -376,6 +413,7 @@ class DonHangModel {
                 } else {
                     require_once __DIR__ . '/IdGen.php';
                     $maKH = IdGen::next($db, 'khach_hang', 'makh', 'KV', 3);
+                    $guestEmail = 'guest_' . $sdtNhan . '_' . strtolower($maKH) . '@kibo.local';
                     $stmtNewGuest = $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, NULL, ?, ?, 0)");
                     $stmtNewGuest->execute([$maKH, $tenNhan, $guestEmail]);
 
@@ -501,9 +539,22 @@ class DonHangModel {
 
             $currentStatus = $order['trangthaidonhang'];
 
-            // Nếu trạng thái hiện tại đã là trạng thái cuối cùng thì từ chối chuyển tiếp
-            if ($currentStatus === TrangThai::DH_GIAO_THANH_CONG || $currentStatus === TrangThai::DH_DA_HUY) {
-                throw new Exception("Đơn hàng đã ở trạng thái cuối ('{$currentStatus}'), không thể thay đổi.");
+            if ($currentStatus === $normalizedStatus) {
+                return ['success' => true, 'message' => "Đơn hàng đã ở trạng thái '{$currentStatus}'."];
+            }
+
+            // Quy định chuyển trạng thái nghiêm ngặt theo luồng chuẩn (chặn tuyệt đối việc nhảy cóc)
+            $allowedTransitions = [
+                TrangThai::DH_CHO_XAC_NHAN => [TrangThai::DH_CHO_DONG_GOI, TrangThai::DH_DA_HUY],
+                TrangThai::DH_CHO_DONG_GOI => [TrangThai::DH_DA_XUAT_KHO, TrangThai::DH_DA_HUY],
+                TrangThai::DH_DA_XUAT_KHO  => [TrangThai::DH_DANG_GIAO],
+                TrangThai::DH_DANG_GIAO    => [TrangThai::DH_GIAO_THANH_CONG],
+                TrangThai::DH_GIAO_THANH_CONG => [],
+                TrangThai::DH_DA_HUY       => []
+            ];
+
+            if (!isset($allowedTransitions[$currentStatus]) || !in_array($normalizedStatus, $allowedTransitions[$currentStatus], true)) {
+                throw new Exception("Không thể chuyển trạng thái đơn hàng từ '{$currentStatus}' sang '{$normalizedStatus}'.");
             }
 
             // 2. Xử lý chuyển trạng thái
@@ -527,7 +578,7 @@ class DonHangModel {
                     $diemMoiDong = (int)($biz['diem_moi_dong'] ?? 10000);
                     $diemCong = (int)floor((float)$order['tongthanhtoan'] / $diemMoiDong);
                     if ($diemCong > 0) {
-                        $stmtDiem = $db->prepare("UPDATE khach_hang SET diemtichluy = COALESCE(diemtichluy, 0) + ? WHERE makh = ?");
+                        $stmtDiem = $db->prepare("UPDATE khach_hang SET diemtichluy = COALESCE(diemtichluy, 0) + ? WHERE makh = ? AND matk IS NOT NULL");
                         $stmtDiem->execute([$diemCong, $maKH]);
                     }
                 }

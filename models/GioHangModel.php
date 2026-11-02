@@ -102,7 +102,9 @@ class GioHangModel {
             if ($maGH) {
                 $db->prepare("DELETE FROM chi_tiet_gio_hang WHERE magiohang = ?")->execute([$maGH]);
             }
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+            error_log("Lỗi clearDbCart GioHangModel: " . $e->getMessage());
+        }
     }
 
     public static function getCartItems() {

@@ -5,27 +5,23 @@
  * 100% Khớp theo Figma KIBO Pet E-Commerce Platform
  */
 if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'domain' => '',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
     @session_start();
 }
 
-/**
- * Kiểm tra phân quyền Quản trị viên (Admin)
- * Trả về HTTP 403 JSON nếu người dùng chưa đăng nhập hoặc không phải Admin
- */
-function requireAdmin() {
-    if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
-        @session_start();
-    }
-    if (empty($_SESSION['user']) || ($_SESSION['user']['VaiTro'] ?? '') !== 'Admin') {
-        http_response_code(403);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['success' => false, 'message' => 'Truy cập bị từ chối: Yêu cầu quyền quản trị viên (Admin).'], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-}
+require_once __DIR__ . '/config/auth.php';
 
 $action = $_GET['action'] ?? 'home';
 
+try {
 switch ($action) {
     case 'about':
         require __DIR__ . '/views/customer/AboutView.php';
@@ -184,7 +180,8 @@ switch ($action) {
         $maDH = trim($input['madonhang'] ?? '');
         $lyDo = trim($input['lydo'] ?? '');
         $hinhAnh = trim($input['hinhanh'] ?? '');
-        $res = DoiTraModel::taoYeuCau($maDH, $lyDo, $hinhAnh, $maKH);
+        $sdt = trim($input['sdt'] ?? ($input['sodienthoai'] ?? ''));
+        $res = DoiTraModel::taoYeuCau($maDH, $lyDo, $hinhAnh, $maKH, $sdt);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 
@@ -329,4 +326,25 @@ switch ($action) {
     default:
         require __DIR__ . '/views/customer/HomeView.php';
         break;
+}
+} catch (Throwable $e) {
+    error_log("Unhandled Exception [action={$action}]: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+    
+    // Kiểm tra request là JSON hay HTML
+    $isJson = (
+        strpos($action, 'admin_') === 0 || 
+        in_array($action, ['create_order', 'check_voucher', 'submit_return', 'sync_cart', 'cancel_order', 'update_profile', 'login_submit'], true) ||
+        (isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false) ||
+        (isset($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false)
+    );
+
+    http_response_code(503);
+    if ($isJson) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'message' => 'Hệ thống đang bận, vui lòng thử lại sau.'], JSON_UNESCAPED_UNICODE);
+    } else {
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Hệ thống đang bảo trì</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#faf7f2;color:#2c1a0e;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;} .box{background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.08);text-align:center;max-width:480px;} h1{color:#c94336;margin-top:0;} a{display:inline-block;margin-top:16px;background:#c94336;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;font-weight:600;}</style></head><body><div class="box"><h1>Hệ thống đang bận</h1><p>Hệ thống đang được bảo trì hoặc quá tải tạm thời. Vui lòng thử lại sau ít phút.</p><a href="index.php?action=home">Về trang chủ KIBO</a></div></body></html>';
+    }
+    exit;
 }

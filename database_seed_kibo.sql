@@ -93,7 +93,7 @@ ON CONFLICT (madiachi) DO NOTHING;
 -- 10. BẢNG VOUCHER KHUYẾN MÃI (voucher) - loaigiamgia: 'SoTien' hoặc 'PhanTram'
 INSERT INTO voucher (mavoucher, tenvoucher, loaigiamgia, giatrigiam, donhangtoithieu, ngaybatdau, ngayketthuc, soluongconlai) VALUES
 ('KIBO20', 'Giảm 20K cho đơn hàng đầu tiên', 'SoTien', 20000, 200000, '2026-01-01 00:00:00+07', '2026-12-31 23:59:59+07', 95),
-('FREESHIP', 'Giảm 10% phí ship đơn từ 200K', 'PhanTram', 10, 200000, '2026-01-01 00:00:00+07', '2026-12-31 23:59:59+07', 500)
+('FREESHIP', 'Giảm 10% giá trị đơn hàng từ 200K', 'PhanTram', 10, 200000, '2026-01-01 00:00:00+07', '2026-12-31 23:59:59+07', 500)
 ON CONFLICT (mavoucher) DO UPDATE 
 SET tenvoucher = EXCLUDED.tenvoucher, loaigiamgia = EXCLUDED.loaigiamgia, giatrigiam = EXCLUDED.giatrigiam;
 

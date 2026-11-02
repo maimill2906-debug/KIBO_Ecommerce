@@ -49,13 +49,14 @@ class DoiTraModel {
         return [];
     }
 
-    public static function taoYeuCau($maDonHang, $lyDo, $hinhAnh = '', $maKH = '') {
+    public static function taoYeuCau($maDonHang, $lyDo, $hinhAnh = '', $maKH = '', $sdt = '') {
         $db = Database::getConnection();
         if (!$db) return ['success' => false, 'message' => 'Lỗi kết nối cơ sở dữ liệu'];
 
         $maDonHang = trim($maDonHang);
         $lyDo = trim($lyDo);
         $maKH = trim($maKH);
+        $sdt = preg_replace('/\D+/', '', (string)$sdt);
 
         if (empty($maDonHang)) {
             return ['success' => false, 'message' => 'Vui lòng cung cấp mã đơn hàng.'];
@@ -67,18 +68,40 @@ class DoiTraModel {
         try {
             $db->beginTransaction();
 
-            // 1. Khóa và kiểm tra đơn hàng
-            $stmt = $db->prepare("SELECT * FROM don_hang WHERE madonhang = ? FOR UPDATE");
+            // 1. Khóa và kiểm tra đơn hàng cùng thông tin khách hàng (để biết có matk hay không)
+            $stmt = $db->prepare("
+                SELECT d.*, kh.matk, kh.makh as kh_makh 
+                FROM don_hang d 
+                JOIN khach_hang kh ON d.makh = kh.makh 
+                WHERE d.madonhang = ? 
+                FOR UPDATE
+            ");
             $stmt->execute([$maDonHang]);
             $order = $stmt->fetch();
 
+            $genericErr = "Không tìm thấy đơn hàng hoặc thông tin xác minh không đúng.";
+
             if (!$order) {
-                throw new Exception("Không tìm thấy đơn hàng #{$maDonHang}.");
+                throw new Exception($genericErr);
             }
 
-            // 2. Kiểm tra chủ sở hữu đơn hàng
-            if (!empty($maKH) && $order['makh'] !== $maKH) {
-                throw new Exception("Bạn không có quyền yêu cầu đổi trả cho đơn hàng của người khác.");
+            // 2. Xác thực quyền sở hữu đơn hàng (Bảo mật nghiêm ngặt)
+            $isRegisteredAccount = !empty($order['matk']);
+            if ($isRegisteredAccount) {
+                // Khách có tài khoản: BẮT BUỘC phải đăng nhập và MaKH trong session phải khớp chính xác
+                if (empty($maKH) || $order['makh'] !== $maKH) {
+                    throw new Exception($genericErr);
+                }
+            } else {
+                // Khách vãng lai (makh dạng KV... hoặc matk IS NULL):
+                // Yêu cầu thêm SĐT và so khớp với sodienthoainhan sau khi bỏ ký tự không phải số
+                $orderPhoneClean = preg_replace('/\D+/', '', (string)$order['sodienthoainhan']);
+                $isMatchingSession = (!empty($maKH) && $order['makh'] === $maKH);
+                $isMatchingPhone = (!empty($sdt) && $sdt === $orderPhoneClean);
+
+                if (!$isMatchingSession && !$isMatchingPhone) {
+                    throw new Exception($genericErr);
+                }
             }
 
             // 3. Trạng thái đơn phải là 'Giao thành công'
@@ -165,7 +188,34 @@ class DoiTraModel {
                 $stmtUp = $db->prepare("UPDATE yeu_cau_doi_tra SET trangthaiyeucau = ?, huongxuly = ?, ngayxuly = NOW() WHERE mayeucau = ?");
                 $stmtUp->execute([$newStatus, $huongXuLy, $maYeuCau]);
 
-                // Hủy phần đóng góp quỹ của đơn nếu chưa giải ngân
+                // 1. Ghi nhận trạng thái thanh toán -> 'Hoàn tiền'
+                $stmtTT = $db->prepare("UPDATE thanh_toan SET trangthaitt = ?, thoigiantt = NOW() WHERE madonhang = ?");
+                $stmtTT->execute([TrangThai::TT_HOAN_TIEN, $maDonHang]);
+
+                // 2. Hoàn lại tồn kho cho từng sản phẩm trong đơn
+                $stmtItems = $db->prepare("SELECT mabienthe, soluong FROM chi_tiet_don_hang WHERE madonhang = ?");
+                $stmtItems->execute([$maDonHang]);
+                $lines = $stmtItems->fetchAll();
+                $stmtStock = $db->prepare("UPDATE bien_the SET soluongton = soluongton + ? WHERE mabienthe = ?");
+                foreach ($lines as $line) {
+                    $stmtStock->execute([(int)$line['soluong'], $line['mabienthe']]);
+                }
+
+                // 3. Trừ lại số điểm tích lũy đã cộng cho khách (nếu có tài khoản)
+                $stmtOrder = $db->prepare("SELECT makh, tongthanhtoan FROM don_hang WHERE madonhang = ?");
+                $stmtOrder->execute([$maDonHang]);
+                $orderInfo = $stmtOrder->fetch();
+                if ($orderInfo && !empty($orderInfo['makh'])) {
+                    $biz = require __DIR__ . '/../config/business.php';
+                    $diemMoiDong = (int)($biz['diem_moi_dong'] ?? 10000);
+                    $diemDaCong = (int)floor((float)$orderInfo['tongthanhtoan'] / $diemMoiDong);
+                    if ($diemDaCong > 0) {
+                        $stmtDeductPoints = $db->prepare("UPDATE khach_hang SET diemtichluy = GREATEST(0, COALESCE(diemtichluy, 0) - ?) WHERE makh = ? AND matk IS NOT NULL");
+                        $stmtDeductPoints->execute([$diemDaCong, $orderInfo['makh']]);
+                    }
+                }
+
+                // 4. Hủy phần đóng góp quỹ của đơn nếu chưa giải ngân
                 $stmtQuy = $db->prepare("UPDATE quy_cuu_tro SET trangthaiquy = ? WHERE madonhang = ? AND trangthaiquy <> ?");
                 $stmtQuy->execute([TrangThai::QUY_DA_HUY, $maDonHang, TrangThai::QUY_DA_GIAI_NGAN]);
             } elseif ($hanhDong === 'tuchoi') {

@@ -102,7 +102,7 @@ class VoucherModel {
             ];
         } catch (Exception $e) {
             error_log("Lỗi validateVoucher: " . $e->getMessage());
-            return ['valid' => false, 'message' => 'Lỗi kiểm tra mã giảm giá: ' . $e->getMessage()];
+            return ['valid' => false, 'message' => 'Lỗi kiểm tra mã giảm giá, vui lòng thử lại sau.'];
         }
     }
 
@@ -169,7 +169,8 @@ class VoucherModel {
                 return ['success' => true, 'message' => "Tạo mới mã '{$code}' thành công."];
             }
         } catch (Exception $e) {
-            return ['success' => false, 'message' => 'Lỗi lưu voucher: ' . $e->getMessage()];
+            error_log("Lỗi saveVoucher: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Lỗi lưu mã giảm giá, vui lòng thử lại sau.'];
         }
     }
 
@@ -193,7 +194,8 @@ class VoucherModel {
             $msg = $active ? "Đã bật kích hoạt mã voucher {$code}" : "Đã tắt (vô hiệu hóa) mã voucher {$code}";
             return ['success' => true, 'kichhoat' => $active, 'message' => $msg];
         } catch (Exception $e) {
-            return ['success' => false, 'message' => 'Lỗi chuyển trạng thái: ' . $e->getMessage()];
+            error_log("Lỗi toggleActive: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Lỗi chuyển trạng thái mã giảm giá, vui lòng thử lại sau.'];
         }
     }
 }

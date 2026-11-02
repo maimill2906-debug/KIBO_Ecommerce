@@ -14,21 +14,31 @@ return [
         'mien_phi_khac' => 500000,      // Đơn hàng >= 500.000đ ngoại thành & các tỉnh
     ],
 
-    // Danh sách quận/huyện nội thành TP.HCM (hỗ trợ cả mã viết tắt và tên tiếng Việt)
+    // Các định dạng nhận diện TP.HCM
+    'tinh_thanh_hcm' => [
+        'Hồ Chí Minh', 'TP. Hồ Chí Minh', 'TP Hồ Chí Minh', 'TP.HCM', 'TPHCM', 'Thành phố Hồ Chí Minh', 'HCM'
+    ],
+
+    // Danh sách 16 quận/thành phố nội thành TP.HCM (so khớp chính xác, bỏ mọi mã viết tắt 2 chữ dễ nhầm CC, HM, BC, NB, CG, TP, BTH)
     'noi_thanh_hcm' => [
-        // Mã viết tắt
-        'Q1', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q10', 'Q11', 'Q12',
-        'BT', 'BTH', 'PN', 'GV', 'TB', 'TP', 'TD',
-        // Tên chuẩn tiếng Việt
         'Quận 1', 'Quận 3', 'Quận 4', 'Quận 5', 'Quận 6', 'Quận 7', 'Quận 8',
         'Quận 10', 'Quận 11', 'Quận 12',
-        'Quận Bình Thạnh', 'Bình Thạnh',
-        'Quận Phú Nhuận', 'Phú Nhuận',
-        'Quận Gò Vấp', 'Gò Vấp',
-        'Quận Tân Bình', 'Tân Bình',
-        'Quận Tân Phú', 'Tân Phú',
-        'Quận Bình Tân', 'Bình Tân',
+        'Quận Bình Thạnh',
+        'Quận Phú Nhuận',
+        'Quận Gò Vấp',
+        'Quận Tân Bình',
+        'Quận Tân Phú',
+        'Quận Bình Tân',
         'Thành phố Thủ Đức', 'TP. Thủ Đức', 'TP Thủ Đức', 'Thủ Đức'
+    ],
+
+    // 5 huyện ngoại thành TP.HCM (ngưỡng miễn ship 500.000đ)
+    'ngoai_thanh_hcm' => [
+        'Huyện Củ Chi', 'Củ Chi',
+        'Huyện Hóc Môn', 'Hóc Môn',
+        'Huyện Bình Chánh', 'Bình Chánh',
+        'Huyện Nhà Bè', 'Nhà Bè',
+        'Huyện Cần Giờ', 'Cần Giờ'
     ],
 
     'hotline' => '1900 6868',

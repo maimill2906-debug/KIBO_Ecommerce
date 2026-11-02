@@ -21,7 +21,9 @@ class ThanhToanModel {
                 $stmt->execute([':id' => $maDonHang]);
                 $row = $stmt->fetch();
                 if ($row) return $row;
-            } catch (Exception $e) {}
+            } catch (Exception $e) {
+                error_log("Lỗi getByOrderId ThanhToanModel: " . $e->getMessage());
+            }
         }
         return null;
     }
