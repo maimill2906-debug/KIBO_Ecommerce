@@ -187,3 +187,24 @@ Hệ thống KIBO đã được tái cấu trúc, vá toàn bộ các lỗ hổn
 - Cấu hình cờ cookie session bảo mật: `httponly=true`, `samesite=Lax`, `secure` khi chạy HTTPS.
 - Cập nhật `.env.test` tách biệt môi trường kiểm thử.
 
+---
+
+# Phiên bản v2.2: Tinh chỉnh Tuyệt đối Hướng tới Điểm 10/10
+
+1. **Bảo vệ Môi trường Kiểm thử Tự động & Độc lập Đa nền tảng**:
+   - Thêm chốt chặn an toàn trong `tests/test_qa_suite.php`: Nếu thiếu `.env.test`, bộ test sẽ từ chối chạy ngay lập tức (`exit(1)`) để ngăn ngừa tuyệt đối rủi ro chạy nhầm hoặc phá hủy DB demo/thật.
+   - Sửa TC2 dùng `PHP_BINARY` và đường dẫn tương đối `realpath(__DIR__ . '/../config/auth.php')`, chạy mượt mà trên mọi môi trường (Windows, Linux, macOS).
+   - Tách biệt hoàn toàn khỏi `KH001` và `KH002`: TC7 tự sinh tài khoản mẫu `TKH_REG7`, TC11 không truyền cứng `KH001`.
+   - Chuẩn hóa độ dài mã khách hàng trong TC12 thành `TKH_RF` (<= 10 ký tự), tương thích 100% với kiểu `VARCHAR(10)` của PostgreSQL gốc.
+
+2. **Chặn Rò rỉ Lỗi Cơ sở Dữ liệu Triệt để**:
+   - Bắt riêng `catch (PDOException $e)` ở `DonHangModel::taoDonHang`, `DonHangModel::capNhatTrangThai`, `DoiTraModel::taoYeuCau`, `DoiTraModel::xuLy`. Lỗi CSDL được ghi ẩn vào log máy chủ và trả về thông điệp an toàn *"Hệ thống đang bận, vui lòng thử lại sau."*, ngăn lộ tên cột hoặc cấu trúc bảng.
+
+3. **Nghiệp vụ Đổi trả & Hoàn tiền Thực tế**:
+   - Bổ sung tùy chọn `$nhapLaiKho = true/false` trong `DoiTraModel::xuLy('hoantien')`. Hỗ trợ logic thực tế cho ngành thức ăn thú cưng: các gói hàng bị hỏng, ẩm mốc khi đổi trả hoàn tiền sẽ không bị tự động nhập lại kho để bán tiếp.
+
+4. **Đồng bộ Dữ liệu Demo & Dọn dẹp Tập tin**:
+   - Sửa `user2@gmail.com` thành `hoangphuc@gmail.com` trong `DOC_CSDL_CAP_NHAT_WORD.md`, khớp 100% với `database_seed_kibo.sql`.
+   - Loại bỏ hoàn toàn các tập tin dư thừa: `test_suite.php` cũ, `crop_hero.*`, `inspect_img.php`, `figma_rendered.png` và file zip lồng bên trong.
+
+

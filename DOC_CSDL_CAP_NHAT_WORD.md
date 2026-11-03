@@ -371,7 +371,7 @@ Khi viết báo cáo hoặc trả lời hội đồng, dùng **chính xác 100% 
 ### 2.5. Tài khoản Demo kiểm thử
 - **`admin@kibo.vn`**: Vai trò `'Admin'`, mật khẩu băm Bcrypt: `MatKhauDemo@2026`
 - **`user1@gmail.com`**: Vai trò `'User'`, Mã khách hàng `KH001`, mật khẩu: `MatKhauDemo@2026`
-- **`user2@gmail.com`**: Vai trò `'User'`, Mã khách hàng `KH002`, mật khẩu: `MatKhauDemo@2026`
+- **`hoangphuc@gmail.com`**: Vai trò `'User'`, Mã khách hàng `KH002`, mật khẩu: `MatKhauDemo@2026`
 
 ---
 

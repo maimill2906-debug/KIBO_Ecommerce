@@ -145,7 +145,13 @@ class DoiTraModel {
                 'message' => "Gửi yêu cầu đổi trả thành công cho đơn #{$maDonHang}!",
                 'mayeucau' => $maYC
             ];
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log("Database error in taoYeuCau DoiTraModel: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Hệ thống đang bận, vui lòng thử lại sau.'];
+        } catch (Throwable $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
@@ -153,7 +159,7 @@ class DoiTraModel {
         }
     }
 
-    public static function xuLy($maYeuCau, $hanhDong, $ghiChu = '') {
+    public static function xuLy($maYeuCau, $hanhDong, $ghiChu = '', $nhapLaiKho = true) {
         $db = Database::getConnection();
         if (!$db) return ['success' => false, 'message' => 'Lỗi kết nối cơ sở dữ liệu'];
 
@@ -192,13 +198,15 @@ class DoiTraModel {
                 $stmtTT = $db->prepare("UPDATE thanh_toan SET trangthaitt = ?, thoigiantt = NOW() WHERE madonhang = ?");
                 $stmtTT->execute([TrangThai::TT_HOAN_TIEN, $maDonHang]);
 
-                // 2. Hoàn lại tồn kho cho từng sản phẩm trong đơn
-                $stmtItems = $db->prepare("SELECT mabienthe, soluong FROM chi_tiet_don_hang WHERE madonhang = ?");
-                $stmtItems->execute([$maDonHang]);
-                $lines = $stmtItems->fetchAll();
-                $stmtStock = $db->prepare("UPDATE bien_the SET soluongton = soluongton + ? WHERE mabienthe = ?");
-                foreach ($lines as $line) {
-                    $stmtStock->execute([(int)$line['soluong'], $line['mabienthe']]);
+                // 2. Hoàn lại tồn kho cho từng sản phẩm trong đơn (chỉ khi được phép nhập lại kho)
+                if ($nhapLaiKho) {
+                    $stmtItems = $db->prepare("SELECT mabienthe, soluong FROM chi_tiet_don_hang WHERE madonhang = ?");
+                    $stmtItems->execute([$maDonHang]);
+                    $lines = $stmtItems->fetchAll();
+                    $stmtStock = $db->prepare("UPDATE bien_the SET soluongton = soluongton + ? WHERE mabienthe = ?");
+                    foreach ($lines as $line) {
+                        $stmtStock->execute([(int)$line['soluong'], $line['mabienthe']]);
+                    }
                 }
 
                 // 3. Trừ lại số điểm tích lũy đã cộng cho khách (nếu có tài khoản)
@@ -236,7 +244,13 @@ class DoiTraModel {
                 'mayeucau' => $maYeuCau,
                 'trangthai' => $newStatus
             ];
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log("Database error in xuLy DoiTraModel: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Hệ thống đang bận, vui lòng thử lại sau.'];
+        } catch (Throwable $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }

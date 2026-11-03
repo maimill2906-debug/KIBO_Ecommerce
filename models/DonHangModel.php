@@ -497,7 +497,16 @@ class DonHangModel {
                 'ship' => $phiShip,
                 'fund_amount' => $tienDongGop
             ];
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log("Database error in taoDonHang: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Hệ thống đang bận, vui lòng thử lại sau.'
+            ];
+        } catch (Throwable $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
@@ -619,7 +628,16 @@ class DonHangModel {
                 'madonhang' => $maDonHang,
                 'trangthai' => $normalizedStatus
             ];
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log("Database error in capNhatTrangThai: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Hệ thống đang bận, vui lòng thử lại sau.'
+            ];
+        } catch (Throwable $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }

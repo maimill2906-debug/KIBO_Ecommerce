@@ -9,13 +9,19 @@ declare(strict_types=1);
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
-// 1. Nạp cấu hình từ .env.test nếu có
+// 1. Chốt chặn bảo vệ: Bắt buộc phải có .env.test để chạy kiểm thử, chống ghi/xóa nhầm DB thật
 $testEnvFile = __DIR__ . '/../.env.test';
-if (file_exists($testEnvFile)) {
-    putenv('KIBO_ENV_FILE=' . $testEnvFile);
+if (!file_exists($testEnvFile)) {
+    echo "====================================================================\n";
+    echo "❌ BẢO VỆ DỮ LIỆU THẬT: Không tìm thấy file '.env.test'.\n";
+    echo "   Bộ kiểm thử tự động từ chối chạy trực tiếp trên cơ sở dữ liệu chính/demo.\n";
+    echo "   Vui lòng tạo file .env.test trỏ về database test trước khi chạy bộ kiểm thử.\n";
+    echo "====================================================================\n";
+    exit(1);
 }
+putenv('KIBO_ENV_FILE=' . $testEnvFile);
 require_once __DIR__ . '/../config/database.php';
-Database::loadEnv(file_exists($testEnvFile) ? $testEnvFile : null, true);
+Database::loadEnv($testEnvFile, true);
 
 require_once __DIR__ . '/../config/business.php';
 require_once __DIR__ . '/../config/auth.php';
@@ -80,18 +86,19 @@ try {
 // TC2: Phân quyền Admin: Gọi trực tiếp requireAdmin() thật qua subprocess
 // ---------------------------------------------------------------------
 try {
-    $phpBin = 'C:\\xampp\\php\\php.exe';
+    $phpBin = defined('PHP_BINARY') && PHP_BINARY ? PHP_BINARY : 'php';
+    $authPath = addslashes(realpath(__DIR__ . '/../config/auth.php'));
     
     // Subcase 1: Không đăng nhập
-    $cmdGuest = "\"{$phpBin}\" -r \"require 'C:/xampp/htdocs/kibo/config/auth.php'; requireAdmin();\" 2>&1";
+    $cmdGuest = "\"{$phpBin}\" -r \"require '{$authPath}'; requireAdmin();\" 2>&1";
     exec($cmdGuest, $outGuest, $codeGuest);
 
     // Subcase 2: User thường (role User)
-    $cmdUser = "\"{$phpBin}\" -r \"session_start(); \$_SESSION['user'] = ['VaiTro' => 'User']; require 'C:/xampp/htdocs/kibo/config/auth.php'; requireAdmin();\" 2>&1";
+    $cmdUser = "\"{$phpBin}\" -r \"session_start(); \$_SESSION['user'] = ['VaiTro' => 'User']; require '{$authPath}'; requireAdmin();\" 2>&1";
     exec($cmdUser, $outUser, $codeUser);
 
     // Subcase 3: Admin (role Admin)
-    $cmdAdmin = "\"{$phpBin}\" -r \"session_start(); \$_SESSION['user'] = ['VaiTro' => 'Admin']; require 'C:/xampp/htdocs/kibo/config/auth.php'; requireAdmin(); echo 'OK_ADMIN';\" 2>&1";
+    $cmdAdmin = "\"{$phpBin}\" -r \"session_start(); \$_SESSION['user'] = ['VaiTro' => 'Admin']; require '{$authPath}'; requireAdmin(); echo 'OK_ADMIN';\" 2>&1";
     exec($cmdAdmin, $outAdmin, $codeAdmin);
 
     $guestBlocked = stripos(implode(' ', $outGuest), 'Truy cập bị từ chối') !== false;
@@ -251,10 +258,22 @@ try {
 // TC7: Khách vãng lai và Chống gán nhầm vào tài khoản có sẵn (Bước 2)
 // ---------------------------------------------------------------------
 try {
-    $registeredPhone = '0987654321'; // SĐT của KH002
-    $pointsKH2Before = (int)$db->query("SELECT diemtichluy FROM khach_hang WHERE makh = 'KH002'")->fetchColumn();
+    $regMaKH = 'TKH_REG7';
+    $regMaTK = 'TTK_REG7';
+    $registeredPhone = '0987000777';
 
-    // Đặt hàng vãng lai với SĐT của KH002
+    // Tạo sẵn tài khoản đăng ký test để đối chứng (không đụng KH002)
+    $db->prepare("DELETE FROM sdt_kh WHERE makh = ?")->execute([$regMaKH]);
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$regMaKH]);
+    $db->prepare("DELETE FROM tai_khoan WHERE matk = ?")->execute([$regMaTK]);
+
+    $db->prepare("INSERT INTO tai_khoan (matk, tendangnhap, matkhau, vaitro) VALUES (?, 'user_reg7', 'hash', 'User')")->execute([$regMaTK]);
+    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, ?, 'User Reg 7', 'user_reg7@kibo.local', 50)")->execute([$regMaKH, $regMaTK]);
+    $db->prepare("INSERT INTO sdt_kh (makh, sodienthoai) VALUES (?, ?)")->execute([$regMaKH, $registeredPhone]);
+
+    $pointsRegBefore = (int)$db->query("SELECT diemtichluy FROM khach_hang WHERE makh = '{$regMaKH}'")->fetchColumn();
+
+    // Người lạ đặt hàng vãng lai nhưng nhập trùng SĐT của tài khoản trên
     $guestOrder = [
         'customer' => ['name' => 'Người Lạ Dùng Trùng SĐT', 'phone' => $registeredPhone, 'address' => '123 Đường Lạ, Quận 1, TP. Hồ Chí Minh'],
         'items' => [['id' => 'BT001', 'name' => 'KIBO Cá Hồi', 'variant' => 'V1', 'price' => 285000, 'quantity' => 1]],
@@ -269,25 +288,29 @@ try {
     $orderOwner = $db->query("SELECT makh FROM don_hang WHERE madonhang = '{$guestOid}'")->fetchColumn();
     $ownerMatk = $db->query("SELECT matk FROM khach_hang WHERE makh = '{$orderOwner}'")->fetchColumn();
 
-    // 1. Đơn KHÔNG được gán cho KH002 mà gán cho mã KV... mới
-    $notAttachedToKH2 = ($orderOwner !== 'KH002' && strpos($orderOwner, 'KV') === 0 && $ownerMatk === null);
+    // 1. Đơn KHÔNG được gán cho tài khoản có sẵn mà phải gán cho mã KV... mới
+    $notAttachedToReg = ($orderOwner !== $regMaKH && strpos($orderOwner, 'KV') === 0 && $ownerMatk === null);
 
-    // 2. Chuyển giao thành công => Điểm của KH002 KHÔNG được tăng
+    // 2. Chuyển giao thành công => Điểm của tài khoản có sẵn KHÔNG được tăng (giữ nguyên 50)
+    DonHangModel::capNhatTrangThai($guestOid, 'Chờ đóng gói');
+    DonHangModel::capNhatTrangThai($guestOid, 'Đã xuất kho');
+    DonHangModel::capNhatTrangThai($guestOid, 'Đang giao');
     DonHangModel::capNhatTrangThai($guestOid, 'Giao thành công');
-    $pointsKH2After = (int)$db->query("SELECT diemtichluy FROM khach_hang WHERE makh = 'KH002'")->fetchColumn();
-    $pointsUntouched = ($pointsKH2After === $pointsKH2Before);
 
-    // 3. Lịch sử đơn của KH002 KHÔNG chứa đơn của người lạ
-    $kh2Orders = DonHangModel::getOrdersByCustomer('KH002');
-    $notInKH2History = true;
-    foreach ($kh2Orders as $o) {
+    $pointsRegAfter = (int)$db->query("SELECT diemtichluy FROM khach_hang WHERE makh = '{$regMaKH}'")->fetchColumn();
+    $pointsUntouched = ($pointsRegAfter === $pointsRegBefore && $pointsRegAfter === 50);
+
+    // 3. Lịch sử đơn của tài khoản có sẵn KHÔNG chứa đơn của người lạ
+    $regOrders = DonHangModel::getOrdersByCustomer($regMaKH);
+    $notInRegHistory = true;
+    foreach ($regOrders as $o) {
         if (($o['orderId'] ?? '') === $guestOid) {
-            $notInKH2History = false;
+            $notInRegHistory = false;
             break;
         }
     }
 
-    // Dọn dẹp đơn test
+    // Dọn dẹp đơn test và khách test
     $db->prepare("DELETE FROM chi_tiet_don_hang WHERE madonhang = ?")->execute([$guestOid]);
     $db->prepare("DELETE FROM quy_cuu_tro WHERE madonhang = ?")->execute([$guestOid]);
     $db->prepare("DELETE FROM thanh_toan WHERE madonhang = ?")->execute([$guestOid]);
@@ -295,9 +318,12 @@ try {
     $db->prepare("DELETE FROM sdt_kh WHERE makh = ?")->execute([$orderOwner]);
     $db->prepare("DELETE FROM dia_chi_kh WHERE makh = ?")->execute([$orderOwner]);
     $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$orderOwner]);
+    $db->prepare("DELETE FROM sdt_kh WHERE makh = ?")->execute([$regMaKH]);
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$regMaKH]);
+    $db->prepare("DELETE FROM tai_khoan WHERE matk = ?")->execute([$regMaTK]);
     $db->prepare("UPDATE bien_the SET soluongton = soluongton + 1 WHERE mabienthe = 'BT001'")->execute();
 
-    assertTest("TC7", "Khách hàng vãng lai: Tự sinh mã KV..., matk = NULL, tuyệt đối không gắn nhầm vào tài khoản người khác", $notAttachedToKH2 && $pointsUntouched && $notInKH2History);
+    assertTest("TC7", "Khách hàng vãng lai: Tự sinh mã KV..., matk = NULL, tuyệt đối không gắn nhầm vào tài khoản người khác", $notAttachedToReg && $pointsUntouched && $notInRegHistory);
 } catch (Throwable $e) {
     assertTest("TC7", "Khách hàng vãng lai", false, $e->getMessage());
 }
@@ -457,7 +483,7 @@ try {
         'items' => [['id' => 'BT001', 'name' => 'KIBO Cá Hồi', 'variant' => 'Túi 1.5kg', 'price' => 285000, 'quantity' => 1]],
         'paymentMethod' => 'cod'
     ];
-    $orderRes = DonHangModel::taoDonHang($orderData, 'KH001');
+    $orderRes = DonHangModel::taoDonHang($orderData);
     $oid = $orderRes['orderId'];
 
     // Đơn mới tạo ở trạng thái 'Chờ xác nhận'. Thử nhảy cóc thẳng sang 'Giao thành công' => BỊ TỪ CHỐI
@@ -484,8 +510,8 @@ try {
 // TC12: Duyệt Hoàn tiền: Hoàn tồn kho, hoàn điểm, thanh toán -> 'Hoàn tiền' (Bước 7)
 // ---------------------------------------------------------------------
 try {
-    $testMaKH = 'TEST_KH_REFUND';
-    $testMaTK = 'TEST_TK_REFUND';
+    $testMaKH = 'TKH_RF';
+    $testMaTK = 'TTK_RF';
 
     // Tạo khách test với 50 điểm
     $db->prepare("DELETE FROM sdt_kh WHERE makh = ?")->execute([$testMaKH]);
@@ -519,8 +545,8 @@ try {
     $retRes = DoiTraModel::taoYeuCau($oid, 'Bao bì thủng hạt rơi ra ngoài', '', $testMaKH);
     $myc = $retRes['mayeucau'];
 
-    // 4. Admin duyệt HOÀN TIỀN
-    $refundRes = DoiTraModel::xuLy($myc, 'hoantien');
+    // 4. Admin duyệt HOÀN TIỀN (chọn nhập lại kho)
+    $refundRes = DoiTraModel::xuLy($myc, 'hoantien', '', true);
 
     // Kiểm tra kết quả sau hoàn tiền:
     $pointsAfterRefund = (int)$db->query("SELECT diemtichluy FROM khach_hang WHERE makh = '{$testMaKH}'")->fetchColumn();
