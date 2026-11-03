@@ -35,7 +35,7 @@ class SanPhamController {
             ['id' => 'lookup',   'label' => 'Tra cứu đơn hàng', 'href' => 'index.php?action=home#lookup', 'active' => false],
         ];
 
-        $hotline = '1800 6868';
+        $hotline = kibo_business('hotline') ?? '0772 906 756';
 
         require __DIR__ . '/../views/customer/SanPhamView.php';
     }
