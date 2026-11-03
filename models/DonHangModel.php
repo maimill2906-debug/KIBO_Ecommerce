@@ -379,11 +379,25 @@ class DonHangModel {
                 $valGiam = (float)($vRow['giatrigiam'] ?? 0);
                 if ($loaiGiam === 'PhanTram') {
                     $tienGiam = round($tongTienHang * ($valGiam / 100));
+                    $maxDiscount = !empty($vRow['giamtoida']) ? (float)$vRow['giamtoida'] : null;
+                    if ($maxDiscount !== null && $maxDiscount > 0) {
+                        $tienGiam = min($tienGiam, $maxDiscount);
+                    }
                 } else {
                     $tienGiam = $valGiam;
                 }
                 $tienGiam = min($tongTienHang, $tienGiam);
                 $maVoucher = $vRow['mavoucher'];
+
+                // Giới hạn 1 lần sử dụng cho mỗi khách hàng có tài khoản
+                $tempCustomerCheck = $maKHOption ?: (!empty($_SESSION['user']['MaKH']) ? $_SESSION['user']['MaKH'] : null);
+                if (!empty($tempCustomerCheck)) {
+                    $chkUsed = $db->prepare("SELECT 1 FROM don_hang WHERE makh = ? AND UPPER(mavoucher) = UPPER(?) AND trangthaidonhang <> ? LIMIT 1");
+                    $chkUsed->execute([$tempCustomerCheck, $maVoucher, TrangThai::DH_DA_HUY]);
+                    if ($chkUsed->fetch()) {
+                        throw new Exception("Mỗi tài khoản chỉ được áp dụng mã giảm giá '{$maVoucher}' 1 lần.");
+                    }
+                }
             }
 
             // 7. Tổng thanh toán & Tiền Quỹ 5%

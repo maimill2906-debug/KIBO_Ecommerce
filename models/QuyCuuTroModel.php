@@ -148,4 +148,82 @@ class QuyCuuTroModel {
 
         return null;
     }
+
+    public static function giaiNgan($maTram, $soTien, $ngayChuyenKhoan = '', $mucDich = '', $fileChungTu = '') {
+        $db = Database::getConnection();
+        if (!$db) return ['success' => false, 'message' => 'Lỗi kết nối cơ sở dữ liệu'];
+
+        $maTram = trim((string)$maTram);
+        $soTien = (float)$soTien;
+        $ngayChuyenKhoan = !empty($ngayChuyenKhoan) ? date('Y-m-d', strtotime($ngayChuyenKhoan)) : date('Y-m-d');
+        $mucDich = trim((string)$mucDich);
+        $fileChungTu = trim((string)$fileChungTu) ?: 'assets/docs/chung_tu_' . date('Ymd_His') . '.pdf';
+
+        if (empty($maTram)) {
+            return ['success' => false, 'message' => 'Vui lòng chọn trạm cứu hộ nhận giải ngân.'];
+        }
+        if ($soTien <= 0) {
+            return ['success' => false, 'message' => 'Số tiền giải ngân phải lớn hơn 0đ.'];
+        }
+        if (empty($mucDich)) {
+            $mucDich = 'Chi phí thức ăn và cứu trợ y tế cho động vật cơ nhỡ';
+        }
+
+        try {
+            $db->beginTransaction();
+
+            // 1. Kiểm tra trạm cứu hộ hợp lệ
+            $chkStation = $db->prepare("SELECT tentram FROM tram_cuu_ho WHERE matram = ?");
+            $chkStation->execute([$maTram]);
+            $stationName = $chkStation->fetchColumn();
+            if (!$stationName) {
+                throw new Exception("Trạm cứu hộ '{$maTram}' không tồn tại trong hệ thống.");
+            }
+
+            // 2. Lấy các khoản quỹ đang ở trạng thái 'Đã trích quỹ' (chưa giải ngân)
+            $stmtEligible = $db->prepare("SELECT madonggop, sotiendonggop FROM quy_cuu_tro 
+                                          WHERE trangthaiquy = ? AND machungtu IS NULL 
+                                          ORDER BY ngayghinhan ASC FOR UPDATE");
+            $stmtEligible->execute([TrangThai::QUY_DA_TRICH]);
+            $eligibleRows = $stmtEligible->fetchAll();
+
+            // 3. Tạo mã chứng từ mới
+            require_once __DIR__ . '/IdGen.php';
+            $maChungTu = IdGen::next($db, 'chung_tu_giai_ngan', 'machungtu', 'CT', 3);
+
+            // 4. Lưu bảng chung_tu_giai_ngan
+            $sqlCT = "INSERT INTO chung_tu_giai_ngan (machungtu, matram, sotiengiaingan, ngaychuyenkhoan, mucdichsudung, filehoadonchungtu)
+                      VALUES (?, ?, ?, ?, ?, ?)";
+            $stmtCT = $db->prepare($sqlCT);
+            $stmtCT->execute([$maChungTu, $maTram, $soTien, $ngayChuyenKhoan, $mucDich, $fileChungTu]);
+
+            // 5. Cập nhật các dòng quy_cuu_tro sang 'Đã giải ngân'
+            $stmtUpdateQuy = $db->prepare("UPDATE quy_cuu_tro SET trangthaiquy = ?, machungtu = ? WHERE madonggop = ?");
+            $allocatedSum = 0;
+            $countAllocated = 0;
+            foreach ($eligibleRows as $r) {
+                $stmtUpdateQuy->execute([TrangThai::QUY_DA_GIAI_NGAN, $maChungTu, $r['madonggop']]);
+                $allocatedSum += (float)$r['sotiendonggop'];
+                $countAllocated++;
+                if ($allocatedSum >= $soTien) {
+                    break;
+                }
+            }
+
+            $db->commit();
+            return [
+                'success' => true,
+                'message' => "Lập chứng từ giải ngân '{$maChungTu}' thành công cho {$stationName} (" . number_format($soTien, 0, ',', '.') . "đ). Đã liên kết {$countAllocated} khoản trích quỹ.",
+                'machungtu' => $maChungTu,
+                'so_khoan_giai_ngan' => $countAllocated
+            ];
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            error_log("Database error in giaiNgan QuyCuuTro: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Hệ thống đang bận, vui lòng thử lại sau.'];
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
 }

@@ -45,7 +45,7 @@ $dbHost = getenv('DB_HOST') ?: 'localhost';
 $dbName = getenv('DB_NAME') ?: 'postgres';
 
 $passed = 0;
-$total = 14;
+$total = 16;
 
 function assertTest(string $tc, string $description, bool $condition, string $details = '') {
     global $passed;
@@ -87,19 +87,26 @@ try {
 // ---------------------------------------------------------------------
 try {
     $phpBin = defined('PHP_BINARY') && PHP_BINARY ? PHP_BINARY : 'php';
-    $authPath = addslashes(realpath(__DIR__ . '/../config/auth.php'));
-    
+    $authPath = realpath(__DIR__ . '/../config/auth.php');
+    $tmpDir = sys_get_temp_dir();
+    $tmpScript = $tmpDir . DIRECTORY_SEPARATOR . 'kibo_auth_test_' . getmypid() . '_' . uniqid() . '.php';
+
     // Subcase 1: Không đăng nhập
-    $cmdGuest = "\"{$phpBin}\" -r \"require '{$authPath}'; requireAdmin();\" 2>&1";
-    exec($cmdGuest, $outGuest, $codeGuest);
+    file_put_contents($tmpScript, "<?php require " . var_export($authPath, true) . "; requireAdmin();");
+    $outGuest = [];
+    exec(escapeshellcmd($phpBin) . ' ' . escapeshellarg($tmpScript) . ' 2>&1', $outGuest, $codeGuest);
 
     // Subcase 2: User thường (role User)
-    $cmdUser = "\"{$phpBin}\" -r \"session_start(); \$_SESSION['user'] = ['VaiTro' => 'User']; require '{$authPath}'; requireAdmin();\" 2>&1";
-    exec($cmdUser, $outUser, $codeUser);
+    file_put_contents($tmpScript, "<?php session_start(); \$_SESSION['user'] = ['VaiTro' => 'User']; require " . var_export($authPath, true) . "; requireAdmin();");
+    $outUser = [];
+    exec(escapeshellcmd($phpBin) . ' ' . escapeshellarg($tmpScript) . ' 2>&1', $outUser, $codeUser);
 
     // Subcase 3: Admin (role Admin)
-    $cmdAdmin = "\"{$phpBin}\" -r \"session_start(); \$_SESSION['user'] = ['VaiTro' => 'Admin']; require '{$authPath}'; requireAdmin(); echo 'OK_ADMIN';\" 2>&1";
-    exec($cmdAdmin, $outAdmin, $codeAdmin);
+    file_put_contents($tmpScript, "<?php session_start(); \$_SESSION['user'] = ['VaiTro' => 'Admin']; require " . var_export($authPath, true) . "; requireAdmin(); echo 'OK_ADMIN';");
+    $outAdmin = [];
+    exec(escapeshellcmd($phpBin) . ' ' . escapeshellarg($tmpScript) . ' 2>&1', $outAdmin, $codeAdmin);
+
+    @unlink($tmpScript);
 
     $guestBlocked = stripos(implode(' ', $outGuest), 'Truy cập bị từ chối') !== false;
     $userBlocked = stripos(implode(' ', $outUser), 'Truy cập bị từ chối') !== false;
@@ -108,6 +115,7 @@ try {
     $c2 = $guestBlocked && $userBlocked && $adminAllowed;
     assertTest("TC2", "Kiểm tra requireAdmin() thật: Chặn khách & User thường, cho phép Admin", $c2);
 } catch (Throwable $e) {
+    if (isset($tmpScript) && file_exists($tmpScript)) @unlink($tmpScript);
     assertTest("TC2", "Kiểm tra requireAdmin()", false, $e->getMessage());
 }
 
@@ -429,28 +437,43 @@ try {
 // TC10: Xác thực chủ quyền Đổi trả hàng (Bước 1)
 // ---------------------------------------------------------------------
 try {
+    $tkhOwn = 'TKH_OWN10';
+    $ttkOwn = 'TTK_OWN10';
+    $tkhOth = 'TKH_OTH10';
+    $ttkOth = 'TTK_OTH10';
+
+    $db->prepare("DELETE FROM sdt_kh WHERE makh IN (?, ?)")->execute([$tkhOwn, $tkhOth]);
+    $db->prepare("DELETE FROM khach_hang WHERE makh IN (?, ?)")->execute([$tkhOwn, $tkhOth]);
+    $db->prepare("DELETE FROM tai_khoan WHERE matk IN (?, ?)")->execute([$ttkOwn, $ttkOth]);
+
+    $db->prepare("INSERT INTO tai_khoan (matk, tendangnhap, matkhau, vaitro) VALUES (?, 'user_own10', 'hash', 'User')")->execute([$ttkOwn]);
+    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, ?, 'Chính Chủ Đơn', 'own10@kibo.local', 10)")->execute([$tkhOwn, $ttkOwn]);
+
+    $db->prepare("INSERT INTO tai_khoan (matk, tendangnhap, matkhau, vaitro) VALUES (?, 'user_oth10', 'hash', 'User')")->execute([$ttkOth]);
+    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, ?, 'Người Khác', 'oth10@kibo.local', 0)")->execute([$tkhOth, $ttkOth]);
+
     $db->prepare("DELETE FROM yeu_cau_doi_tra WHERE madonhang IN ('TEST_KB_REG', 'TEST_KB_GUEST')")->execute();
     $db->prepare("DELETE FROM quy_cuu_tro WHERE madonhang IN ('TEST_KB_REG', 'TEST_KB_GUEST')")->execute();
     $db->prepare("DELETE FROM don_hang WHERE madonhang IN ('TEST_KB_REG', 'TEST_KB_GUEST')")->execute();
 
-    // 1. Đơn của khách có tài khoản KH001
+    // 1. Đơn của khách có tài khoản test riêng biệt
     $db->prepare("INSERT INTO don_hang (madonhang, makh, ngaydathang, tongtienhang, tiengiamgia, phivanchuyen, tongthanhtoan, trangthaidonhang, tennguoinhan, sodienthoainhan, diachigiaohang, ngaygiaothanhcong) 
-                  VALUES ('TEST_KB_REG', 'KH001', NOW(), 285000, 0, 0, 285000, 'Giao thành công', 'Quỳnh Mai', '0772906756', 'TP. Thủ Đức', NOW())")->execute();
+                  VALUES ('TEST_KB_REG', ?, NOW(), 285000, 0, 0, 285000, 'Giao thành công', 'Chính Chủ Đơn', '0772906756', 'TP. Thủ Đức', NOW())")->execute([$tkhOwn]);
 
-    // Người lạ chưa đăng nhập thử gọi vào đơn của KH001 => BỊ TỪ CHỐI
+    // Người lạ chưa đăng nhập thử gọi vào đơn của chính chủ => BỊ TỪ CHỐI
     $retStrangerReg = DoiTraModel::taoYeuCau('TEST_KB_REG', 'Đổi hàng thử xem sao', '', '');
     
-    // Khách khác đăng nhập (KH002) gọi vào đơn của KH001 => BỊ TỪ CHỐI
-    $retOtherReg = DoiTraModel::taoYeuCau('TEST_KB_REG', 'Đổi hàng hộ bạn bè', '', 'KH002');
+    // Khách khác đăng nhập gọi vào đơn của chính chủ => BỊ TỪ CHỐI
+    $retOtherReg = DoiTraModel::taoYeuCau('TEST_KB_REG', 'Đổi hàng hộ bạn bè', '', $tkhOth);
     
-    // Chính chủ KH001 gửi yêu cầu => THÀNH CÔNG
-    $retOwnerReg = DoiTraModel::taoYeuCau('TEST_KB_REG', 'Hạt bị mốc đóng bánh', '', 'KH001');
+    // Chính chủ gửi yêu cầu => THÀNH CÔNG
+    $retOwnerReg = DoiTraModel::taoYeuCau('TEST_KB_REG', 'Hạt bị mốc đóng bánh', '', $tkhOwn);
 
-    // 2. Đơn của khách vãng lai (makh = KV001, matk = NULL, SĐT = 0933445566)
-    $db->prepare("DELETE FROM khach_hang WHERE makh = 'TEST_KV_01'")->execute();
-    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES ('TEST_KV_01', NULL, 'Khách Vãng Lai', 'guest_test@kibo.local', 0)")->execute();
+    // 2. Đơn của khách vãng lai (makh = TKH_KV10, matk = NULL, SĐT = 0933445566)
+    $db->prepare("DELETE FROM khach_hang WHERE makh = 'TKH_KV10'")->execute();
+    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES ('TKH_KV10', NULL, 'Khách Vãng Lai', 'guest_test@kibo.local', 0)")->execute();
     $db->prepare("INSERT INTO don_hang (madonhang, makh, ngaydathang, tongtienhang, tiengiamgia, phivanchuyen, tongthanhtoan, trangthaidonhang, tennguoinhan, sodienthoainhan, diachigiaohang, ngaygiaothanhcong) 
-                  VALUES ('TEST_KB_GUEST', 'TEST_KV_01', NOW(), 285000, 0, 0, 285000, 'Giao thành công', 'Khách Vãng Lai', '0933445566', 'Quận 1', NOW())")->execute();
+                  VALUES ('TEST_KB_GUEST', 'TKH_KV10', NOW(), 285000, 0, 0, 285000, 'Giao thành công', 'Khách Vãng Lai', '0933445566', 'Quận 1', NOW())")->execute();
 
     // Khách vãng lai gửi yêu cầu nhưng nhập SAI SĐT => BỊ TỪ CHỐI
     $retGuestWrongPhone = DoiTraModel::taoYeuCau('TEST_KB_GUEST', 'Lý do đổi hàng hợp lệ', '', '', '0911222333');
@@ -467,7 +490,9 @@ try {
     // Dọn dẹp
     $db->prepare("DELETE FROM yeu_cau_doi_tra WHERE madonhang IN ('TEST_KB_REG', 'TEST_KB_GUEST')")->execute();
     $db->prepare("DELETE FROM don_hang WHERE madonhang IN ('TEST_KB_REG', 'TEST_KB_GUEST')")->execute();
-    $db->prepare("DELETE FROM khach_hang WHERE makh = 'TEST_KV_01'")->execute();
+    $db->prepare("DELETE FROM khach_hang WHERE makh = 'TKH_KV10'")->execute();
+    $db->prepare("DELETE FROM khach_hang WHERE makh IN (?, ?)")->execute([$tkhOwn, $tkhOth]);
+    $db->prepare("DELETE FROM tai_khoan WHERE matk IN (?, ?)")->execute([$ttkOwn, $ttkOth]);
 
     assertTest("TC10", "Xác thực đổi trả: Bắt buộc đăng nhập với tài khoản, xác thực SĐT với khách vãng lai, thông báo bảo mật", $c10);
 } catch (Throwable $e) {
@@ -575,26 +600,45 @@ try {
 }
 
 // ---------------------------------------------------------------------
-// TC13: Xem lịch sử đơn hàng & Phân lập người dùng
+// TC13: Xem lịch sử đơn hàng & Phân lập người dùng (Không đụng KH001/KH002)
 // ---------------------------------------------------------------------
 try {
-    $ordersKH1 = DonHangModel::getOrdersByCustomer('KH001');
-    $hasOrders = count($ordersKH1) > 0;
+    $tkh13A = 'TKH_13A';
+    $tkh13B = 'TKH_13B';
 
-    $onlyKH1 = true;
-    foreach ($ordersKH1 as $o) {
+    $db->prepare("DELETE FROM chi_tiet_don_hang WHERE madonhang IN ('TEST_DH_13A', 'TEST_DH_13B')")->execute();
+    $db->prepare("DELETE FROM quy_cuu_tro WHERE madonhang IN ('TEST_DH_13A', 'TEST_DH_13B')")->execute();
+    $db->prepare("DELETE FROM thanh_toan WHERE madonhang IN ('TEST_DH_13A', 'TEST_DH_13B')")->execute();
+    $db->prepare("DELETE FROM don_hang WHERE madonhang IN ('TEST_DH_13A', 'TEST_DH_13B')")->execute();
+    $db->prepare("DELETE FROM khach_hang WHERE makh IN (?, ?)")->execute([$tkh13A, $tkh13B]);
+
+    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, NULL, 'User 13A', 'u13a@kibo.local', 0)")->execute([$tkh13A]);
+    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, NULL, 'User 13B', 'u13b@kibo.local', 0)")->execute([$tkh13B]);
+
+    $db->prepare("INSERT INTO don_hang (madonhang, makh, ngaydathang, tongtienhang, tiengiamgia, phivanchuyen, tongthanhtoan, trangthaidonhang, tennguoinhan, sodienthoainhan, diachigiaohang) 
+                  VALUES ('TEST_DH_13A', ?, NOW(), 285000, 0, 0, 285000, 'Chờ xác nhận', 'User 13A', '0771313131', 'Quận 1')")->execute([$tkh13A]);
+    $db->prepare("INSERT INTO don_hang (madonhang, makh, ngaydathang, tongtienhang, tiengiamgia, phivanchuyen, tongthanhtoan, trangthaidonhang, tennguoinhan, sodienthoainhan, diachigiaohang) 
+                  VALUES ('TEST_DH_13B', ?, NOW(), 185000, 0, 0, 185000, 'Chờ xác nhận', 'User 13B', '0771313132', 'Quận 3')")->execute([$tkh13B]);
+
+    // 1. Lịch sử của 13A chỉ chứa đơn của 13A, không lộ chéo đơn của 13B
+    $orders13A = DonHangModel::getOrdersByCustomer($tkh13A);
+    $has13A = false;
+    $noLeak13B = true;
+    foreach ($orders13A as $o) {
         $oid = $o['madonhang'] ?? ($o['orderId'] ?? '');
-        $checkMakh = $db->query("SELECT makh FROM don_hang WHERE madonhang = '{$oid}'")->fetchColumn();
-        if ($checkMakh !== 'KH001') {
-            $onlyKH1 = false;
-            break;
-        }
+        if ($oid === 'TEST_DH_13A') $has13A = true;
+        if ($oid === 'TEST_DH_13B') $noLeak13B = false;
     }
 
+    // 2. Không truyền mã khách hàng => Trả về rỗng (bảo mật)
     $ordersGuest = DonHangModel::getOrdersByCustomer('');
     $emptyGuest = (count($ordersGuest) === 0);
 
-    assertTest("TC13", "Lịch sử đơn hàng: Bảo lưu đúng theo MaKH, không mất khi đăng nhập lại và không lộ chéo", $hasOrders && $onlyKH1 && $emptyGuest);
+    // Dọn dẹp
+    $db->prepare("DELETE FROM don_hang WHERE madonhang IN ('TEST_DH_13A', 'TEST_DH_13B')")->execute();
+    $db->prepare("DELETE FROM khach_hang WHERE makh IN (?, ?)")->execute([$tkh13A, $tkh13B]);
+
+    assertTest("TC13", "Lịch sử đơn hàng: Bảo lưu đúng theo MaKH, không mất khi đăng nhập lại và không lộ chéo", $has13A && $noLeak13B && $emptyGuest);
 } catch (Throwable $e) {
     assertTest("TC13", "Lịch sử đơn hàng", false, $e->getMessage());
 }
@@ -630,6 +674,103 @@ try {
     assertTest("TC14", "Minh bạch Quỹ cứu trợ: 100% dữ liệu tính từ CSDL thực, xóa bỏ hoàn toàn số liệu giả", $matchAcc && $matchDis && $matchCnt && $noFakeNumbers);
 } catch (Throwable $e) {
     assertTest("TC14", "Minh bạch Quỹ cứu trợ", false, $e->getMessage());
+}
+
+// ---------------------------------------------------------------------
+// TC15: Nghiệp vụ Giải ngân Quỹ Cứu Trợ thực tế (QuyCuuTroModel::giaiNgan)
+// ---------------------------------------------------------------------
+try {
+    // 1. Tạo khoản trích quỹ ở trạng thái 'Đã trích quỹ' kèm đơn hàng hợp lệ
+    $testMaDongGop = 'TEST_QCT_15';
+    $testMaDonHang = 'TEST_DH_15';
+    $db->prepare("DELETE FROM quy_cuu_tro WHERE madonggop = ?")->execute([$testMaDongGop]);
+    $db->prepare("DELETE FROM don_hang WHERE madonhang = ?")->execute([$testMaDonHang]);
+    $db->prepare("INSERT INTO don_hang (madonhang, makh, trangthaidonhang, tongtienhang, tongthanhtoan, ngaydathang, tennguoinhan, sodienthoainhan, diachigiaohang) 
+                  VALUES (?, 'KH001', 'Giao thành công', 1000000, 1000000, NOW(), 'Test Recipient', '0901234567', 'HCM')")->execute([$testMaDonHang]);
+    $db->prepare("INSERT INTO quy_cuu_tro (madonggop, madonhang, sotiendonggop, ngayghinhan, matracuu, trangthaiquy, machungtu) 
+                  VALUES (?, ?, 50000, NOW(), 'TEST_TC15', 'Đã trích quỹ', NULL)")->execute([$testMaDongGop, $testMaDonHang]);
+
+    // 2. Admin gọi giải ngân cho trạm TCH01
+    $resGN = QuyCuuTroModel::giaiNgan('TCH01', 50000, date('Y-m-d'), 'Cứu trợ đợt kiểm thử TC15', 'assets/docs/test_ct15.pdf');
+    $isSuccessGN = $resGN['success'];
+    $maCT = $resGN['machungtu'] ?? '';
+
+    // 3. Kiểm tra trạng thái quỹ đã chuyển sang 'Đã giải ngân' và được gắn đúng machungtu
+    $chkQuy = $db->query("SELECT trangthaiquy, machungtu FROM quy_cuu_tro WHERE madonggop = '{$testMaDongGop}'")->fetch();
+    $isDisbursed = ($chkQuy && $chkQuy['trangthaiquy'] === 'Đã giải ngân' && $chkQuy['machungtu'] === $maCT);
+
+    // Dọn dẹp
+    $db->prepare("DELETE FROM quy_cuu_tro WHERE madonggop = ?")->execute([$testMaDongGop]);
+    $db->prepare("DELETE FROM don_hang WHERE madonhang = ?")->execute([$testMaDonHang]);
+    if (!empty($maCT)) {
+        $db->prepare("DELETE FROM chung_tu_giai_ngan WHERE machungtu = ?")->execute([$maCT]);
+    }
+
+    assertTest("TC15", "Giải ngân Quỹ cứu trợ: Tạo chứng từ, gắn trạm nhận, chuyển quỹ 'Đã giải ngân' trong 1 transaction", $isSuccessGN && $isDisbursed);
+} catch (Throwable $e) {
+    assertTest("TC15", "Giải ngân Quỹ cứu trợ", false, $e->getMessage());
+}
+
+// ---------------------------------------------------------------------
+// TC16: Voucher Giảm tối đa (giamtoida) & Chặn dùng lại nhiều lần
+// ---------------------------------------------------------------------
+try {
+    $tkh16 = 'TKH_16';
+    $ttk16 = 'TTK_16';
+    $vcCode = 'TESTMAX';
+
+    $db->prepare("DELETE FROM voucher WHERE UPPER(mavoucher) = UPPER(?)")->execute([$vcCode]);
+    $db->prepare("DELETE FROM sdt_kh WHERE makh = ?")->execute([$tkh16]);
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$tkh16]);
+    $db->prepare("DELETE FROM tai_khoan WHERE matk = ?")->execute([$ttk16]);
+
+    $db->prepare("INSERT INTO tai_khoan (matk, tendangnhap, matkhau, vaitro) VALUES (?, 'user_16', 'hash', 'User')")->execute([$ttk16]);
+    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, ?, 'User 16', 'u16@kibo.local', 0)")->execute([$tkh16, $ttk16]);
+
+    // Tạo voucher giảm 50% nhưng giới hạn giảm tối đa 50.000đ
+    $saveRes = VoucherModel::saveVoucher([
+        'mavoucher' => $vcCode,
+        'tenvoucher' => 'Giảm 50% tối đa 50k',
+        'loaigiamgia' => 'PhanTram',
+        'giatrigiam' => 50,
+        'donhangtoithieu' => 100000,
+        'giamtoida' => 50000,
+        'soluongconlai' => 10
+    ]);
+
+    // 1. Tạo đơn 285.000đ => 50% = 142.500đ, nhưng có giamtoida nên chỉ giảm đúng 50.000đ
+    $orderData = [
+        'customer' => ['name' => 'User 16', 'phone' => '0771616161', 'address' => 'Quận 1, TP.HCM'],
+        'items' => [['id' => 'BT001', 'name' => 'KIBO Cá Hồi', 'variant' => 'Túi 1.5kg', 'price' => 285000, 'quantity' => 1]],
+        'voucherCode' => $vcCode,
+        'paymentMethod' => 'cod'
+    ];
+    $resOrder1 = DonHangModel::taoDonHang($orderData, $tkh16);
+    $oid1 = $resOrder1['orderId'] ?? '';
+
+    $order1Db = $db->query("SELECT tiengiamgia, tongthanhtoan FROM don_hang WHERE madonhang = '{$oid1}'")->fetch();
+    $isMaxCapped = ($order1Db && (float)$order1Db['tiengiamgia'] === 50000.0);
+
+    // 2. Cùng tài khoản đó đặt đơn thứ hai dùng lại mã đó => BỊ TỪ CHỐI
+    $orderData2 = $orderData;
+    $resOrder2 = DonHangModel::taoDonHang($orderData2, $tkh16);
+    $isSecondAttemptBlocked = (!$resOrder2['success']);
+
+    // Dọn dẹp
+    if (!empty($oid1)) {
+        $db->prepare("DELETE FROM chi_tiet_don_hang WHERE madonhang = ?")->execute([$oid1]);
+        $db->prepare("DELETE FROM quy_cuu_tro WHERE madonhang = ?")->execute([$oid1]);
+        $db->prepare("DELETE FROM thanh_toan WHERE madonhang = ?")->execute([$oid1]);
+        $db->prepare("DELETE FROM don_hang WHERE madonhang = ?")->execute([$oid1]);
+    }
+    $db->prepare("DELETE FROM voucher WHERE UPPER(mavoucher) = UPPER(?)")->execute([$vcCode]);
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$tkh16]);
+    $db->prepare("DELETE FROM tai_khoan WHERE matk = ?")->execute([$ttk16]);
+    $db->prepare("UPDATE bien_the SET soluongton = soluongton + 1 WHERE mabienthe = 'BT001'")->execute();
+
+    assertTest("TC16", "Voucher nâng cao: Áp dụng 'giảm tối đa' (giamtoida) và chặn mỗi tài khoản dùng quá 1 lần", $isMaxCapped && $isSecondAttemptBlocked);
+} catch (Throwable $e) {
+    assertTest("TC16", "Voucher nâng cao", false, $e->getMessage());
 }
 
 echo "\n====================================================================\n";

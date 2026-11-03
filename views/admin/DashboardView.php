@@ -18,9 +18,15 @@ require_once __DIR__ . '/../../models/SanPhamModel.php';
 require_once __DIR__ . '/../../models/DonHangModel.php';
 require_once __DIR__ . '/../../models/DoiTraModel.php';
 require_once __DIR__ . '/../../models/VoucherModel.php';
+require_once __DIR__ . '/../../models/QuyCuuTroModel.php';
+require_once __DIR__ . '/../../models/TramCuuHoModel.php';
 
 $dbReturns = DoiTraModel::getAll();
 $dbVouchers = VoucherModel::getAllAdmin();
+$fundSummary = QuyCuuTroModel::getFundSummary();
+$fundTransactions = QuyCuuTroModel::getRecentTransactions(30);
+$shelters = TramCuuHoModel::getShelters();
+$disbursements = TramCuuHoModel::getDisbursements();
 
 // Dữ liệu Tồn kho & Đã bán tính trực tiếp từ CSDL thật (bien_the & chi_tiet_don_hang)
 $initialInventory = SanPhamModel::getInventoryWithSales();
@@ -356,80 +362,129 @@ if (empty($initialOrders)) {
       </div>
 
       <!-- ================================================================
-           TAB 4: ĐỐI SOÁT QUỸ CỨU TRỢ (FUND)
+           TAB 4: ĐỐI SOÁT & GIẢI NGÂN QUỸ CỨU TRỢ (FUND)
            ================================================================ -->
       <div id="tabContent_fund" class="tab-pane" style="display: none;">
+        <?php 
+          $choGiaiNgan = max(0, $fundSummary['TongTichLuy'] - $fundSummary['TongGiaiNgan']);
+        ?>
         <section class="ops-summary-row fund-summary" style="margin-top: 18px;">
           <div>
-            <small>Tổng quỹ tích lũy</small>
-            <strong>2.340.000đ</strong>
-            <p>Từ 128 đơn thành công</p>
+            <small>Tổng quỹ đã trích</small>
+            <strong style="color: var(--green);"><?= number_format($fundSummary['TongTichLuy'], 0, ',', '.') ?>đ</strong>
+            <p>Từ <?= (int)$fundSummary['SoDonDongGop'] ?> đơn giao thành công</p>
           </div>
           <div>
-            <small>Đã giải ngân</small>
-            <strong>2.180.000đ</strong>
-            <p>UNC-KIBO-0625</p>
+            <small>Đã giải ngân thực tế</small>
+            <strong style="color: #1565c0;"><?= number_format($fundSummary['TongGiaiNgan'], 0, ',', '.') ?>đ</strong>
+            <p>Kỳ gần nhất: <?= htmlspecialchars($fundSummary['KyGiaiNgan']) ?></p>
           </div>
           <div>
-            <small>Chờ đối soát</small>
-            <strong>160.000đ</strong>
-            <p>Đối soát ngày 30/06</p>
+            <small>Quỹ sẵn sàng giải ngân</small>
+            <strong style="color: #c94336;"><?= number_format($choGiaiNgan, 0, ',', '.') ?>đ</strong>
+            <p><?= (int)$fundSummary['SoTramDoiTac'] ?> trạm đối tác liên kết</p>
           </div>
         </section>
 
-        <article class="ops-card">
-          <div class="ops-card-head">
+        <!-- KHỐI 1: DANH SÁCH CHỨNG TỪ GIẢI NGÂN QUỸ -->
+        <article class="ops-card" style="margin-top: 20px;">
+          <div class="ops-card-head" style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <h2>Lịch sử Quỹ cứu trợ</h2>
-              <p>Các khoản trích và giải ngân gần nhất</p>
+              <h2>Chứng từ Giải ngân Quỹ</h2>
+              <p>Danh sách các đợt chuyển khoản thực tế cho các Trạm cứu hộ đối tác</p>
             </div>
-            <button type="button" class="ops-secondary-button" onclick="showAdminToast('Tải báo cáo', 'Đang kết xuất báo cáo Quỹ Cứu Trợ...')">Tải báo cáo</button>
+            <button type="button" class="ops-primary-button" onclick="openDisbursementModal()" style="display: flex; align-items: center; gap: 6px;">
+              <?= kibo_icon('plus', 16) ?> Lập chứng từ giải ngân
+            </button>
           </div>
           <div class="ops-table-wrap">
             <table class="ops-table">
               <thead>
                 <tr>
-                  <th>Ngày</th>
-                  <th>Nội dung</th>
-                  <th>Tham chiếu</th>
-                  <th>Thu</th>
-                  <th>Chi</th>
-                  <th>Trạng thái</th>
+                  <th>Mã CT</th>
+                  <th>Trạm nhận</th>
+                  <th>Số tiền giải ngân</th>
+                  <th>Ngày chuyển</th>
+                  <th>Mục đích sử dụng</th>
+                  <th>Chứng từ / Sao kê</th>
                 </tr>
               </thead>
               <tbody>
+                <?php if (!empty($disbursements)): ?>
+                  <?php foreach ($disbursements as $ct): ?>
+                    <tr>
+                      <td><code><?= htmlspecialchars($ct['MaChungTu']) ?></code></td>
+                      <td><strong><?= htmlspecialchars($ct['TenTram']) ?></strong></td>
+                      <td><strong style="color: #1565c0;"><?= number_format($ct['SoTienGiaiNgan'], 0, ',', '.') ?>đ</strong></td>
+                      <td><?= date('d/m/Y', strtotime($ct['NgayChuyenKhoan'])) ?></td>
+                      <td style="font-size: 13px; color: #555;"><?= htmlspecialchars($ct['MucDichSuDung']) ?></td>
+                      <td>
+                        <?php if (!empty($ct['FileHoaDonChungTu'])): ?>
+                          <a href="<?= htmlspecialchars($ct['FileHoaDonChungTu']) ?>" target="_blank" style="color: #1565c0; text-decoration: underline; font-size: 13px;">
+                            Xem chứng từ ↗
+                          </a>
+                        <?php else: ?>
+                          <span style="color: #999; font-size: 12px;">Chưa đính kèm</span>
+                        <?php endif; ?>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <tr>
+                    <td colspan="6" style="text-align: center; padding: 25px; color: #777;">
+                      Chưa có chứng từ giải ngân nào được lập.
+                    </td>
+                  </tr>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <!-- KHỐI 2: CHI TIẾT TỪNG KHOẢN TRÍCH QUỸ TỪ ĐƠN HÀNG -->
+        <article class="ops-card" style="margin-top: 24px;">
+          <div class="ops-card-head">
+            <div>
+              <h2>Chi tiết các khoản trích 5% từ Đơn hàng</h2>
+              <p>Minh bạch 100% dòng tiền từ cơ sở dữ liệu thật</p>
+            </div>
+            <button type="button" class="ops-secondary-button" onclick="showAdminToast('Tải báo cáo', 'Đang kết xuất báo cáo Quỹ Cứu Trợ...')">Tải báo cáo Excel</button>
+          </div>
+          <div class="ops-table-wrap">
+            <table class="ops-table">
+              <thead>
                 <tr>
-                  <td>30/06/2025</td>
-                  <td>Giải ngân Trạm Nông Lâm</td>
-                  <td><code>UNC-KIBO-0625</code></td>
-                  <td>-</td>
-                  <td><strong style="color: #c94336;">2.180.000đ</strong></td>
-                  <td><span class="ops-stock-status good">Đã đối soát</span></td>
+                  <th>Thời gian</th>
+                  <th>Mã đơn hàng</th>
+                  <th>Số tiền 5%</th>
+                  <th>Trạng thái Quỹ</th>
+                  <th>Trạm liên kết</th>
                 </tr>
-                <tr>
-                  <td>27/06/2025</td>
-                  <td>Trích quỹ từ đơn KB-8921</td>
-                  <td><code>KB-8921</code></td>
-                  <td><strong style="color: var(--green);">27.000đ</strong></td>
-                  <td>-</td>
-                  <td><span class="ops-stock-status low">Chờ đối soát</span></td>
-                </tr>
-                <tr>
-                  <td>26/06/2025</td>
-                  <td>Trích quỹ từ đơn KB-8918</td>
-                  <td><code>KB-8918</code></td>
-                  <td><strong style="color: var(--green);">18.500đ</strong></td>
-                  <td>-</td>
-                  <td><span class="ops-stock-status good">Đã đối soát</span></td>
-                </tr>
-                <tr>
-                  <td>25/06/2025</td>
-                  <td>Trích quỹ từ đơn KB-8912</td>
-                  <td><code>KB-8912</code></td>
-                  <td><strong style="color: var(--green);">36.400đ</strong></td>
-                  <td>-</td>
-                  <td><span class="ops-stock-status good">Đã đối soát</span></td>
-                </tr>
+              </thead>
+              <tbody>
+                <?php if (!empty($fundTransactions)): ?>
+                  <?php foreach ($fundTransactions as $ft): 
+                    $stBadge = 'ops-stock-status ';
+                    if ($ft['TrangThaiQuy'] === 'Đã giải ngân') $stBadge .= 'good';
+                    elseif ($ft['TrangThaiQuy'] === 'Đã trích quỹ') $stBadge .= 'good';
+                    elseif ($ft['TrangThaiQuy'] === 'Chờ trích quỹ') $stBadge .= 'low';
+                    else $stBadge .= 'out';
+                  ?>
+                    <tr>
+                      <td style="color: #666; font-size: 13px;"><?= htmlspecialchars($ft['NgayGhiNhan']) ?></td>
+                      <td><code><?= htmlspecialchars($ft['MaDonHang']) ?></code></td>
+                      <td><strong style="color: var(--green);"><?= number_format($ft['SoTienDongGop'], 0, ',', '.') ?>đ</strong></td>
+                      <td><span class="<?= $stBadge ?>"><?= htmlspecialchars($ft['TrangThaiQuy']) ?></span></td>
+                      <td style="font-size: 13px;"><?= htmlspecialchars($ft['TramNhan']) ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <tr>
+                    <td colspan="5" style="text-align: center; padding: 25px; color: #777;">
+                      Chưa có khoản trích quỹ nào.
+                    </td>
+                  </tr>
+                <?php endif; ?>
               </tbody>
             </table>
           </div>
@@ -1087,6 +1142,7 @@ if (empty($initialOrders)) {
     // --- RETURN ORDER PROCESSING FUNCTION ---
     async function adminProcessReturn(maYeuCau, huongXuLy) {
       let lyDo = '';
+      let nhapKho = false;
       if (huongXuLy === 'tuchoi') {
         lyDo = prompt('Nhập lý do từ chối yêu cầu đổi trả:');
         if (lyDo === null) return;
@@ -1094,16 +1150,18 @@ if (empty($initialOrders)) {
           alert('Vui lòng nhập lý do từ chối.');
           return;
         }
+      } else if (huongXuLy === 'hoantien') {
+        if (!confirm(`Xác nhận duyệt hoàn tiền và hủy phần trích quỹ cho yêu cầu ${maYeuCau}?`)) return;
+        nhapKho = confirm("Bạn có muốn NHẬP LẠI KHO số lượng sản phẩm này không?\n\n- Nhấn [OK]: Nhập lại kho (nếu bao bì còn nguyên seal, chưa mở).\n- Nhấn [Cancel]: KHÔNG nhập kho (nếu thức ăn bị hỏng/ẩm mốc cần tiêu hủy).");
       } else {
-        const actionLabel = (huongXuLy === 'doi') ? 'đồng ý đổi hàng' : 'hoàn tiền và hủy phần trích quỹ';
-        if (!confirm(`Xác nhận duyệt ${actionLabel} cho yêu cầu ${maYeuCau}?`)) return;
+        if (!confirm(`Xác nhận duyệt đồng ý đổi hàng cho yêu cầu ${maYeuCau}?`)) return;
       }
 
       try {
         const resp = await fetch('index.php?action=admin_process_return', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mayeucau: maYeuCau, huongxuly: huongXuLy, lydotuchoi: lyDo })
+          body: JSON.stringify({ mayeucau: maYeuCau, huongxuly: huongXuLy, lydotuchoi: lyDo, nhaplaikho: nhapKho })
         });
         const res = await resp.json();
         if (res.success) {
@@ -1611,5 +1669,121 @@ if (empty($initialOrders)) {
       </form>
     </div>
   </div>
+
+  <!-- MODAL LẬP CHỨNG TỪ GIẢI NGÂN QUỸ -->
+  <div id="disbursementModalBackdrop" onclick="if(event.target === this) closeDisbursementModal()" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 999999; place-items: center; padding: 16px; overflow-y: auto;">
+    <div style="background: #ffffff; width: min(520px, 95vw); border-radius: 6px; border: 1px solid #dcdcdc; box-shadow: 0 4px 20px rgba(0,0,0,0.18); overflow: hidden; font-family: Arial, sans-serif;">
+      <div style="background: #f7f7f7; padding: 14px 18px; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="margin: 0; font-size: 16px; font-weight: bold; color: #1565c0;">Lập chứng từ giải ngân Quỹ Cứu Trợ</h3>
+        <button type="button" onclick="closeDisbursementModal()" style="background: none; border: none; font-size: 18px; color: #666; cursor: pointer; line-height: 1; padding: 0 4px;">✕</button>
+      </div>
+      <form id="formDisbursement" onsubmit="adminSubmitDisbursement(event)">
+        <div style="padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+          <div>
+            <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Trạm cứu hộ đối tác *</label>
+            <select id="disburseStation" required style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; background: #fff; box-sizing: border-box;">
+              <option value="">-- Chọn trạm nhận giải ngân --</option>
+              <?php foreach ($shelters as $s): ?>
+                <option value="<?= htmlspecialchars($s['MaTram']) ?>"><?= htmlspecialchars($s['TenTram']) ?> (<?= htmlspecialchars($s['KhuVuc']) ?>)</option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Số tiền giải ngân (VNĐ) *</label>
+              <input type="number" id="disburseAmount" required min="1000" step="1000" placeholder="VD: 500000"
+                     style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; font-weight: bold; color: #1565c0; box-sizing: border-box;">
+            </div>
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Ngày chuyển khoản *</label>
+              <input type="date" id="disburseDate" required value="<?= date('Y-m-d') ?>"
+                     style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+            </div>
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Mục đích sử dụng quỹ *</label>
+            <textarea id="disbursePurpose" required rows="2" placeholder="VD: Chi phí thức ăn hạt và cứu trợ y tế cho chó mèo cơ nhỡ..."
+                      style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; box-sizing: border-box; resize: vertical;"></textarea>
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">File / Link chứng từ sao kê (PDF, ảnh)</label>
+            <input type="text" id="disburseFile" placeholder="VD: assets/docs/chung_tu_nong_lam_112026.pdf"
+                   style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; box-sizing: border-box;">
+          </div>
+        </div>
+
+        <div style="padding: 12px 18px; background: #f7f7f7; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" onclick="closeDisbursementModal()" style="padding: 8px 16px; border: 1px solid #ccc; background: #fff; color: #333; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Hủy bỏ</button>
+          <button type="submit" id="btnSubmitDisburse" style="padding: 8px 20px; border: none; background: #1565c0; color: #ffffff; border-radius: 4px; font-weight: bold; font-size: 13.5px; cursor: pointer;">
+            Xác nhận giải ngân
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openDisbursementModal() {
+      const modal = document.getElementById('disbursementModalBackdrop');
+      if (modal) {
+        modal.style.display = 'grid';
+      }
+    }
+
+    function closeDisbursementModal() {
+      const modal = document.getElementById('disbursementModalBackdrop');
+      if (modal) {
+        modal.style.display = 'none';
+      }
+    }
+
+    async function adminSubmitDisbursement(event) {
+      event.preventDefault();
+      const btn = document.getElementById('btnSubmitDisburse');
+      const matram = document.getElementById('disburseStation').value;
+      const sotien = document.getElementById('disburseAmount').value;
+      const ngayck = document.getElementById('disburseDate').value;
+      const mucdich = document.getElementById('disbursePurpose').value;
+      const filect = document.getElementById('disburseFile').value;
+
+      if (!matram || !sotien) {
+        alert('Vui lòng điền đầy đủ các thông tin bắt buộc.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Đang xử lý...';
+
+      try {
+        const resp = await fetch('index.php?action=admin_disburse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            matram: matram,
+            sotien: sotien,
+            ngaychuyenkhoan: ngayck,
+            mucdich: mucdich,
+            filechungtu: filect
+          })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          showAdminToast('Thành công', res.message, 'success');
+          closeDisbursementModal();
+          setTimeout(() => location.reload(), 1000);
+        } else {
+          showAdminToast('Thất bại', res.message || 'Lỗi khi giải ngân quỹ', 'error');
+        }
+      } catch (err) {
+        showAdminToast('Lỗi mạng', err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Xác nhận giải ngân';
+      }
+    }
+  </script>
 </body>
 </html>

@@ -22,6 +22,7 @@ UPDATE don_hang SET ngaygiaothanhcong = ngaydathang
  WHERE trangthaidonhang='Giao thành công' AND ngaygiaothanhcong IS NULL;
 ALTER TABLE bien_the       ADD COLUMN IF NOT EXISTS giagoc NUMERIC(12,2);   -- NULL = không giảm giá
 ALTER TABLE voucher        ADD COLUMN IF NOT EXISTS kichhoat BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE voucher        ADD COLUMN IF NOT EXISTS giamtoida NUMERIC(12,2) DEFAULT NULL;
 ALTER TABLE yeu_cau_doi_tra ADD COLUMN IF NOT EXISTS ngayxuly TIMESTAMPTZ;
 ALTER TABLE khach_hang     ALTER COLUMN matk DROP NOT NULL;                  -- khách vãng lai
 

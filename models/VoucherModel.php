@@ -11,8 +11,13 @@ class VoucherModel {
     public static function tinhGiam($voucher, $tongTienHang) {
         $loai = $voucher['loaigiamgia'] ?? ($voucher['LoaiGiamGia'] ?? 'SoTien');
         $val = (float)($voucher['giatrigiam'] ?? ($voucher['GiaTriGiam'] ?? 0));
+        $maxDiscount = !empty($voucher['giamtoida']) ? (float)$voucher['giamtoida'] : (!empty($voucher['GiamToiDa']) ? (float)$voucher['GiamToiDa'] : null);
+
         if ($loai === 'PhanTram') {
             $discount = round($tongTienHang * ($val / 100));
+            if ($maxDiscount !== null && $maxDiscount > 0) {
+                $discount = min($discount, $maxDiscount);
+            }
         } else {
             $discount = $val;
         }
@@ -23,7 +28,7 @@ class VoucherModel {
         $db = Database::getConnection();
         if (!$db) return [];
         try {
-            $sql = "SELECT mavoucher, tenvoucher, loaigiamgia, giatrigiam, donhangtoithieu, 
+            $sql = "SELECT mavoucher, tenvoucher, loaigiamgia, giatrigiam, donhangtoithieu, giamtoida,
                            ngaybatdau, ngayketthuc, soluongconlai, kichhoat
                     FROM voucher 
                     ORDER BY ngaybatdau DESC";
@@ -40,8 +45,8 @@ class VoucherModel {
         try {
             $sql = "SELECT mavoucher as \"MaVoucher\", tenvoucher as \"TenVoucher\", 
                            loaigiamgia as \"LoaiGiamGia\", giatrigiam as \"GiaTriGiam\", 
-                           donhangtoithieu as \"DonHangToiThieu\", soluongconlai as \"SoLuongConLai\",
-                           kichhoat as \"KichHoat\"
+                           donhangtoithieu as \"DonHangToiThieu\", giamtoida as \"GiamToiDa\",
+                           soluongconlai as \"SoLuongConLai\", kichhoat as \"KichHoat\"
                     FROM voucher 
                     WHERE kichhoat = true 
                       AND soluongconlai > 0 
@@ -129,6 +134,7 @@ class VoucherModel {
         $type = ($typeRaw === 'Phần trăm' || $typeRaw === 'PhanTram') ? 'PhanTram' : 'SoTien';
         $val = (float)($data['giatrigiam'] ?? ($data['giatri'] ?? 0));
         $min = max(0, (float)($data['donhangtoithieu'] ?? ($data['dontoithieu'] ?? 0)));
+        $maxDisc = !empty($data['giamtoida']) ? max(0, (float)$data['giamtoida']) : null;
         $qty = max(0, (int)($data['soluongconlai'] ?? ($data['soluongphathanh'] ?? 0)));
         $start = !empty($data['ngaybatdau']) ? date('Y-m-d H:i:s', strtotime($data['ngaybatdau'])) : date('Y-m-d 00:00:00');
         $end = !empty($data['ngayketthuc']) ? date('Y-m-d H:i:s', strtotime($data['ngayketthuc'])) : date('Y-m-d 23:59:59', strtotime('+30 days'));
@@ -156,16 +162,16 @@ class VoucherModel {
 
             if ($exists) {
                 $sql = "UPDATE voucher 
-                        SET tenvoucher = ?, loaigiamgia = ?, giatrigiam = ?, donhangtoithieu = ?, ngaybatdau = ?, ngayketthuc = ?, soluongconlai = ?
+                        SET tenvoucher = ?, loaigiamgia = ?, giatrigiam = ?, donhangtoithieu = ?, giamtoida = ?, ngaybatdau = ?, ngayketthuc = ?, soluongconlai = ?
                         WHERE UPPER(mavoucher) = UPPER(?)";
                 $stmt = $db->prepare($sql);
-                $stmt->execute([$name, $type, $val, $min, $start, $end, $qty, $code]);
+                $stmt->execute([$name, $type, $val, $min, $maxDisc, $start, $end, $qty, $code]);
                 return ['success' => true, 'message' => "Cập nhật mã '{$code}' thành công."];
             } else {
-                $sql = "INSERT INTO voucher (mavoucher, tenvoucher, loaigiamgia, giatrigiam, donhangtoithieu, ngaybatdau, ngayketthuc, soluongconlai, kichhoat)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, true)";
+                $sql = "INSERT INTO voucher (mavoucher, tenvoucher, loaigiamgia, giatrigiam, donhangtoithieu, giamtoida, ngaybatdau, ngayketthuc, soluongconlai, kichhoat)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, true)";
                 $stmt = $db->prepare($sql);
-                $stmt->execute([$code, $name, $type, $val, $min, $start, $end, $qty]);
+                $stmt->execute([$code, $name, $type, $val, $min, $maxDisc, $start, $end, $qty]);
                 return ['success' => true, 'message' => "Tạo mới mã '{$code}' thành công."];
             }
         } catch (Exception $e) {

@@ -193,8 +193,24 @@ switch ($action) {
         $input = json_decode($raw, true) ?: $_POST;
         $maYC = trim($input['mayeucau'] ?? '');
         $actionType = trim($input['action_type'] ?? ($input['hanhdong'] ?? ''));
-        $note = trim($input['ghichu'] ?? '');
-        $res = DoiTraModel::xuLy($maYC, $actionType, $note);
+        $note = trim($input['ghichu'] ?? ($input['lydotuchoi'] ?? ''));
+        $nhapLaiKho = !empty($input['nhaplaikho']) && ($input['nhaplaikho'] === true || $input['nhaplaikho'] === '1' || $input['nhaplaikho'] === 'true' || $input['nhaplaikho'] === 'on');
+        $res = DoiTraModel::xuLy($maYC, $actionType, $note, $nhapLaiKho);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'admin_disburse':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/QuyCuuTroModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $maTram = trim($input['matram'] ?? '');
+        $soTien = (float)($input['sotien'] ?? 0);
+        $ngayCK = trim($input['ngaychuyenkhoan'] ?? '');
+        $mucDich = trim($input['mucdich'] ?? '');
+        $fileCT = trim($input['filechungtu'] ?? '');
+        $res = QuyCuuTroModel::giaiNgan($maTram, $soTien, $ngayCK, $mucDich, $fileCT);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 
