@@ -66,7 +66,7 @@ foreach ($allReturns as $r) {
     </div>
 
     <!-- Grid: 2 Cột -->
-    <div style="display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: flex-start;">
+    <div class="account-profile-grid">
       
       <!-- CỘT TRÁI: THÔNG TIN KHÁCH HÀNG -->
       <section style="background: #ffffff; border: 1px solid #dcdcdc; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); overflow: hidden;">

@@ -144,7 +144,7 @@ if (!empty($currentUser)) {
             </div>
 
             <!-- Tỉnh/Thành, Quận/Huyện, Phường/Xã (Khớp 100% 3 cột TinhThanh, QuanHuyen, PhuongXa trong bảng DIA_CHI_KH) -->
-            <div class="delivery-select-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px;">
+            <div class="delivery-select-grid">
               <div>
                 <select id="provinceSelect" class="delivery-select" onchange="handleProvinceChange(this.value)" required>
                   <option value="HCM" selected>TP. Hồ Chí Minh</option>
