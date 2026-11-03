@@ -842,6 +842,221 @@ td:first-child b { font-family: 'Montserrat', 'Be Vietnam Pro', -apple-system, B
 .ops-report-row p strong { font-size: 14px; }
 .ops-report-row p small { margin-top: 4px; color: #8b8179; font-size: 12.5px; }
 
+/* ==========================================================================
+   RESPONSIVE OPS ADMIN: LAPTOP CHIA ĐÔI MÀN HÌNH (SPLIT-SCREEN) & TABLET
+   ========================================================================== */
+@media (max-width: 1120px) {
+  /* 1. Header Admin gọn gàng, không bị tràn ngang */
+  .ops-header {
+    height: auto;
+    min-height: 64px;
+    padding: 10px 16px;
+  }
+  .ops-header-inner {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .ops-header-inner .logo-button svg {
+    height: 36px;
+    width: auto;
+  }
+  .ops-search {
+    order: 3;
+    width: 100%;
+    min-width: 100%;
+    height: 40px;
+    margin-top: 4px;
+  }
+  .ops-range {
+    order: 1;
+    height: 38px;
+    padding: 0 10px;
+  }
+  .ops-range select {
+    font-size: 13px;
+    max-width: 135px;
+  }
+  .ops-notification-wrap {
+    order: 1;
+  }
+  .ops-profile {
+    order: 2;
+    padding-left: 8px;
+    border-left: none;
+    gap: 8px;
+  }
+  .ops-profile p {
+    display: none; /* Ẩn chữ 'Admin KIBO / Quản trị viên' để các nút không bị đẩy ra ngoài màn hình */
+  }
+  .ops-profile > span {
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
+  }
+
+  /* 2. Workspace chuyển sang 1 cột, Sidebar thành thanh cuộn ngang trên đầu */
+  .ops-workspace {
+    grid-template-columns: 1fr;
+    width: 100%;
+    min-height: auto;
+  }
+  .ops-sidebar {
+    min-height: auto;
+    width: 100%;
+    padding: 10px 16px;
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-bottom: 1px solid #ded9d3;
+    background: #faf8f5;
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .ops-sidebar-label,
+  .ops-sidebar-bottom {
+    display: none;
+  }
+  .ops-sidebar nav {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 2px;
+  }
+  .ops-sidebar nav button {
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 13.5px;
+    flex-shrink: 0;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 6px;
+    background: #eee8e0;
+  }
+  .ops-sidebar nav button:hover {
+    background: #e2dbd2;
+  }
+  .ops-sidebar nav button.active {
+    background: #ffffff;
+    color: var(--brown);
+    border-left-color: transparent;
+    border-bottom-color: var(--green);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+
+  /* 3. Vùng nội dung chính tràn rộng 100% */
+  .ops-content {
+    padding: 18px 16px 50px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  .ops-page-heading {
+    min-height: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+  .ops-page-heading h1 {
+    font-size: 22px;
+  }
+
+  /* 4. 4 Thẻ KPI: Đổi từ 4 cột ép chặt thành lưới 2x2 thông thoáng */
+  .ops-summary-row {
+    grid-template-columns: repeat(2, 1fr);
+    margin-top: 16px;
+  }
+  .ops-summary-row > div {
+    min-height: 100px;
+    padding: 16px 18px;
+    border-right: 1px solid #e7e3de;
+    border-bottom: 1px solid #e7e3de;
+  }
+  .ops-summary-row > div:nth-child(2n) {
+    border-right: none;
+  }
+  .ops-summary-row > div:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+  .ops-summary-row strong {
+    font-size: 22px;
+    margin-top: 6px;
+  }
+  .ops-summary-row p {
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  /* 5. Lưới Tổng quan: Biểu đồ & Đơn hàng gần đây xếp chồng dọc 1 cột */
+  .ops-overview-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    margin-top: 16px;
+  }
+  .ops-card {
+    width: 100%;
+    max-width: 100%;
+  }
+  .ops-card-head {
+    min-height: auto;
+    padding: 14px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .ops-card-head h2 {
+    font-size: 16px;
+    white-space: nowrap;
+  }
+  .ops-legend {
+    font-size: 12px;
+    gap: 12px;
+  }
+  .ops-chart {
+    height: 280px;
+    padding: 16px 12px 24px 45px;
+  }
+  .ops-chart svg {
+    width: 100%;
+    height: 210px;
+  }
+
+  /* 6. Layout Tồn kho & Báo cáo xếp 1 cột */
+  .ops-inventory-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .ops-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .ops-summary-row {
+    grid-template-columns: 1fr;
+  }
+  .ops-summary-row > div {
+    border-right: none;
+    border-bottom: 1px solid #e7e3de;
+  }
+  .ops-summary-row > div:last-child {
+    border-bottom: none;
+  }
+}
+
 .modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(20,11,6,.68); backdrop-filter: blur(4px); }
 .modal { width: min(560px, 94vw); max-height: calc(100vh - 40px); overflow-y: auto; overflow-x: hidden; box-sizing: border-box; background: var(--cream); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.26); animation: modal-in .2s ease-out; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
@@ -923,8 +1138,26 @@ td:first-child b { font-family: 'Montserrat', 'Be Vietnam Pro', -apple-system, B
 .copyright { min-height: 60px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #3d281b; color: #a6988e; font-size: 14px; }
 
 @media (max-width: 1000px) {
-  .header-main { min-height: 94px; display: grid; grid-template-columns: 210px minmax(360px, 1fr) 205px 205px; align-items: center; gap: 20px; }
+  .header-main {
+    min-height: auto;
+    padding-block: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .header-main .search {
+    order: 3;
+    width: 100%;
+    min-width: 100%;
+    height: 46px;
+    margin-top: 4px;
+  }
   .hotline { display: none; }
+  .checkout-grid { grid-template-columns: 1fr; gap: 24px; }
+  .catalog-layout { grid-template-columns: 1fr; }
+  .filter-sidebar { position: static; }
   .category-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding-block: 40px; }
   .mission-card { grid-column: span 2; min-height: 210px; }
   .product-grid { grid-template-columns: repeat(2, 1fr); }
@@ -936,7 +1169,7 @@ td:first-child b { font-family: 'Montserrat', 'Be Vietnam Pro', -apple-system, B
   .catalog-header-inner { grid-template-columns: 180px 1fr auto; }
   .catalog-hotline { display: none; }
   .catalog-menu button { padding-inline: 10px; }
-  .catalog-grid { grid-template-columns: repeat(3, 1fr); }
+  .catalog-grid { grid-template-columns: repeat(2, 1fr); }
   .about-hero-grid { grid-template-columns: 1fr; }
   .about-image { min-height: 390px; }
   .news-layout { grid-template-columns: 240px minmax(0, 1fr); gap: 24px; }
@@ -947,8 +1180,16 @@ td:first-child b { font-family: 'Montserrat', 'Be Vietnam Pro', -apple-system, B
   .container { width: min(100% - 28px, 1180px); }
   .topbar .social, .top-links { display: none; }
   .topbar-inner { justify-content: center; }
-  .header-main { min-height: 94px; display: grid; grid-template-columns: 210px minmax(360px, 1fr) 205px 205px; align-items: center; gap: 20px; }
-  .search { display: flex; height: 52px; border: 1px solid #d8d1ca; border-radius: 6px; overflow: hidden; background: var(--white); }
+  .header-main {
+    min-height: auto;
+    padding-block: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .search { display: flex; height: 46px; border: 1px solid #d8d1ca; border-radius: 6px; overflow: hidden; background: var(--white); }
   .cart-copy { display: none; }
   .nav-inner { height: 56px; display: flex; align-items: stretch; justify-content: center; }
   .nav-inner::-webkit-scrollbar { display: none; }
