@@ -48,7 +48,7 @@
           <?= kibo_icon('phone', 22) ?>
           <span>
             <small>HOTLINE TƯ VẤN</small>
-            <strong><?= htmlspecialchars(kibo_business('hotline') ?? '1900 6868') ?></strong>
+            <strong><?= htmlspecialchars(kibo_business('hotline') ?? '0772 906 756') ?></strong>
           </span>
         </p>
         <p style="margin-top: 14px;">Thứ 2 - Chủ nhật: 8:00 - 21:00<br><?= htmlspecialchars(kibo_business('email') ?? 'support@kibo.vn') ?></p>
@@ -56,7 +56,7 @@
     </div>
 
     <div class="container copyright">
-      <span>© 2025 KIBO Pet's Home. All rights reserved.</span>
+      <span>© 2026 KIBO Pet's Home. All rights reserved.</span>
     </div>
   </footer>
 

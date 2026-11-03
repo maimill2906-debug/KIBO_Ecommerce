@@ -130,6 +130,7 @@ class DonHangModel {
                             'status' => $statusText,
                             'carrierStatus' => ($statusRaw === 'Giao thành công' ? 'Đã giao thành công' : 'Đơn vị vận chuyển đang xử lý'),
                             'date' => date('d/m/Y', strtotime($r['ngaydathang'])),
+                            'rawDate' => $r['ngaydathang'],
                             'allocatedStation' => $r['tentram'] ?? null,
                             'fundStatus' => $r['trangthaiquy'] ?? 'Đã tích lũy'
                         ];

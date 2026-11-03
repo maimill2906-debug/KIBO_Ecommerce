@@ -81,16 +81,16 @@ $aboutImage = 'https://images.unsplash.com/photo-1787722399319-2cad05551e19?auto
 
       <div class="story-list">
         <p>
-          <strong>2022</strong>
-          <span>KIBO mở cửa hàng đầu tiên tại TP.HCM với nhóm sản phẩm dinh dưỡng thiết yếu.</span>
+          <strong>Khởi nguồn</strong>
+          <span>Xây dựng mô hình thương mại điện tử thú cưng kết hợp trách nhiệm xã hội và quỹ hỗ trợ động vật cơ nhỡ.</span>
         </p>
         <p>
-          <strong>2024</strong>
-          <span>Khởi động chương trình trích 5% doanh thu đơn thành công cho hoạt động cứu hộ.</span>
+          <strong>Cơ chế 5%</strong>
+          <span>Mỗi đơn hàng giao thành công đều tự động trích 5% doanh thu trực tiếp vào hệ thống quỹ cứu trợ.</span>
         </p>
         <p>
-          <strong>Hôm nay</strong>
-          <span>Đồng hành cùng hơn 120 khách hàng và 3 trạm cứu hộ trong từng bữa ăn.</span>
+          <strong>Minh bạch</strong>
+          <span>100% dòng tiền đóng góp và các đợt giải ngân tới trạm cứu hộ được công khai, có chứng từ rõ ràng.</span>
         </p>
       </div>
     </div>

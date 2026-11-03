@@ -30,15 +30,19 @@ foreach ($dbFeatured as $p) {
     $pal = $palette[$idx % count($palette)];
     $idx++;
     $price = (float)$p['price'];
-    $oldPrice = (float)$p['originalPrice'];
+    $oldPrice = (float)($p['originalPrice'] ?? $p['price']);
+    $discountPercent = ($oldPrice > $price) ? round((($oldPrice - $price) / $oldPrice) * 100) : 0;
     $featuredDeals[] = [
         'id' => $p['id'],
         'name' => $p['name'],
         'category' => $p['category'] ?: 'Thú cưng',
         'species' => $pal['species'],
         'price' => $price,
+        'oldPrice' => $oldPrice,
         'priceDisplay' => number_format($price, 0, ',', '.') . '₫',
         'old' => number_format($oldPrice, 0, ',', '.') . '₫',
+        'hasDiscount' => ($oldPrice > $price),
+        'discountPercent' => $discountPercent,
         'art' => $pal['art'],
         'color' => $pal['color']
     ];
@@ -164,7 +168,9 @@ foreach ($dbFeatured as $p) {
         <?php foreach ($featuredDeals as $p): ?>
           <article class="product-card" data-species="<?= $p['species'] ?>" onclick="window.location.href='index.php?action=product_detail&id=<?= $p['id'] ?>'">
             <div class="product-img">
-              <span class="discount">-5%</span>
+              <?php if ($p['hasDiscount'] && $p['discountPercent'] > 0): ?>
+                <span class="discount">-<?= $p['discountPercent'] ?>%</span>
+              <?php endif; ?>
               <button type="button" class="btn quick" onclick="event.stopPropagation(); window.location.href='index.php?action=product_detail&id=<?= $p['id'] ?>'">
                 Xem nhanh
               </button>
@@ -173,10 +179,11 @@ foreach ($dbFeatured as $p) {
             <div class="product-info">
               <small class="brand-label">KIBO SELECT</small>
               <h3><?= htmlspecialchars($p['name']) ?></h3>
-              <div class="rating">★★★★★ <span>5.0, 24 Reviews</span></div>
               <div class="price">
                 <strong><?= $p['priceDisplay'] ?></strong>
-                <del><?= $p['old'] ?></del>
+                <?php if ($p['hasDiscount']): ?>
+                  <del><?= $p['old'] ?></del>
+                <?php endif; ?>
               </div>
               <div class="fund-contrib-line">Góp vào quỹ: <strong><?= number_format(DonHangModel::tinhQuy($p['price']), 0, ',', '.') ?>₫</strong></div>
             </div>

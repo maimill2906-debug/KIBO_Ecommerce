@@ -37,9 +37,31 @@ if (empty($initialInventory)) {
 // Dữ liệu Đơn hàng đọc trực tiếp từ Model / Supabase
 $dbOrders = DonHangModel::getAll();
 $initialOrders = [];
+
+$totalRevenueDelivered = 0;
+$totalOrdersCount = count($dbOrders);
+$newOrdersCount = 0;
+$deliveredOrdersCount = 0;
+$shippingOrdersCount = 0;
+$cancelledOrdersCount = 0;
+
 foreach ($dbOrders as $o) {
     $firstItem = !empty($o['items']) ? $o['items'][0]['name'] : 'Thức ăn hạt & phụ kiện KIBO';
     $itemList = !empty($o['items']) ? $o['items'] : [['name' => $firstItem, 'variant' => 'Tiêu chuẩn', 'qty' => 1, 'price' => $o['total']]];
+    $st = $o['status'];
+    $tot = (float)($o['total'] ?? 0);
+
+    if ($st === 'Giao thành công' || $st === 'Giao hàng thành công' || $st === 'Đã giao') {
+        $totalRevenueDelivered += $tot;
+        $deliveredOrdersCount++;
+    } elseif ($st === 'Chờ xác nhận') {
+        $newOrdersCount++;
+    } elseif ($st === 'Đang giao' || $st === 'Đang giao hàng') {
+        $shippingOrdersCount++;
+    } elseif (strpos($st, 'hủy') !== false || strpos($st, 'Hủy') !== false) {
+        $cancelledOrdersCount++;
+    }
+
     $initialOrders[] = [
         'id' => $o['orderId'],
         'customer' => $o['customerName'],
@@ -48,6 +70,7 @@ foreach ($dbOrders as $o) {
         'items' => $firstItem,
         'itemsList' => $itemList,
         'date' => $o['date'] ?? date('d/m/Y'),
+        'rawDate' => $o['rawDate'] ?? null,
         'subtotal' => number_format($o['subtotal'] ?? $o['total'], 0, ',', '.') . 'đ',
         'shipping' => number_format($o['shipping'] ?? 0, 0, ',', '.') . 'đ',
         'discount' => number_format($o['discount'] ?? 0, 0, ',', '.') . 'đ',
@@ -60,6 +83,14 @@ foreach ($dbOrders as $o) {
 if (empty($initialOrders)) {
     $initialOrders = [];
 }
+
+$totalStockQty = array_reduce($initialInventory, function($carry, $item) { return $carry + (int)($item['stock'] ?? $item['soluongton'] ?? 0); }, 0);
+$lowStockCount = count(array_filter($initialInventory, function($item) { return (int)($item['stock'] ?? $item['soluongton'] ?? 0) <= 5; }));
+$pendingReturnsCount = count(array_filter($dbReturns ?? [], function($r) { 
+    $st = $r['trangthai'] ?? $r['TrangThai'] ?? '';
+    return $st === 'Chờ xử lý'; 
+}));
+$totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($pendingReturnsCount > 0 ? 1 : 0) + ($deliveredOrdersCount > 0 ? 1 : 0);
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -107,13 +138,21 @@ if (empty($initialOrders)) {
       <div class="ops-notification-wrap">
         <button type="button" class="ops-icon-button" onclick="toggleNotifications()" aria-label="Thông báo">
           <?= kibo_icon('bell', 20) ?>
-          <b id="notifBadge">3</b>
+          <b id="notifBadge"><?= max(1, $totalNotifs) ?></b>
         </button>
         <div class="ops-notification-menu" id="notifDropdown" style="display: none;">
-          <strong>Thông báo mới</strong>
-          <p id="notifLowStockMsg">⚠️ 3 sản phẩm cần nhập kho ngay.</p>
-          <p>✅ Đơn KB-8921 đã giao thành công.</p>
-          <p>❤️ Đã trích 27.000đ vào Quỹ Cứu Trợ.</p>
+          <strong>Thông báo hệ thống</strong>
+          <?php if ($lowStockCount > 0): ?>
+            <p id="notifLowStockMsg" style="color: #b45309; font-weight: 600;">⚠️ Có <?= $lowStockCount ?> sản phẩm sắp hết hàng (tồn kho &le; 5).</p>
+          <?php endif; ?>
+          <?php if ($newOrdersCount > 0): ?>
+            <p style="color: #1d4ed8; font-weight: 600;">🛒 Có <?= $newOrdersCount ?> đơn hàng mới đang chờ duyệt.</p>
+          <?php endif; ?>
+          <?php if ($pendingReturnsCount > 0): ?>
+            <p style="color: #c2410c; font-weight: 600;">🔄 Có <?= $pendingReturnsCount ?> yêu cầu đổi trả đang chờ xử lý.</p>
+          <?php endif; ?>
+          <p style="color: #15803d;">✅ <?= $deliveredOrdersCount ?> đơn hàng đã hoàn tất giao hàng.</p>
+          <p style="color: #b91c1c;">❤️ <?= number_format($fundSummary['TongTichLuy'] ?? 0, 0, ',', '.') ?>đ đã trích vào Quỹ Cứu Trợ.</p>
         </div>
       </div>
 
@@ -188,27 +227,29 @@ if (empty($initialOrders)) {
            TAB 1: TỔNG QUAN (OVERVIEW)
            ================================================================ -->
       <div id="tabContent_overview" class="tab-pane">
-        <!-- Hàng 4 thẻ số liệu tóm tắt (KPIs) -->
+        <!-- Hàng 4 thẻ số liệu tóm tắt (KPIs thực tế 100% từ CSDL) -->
         <section class="ops-summary-row">
           <div>
-            <small>Doanh thu hòa vốn (Tháng)</small>
-            <strong>46.800.000đ</strong>
-            <p class="positive">Mục tiêu hòa vốn 156 đơn / tháng</p>
+            <small>Doanh thu (Đã giao)</small>
+            <strong id="kpiRevenueVal"><?= number_format($totalRevenueDelivered, 0, ',', '.') ?>đ</strong>
+            <p class="positive" id="kpiRevenueSub"><?= $deliveredOrdersCount ?> đơn hoàn tất giao</p>
           </div>
           <div>
             <small>Quỹ cứu trợ 5%</small>
-            <strong>2.340.000đ</strong>
-            <p>124.000đ chờ đối soát</p>
+            <strong id="kpiFundVal"><?= number_format($fundSummary['TongTichLuy'], 0, ',', '.') ?>đ</strong>
+            <p id="kpiFundSub"><?= number_format($fundSummary['DangChoTrich'], 0, ',', '.') ?>đ chờ trích quỹ</p>
           </div>
           <div>
             <small>Đơn hàng</small>
-            <strong>128</strong>
-            <p>18 mới · 96 đã giao</p>
+            <strong id="kpiOrdersVal"><?= $totalOrdersCount ?></strong>
+            <p id="kpiOrdersSub"><?= $newOrdersCount ?> mới · <?= $deliveredOrdersCount ?> đã giao</p>
           </div>
           <div>
             <small>Tồn kho</small>
-            <strong id="kpiTotalStock">0</strong>
-            <p class="warning-text" id="kpiLowStockMsg">0 sản phẩm cần xử lý</p>
+            <strong id="kpiTotalStock"><?= number_format($totalStockQty, 0, ',', '.') ?></strong>
+            <p class="<?= $lowStockCount > 0 ? 'warning-text' : 'positive' ?>" id="kpiLowStockMsg">
+              <?= $lowStockCount > 0 ? ($lowStockCount . ' sản phẩm tồn thấp (≤ 5)') : 'Tất cả sản phẩm đủ hàng' ?>
+            </p>
           </div>
         </section>
 
@@ -495,12 +536,12 @@ if (empty($initialOrders)) {
            TAB 5: BÁO CÁO KINH DOANH (REPORTS)
            ================================================================ -->
       <div id="tabContent_reports" class="tab-pane" style="display: none;">
-        <div class="ops-report-layout">
+        <div class="ops-report-layout" style="display: flex; flex-direction: column; gap: 20px;">
           <article class="ops-card">
             <div class="ops-card-head">
               <div>
-                <h2>Báo cáo theo kỳ</h2>
-                <p>Chọn loại báo cáo cần xuất dữ liệu</p>
+                <h2>Xuất báo cáo theo kỳ</h2>
+                <p>Xuất dữ liệu thực tế từ hệ thống ra file định dạng Excel CSV (hỗ trợ tiếng Việt UTF-8 BOM)</p>
               </div>
             </div>
             <div class="ops-report-list">
@@ -508,39 +549,146 @@ if (empty($initialOrders)) {
                 <span><?= kibo_icon('chart', 17) ?></span>
                 <p>
                   <strong>Doanh thu &amp; lợi nhuận</strong>
-                  <small id="reportRange1">Dữ liệu 30 ngày gần nhất</small>
+                  <small id="reportRange1">Tổng hợp đơn hàng đã giao thành công và doanh thu thực nhận</small>
                 </p>
-                <button type="button" class="ops-secondary-button" onclick="showAdminToast('Tải báo cáo', 'Đang kết xuất file Doanh thu & lợi nhuận (Excel/PDF)...')">Tải xuống</button>
+                <button type="button" class="ops-secondary-button" onclick="exportRevenueReportCSV()">Tải xuống CSV</button>
               </div>
 
               <div class="ops-report-row">
                 <span><?= kibo_icon('bag', 17) ?></span>
                 <p>
                   <strong>Đơn hàng theo trạng thái</strong>
-                  <small id="reportRange2">Dữ liệu 30 ngày gần nhất</small>
+                  <small id="reportRange2">Toàn bộ danh sách đơn hàng và trạng thái vòng đời</small>
                 </p>
-                <button type="button" class="ops-secondary-button" onclick="showAdminToast('Tải báo cáo', 'Đang kết xuất file Đơn hàng (Excel/PDF)...')">Tải xuống</button>
+                <button type="button" class="ops-secondary-button" onclick="exportOrdersStatusCSV()">Tải xuống CSV</button>
               </div>
 
               <div class="ops-report-row">
                 <span><?= kibo_icon('box', 17) ?></span>
                 <p>
                   <strong>Tồn kho &amp; nhập hàng</strong>
-                  <small id="reportRange3">Dữ liệu 30 ngày gần nhất</small>
+                  <small id="reportRange3">Danh sách sản phẩm, quy cách, số lượng tồn và cảnh báo nhập hàng</small>
                 </p>
-                <button type="button" class="ops-secondary-button" onclick="showAdminToast('Tải báo cáo', 'Đang kết xuất file Tồn kho & Nhập hàng (Excel/PDF)...')">Tải xuống</button>
+                <button type="button" class="ops-secondary-button" onclick="exportInventoryReportCSV()">Tải xuống CSV</button>
               </div>
 
               <div class="ops-report-row">
                 <span><?= kibo_icon('heart', 17) ?></span>
                 <p>
                   <strong>Đối soát Quỹ cứu trợ 5%</strong>
-                  <small id="reportRange4">Dữ liệu 30 ngày gần nhất</small>
+                  <small id="reportRange4">Chi tiết các khoản trích 5% theo đơn và tình trạng giải ngân</small>
                 </p>
-                <button type="button" class="ops-secondary-button" onclick="showAdminToast('Tải báo cáo', 'Đang kết xuất file Quỹ Cứu Trợ 5% (Excel/PDF)...')">Tải xuống</button>
+                <button type="button" class="ops-secondary-button" onclick="exportFundReportCSV()">Tải xuống CSV</button>
               </div>
             </div>
           </article>
+
+          <!-- KHỐI BÁO CÁO TỔNG HỢP & PHÂN BỔ TRẠNG THÁI -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <article class="ops-card">
+              <div class="ops-card-head">
+                <div>
+                  <h2>Phân bổ trạng thái đơn hàng</h2>
+                  <p>Số lượng và tỷ lệ % trên tổng <?= $totalOrdersCount ?> đơn hàng</p>
+                </div>
+              </div>
+              <div class="ops-table-wrap">
+                <table class="ops-table">
+                  <thead>
+                    <tr>
+                      <th>Trạng thái</th>
+                      <th style="text-align: right;">Số đơn</th>
+                      <th style="text-align: right;">Tỷ lệ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="ops-status-badge status-cho-xac-nhan">Chờ xác nhận</span></td>
+                      <td style="text-align: right; font-weight: bold;"><?= $newOrdersCount ?></td>
+                      <td style="text-align: right; color: #666;"><?= $totalOrdersCount > 0 ? round(($newOrdersCount / $totalOrdersCount) * 100, 1) : 0 ?>%</td>
+                    </tr>
+                    <tr>
+                      <td><span class="ops-status-badge status-cho-dong-goi">Chờ đóng gói</span></td>
+                      <td style="text-align: right; font-weight: bold;">
+                        <?php 
+                        $pkgCount = count(array_filter($dbOrders, fn($o) => $o['status'] === 'Chờ đóng gói'));
+                        echo $pkgCount;
+                        ?>
+                      </td>
+                      <td style="text-align: right; color: #666;"><?= $totalOrdersCount > 0 ? round(($pkgCount / $totalOrdersCount) * 100, 1) : 0 ?>%</td>
+                    </tr>
+                    <tr>
+                      <td><span class="ops-status-badge status-da-xuat-kho">Đã xuất kho</span></td>
+                      <td style="text-align: right; font-weight: bold;">
+                        <?php 
+                        $outCount = count(array_filter($dbOrders, fn($o) => $o['status'] === 'Đã xuất kho'));
+                        echo $outCount;
+                        ?>
+                      </td>
+                      <td style="text-align: right; color: #666;"><?= $totalOrdersCount > 0 ? round(($outCount / $totalOrdersCount) * 100, 1) : 0 ?>%</td>
+                    </tr>
+                    <tr>
+                      <td><span class="ops-status-badge status-dang-giao">Đang giao</span></td>
+                      <td style="text-align: right; font-weight: bold;"><?= $shippingOrdersCount ?></td>
+                      <td style="text-align: right; color: #666;"><?= $totalOrdersCount > 0 ? round(($shippingOrdersCount / $totalOrdersCount) * 100, 1) : 0 ?>%</td>
+                    </tr>
+                    <tr>
+                      <td><span class="ops-status-badge status-giao-thanh-cong">Giao thành công</span></td>
+                      <td style="text-align: right; font-weight: bold; color: #16a34a;"><?= $deliveredOrdersCount ?></td>
+                      <td style="text-align: right; color: #16a34a; font-weight: bold;"><?= $totalOrdersCount > 0 ? round(($deliveredOrdersCount / $totalOrdersCount) * 100, 1) : 0 ?>%</td>
+                    </tr>
+                    <tr>
+                      <td><span class="ops-status-badge status-da-huy">Đã hủy</span></td>
+                      <td style="text-align: right; font-weight: bold; color: #dc2626;"><?= $cancelledOrdersCount ?></td>
+                      <td style="text-align: right; color: #dc2626;"><?= $totalOrdersCount > 0 ? round(($cancelledOrdersCount / $totalOrdersCount) * 100, 1) : 0 ?>%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="ops-card">
+              <div class="ops-card-head">
+                <div>
+                  <h2>Đối soát tài chính &amp; Quỹ cứu trợ 5%</h2>
+                  <p>Số liệu đối soát tự động từ CSDL PostgreSQL</p>
+                </div>
+              </div>
+              <div style="padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: #fbf9f6; border-radius: 6px; border-left: 4px solid #16a34a;">
+                  <div>
+                    <strong style="display: block; font-size: 14.5px; color: #2c1a0e;">Doanh thu giao thành công</strong>
+                    <small style="color: #666;">Chỉ tính đơn đã hoàn tất</small>
+                  </div>
+                  <strong style="font-size: 17px; color: #16a34a;"><?= number_format($totalRevenueDelivered, 0, ',', '.') ?>đ</strong>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: #fbf9f6; border-radius: 6px; border-left: 4px solid #b91c1c;">
+                  <div>
+                    <strong style="display: block; font-size: 14.5px; color: #2c1a0e;">Tổng quỹ đã trích (5%)</strong>
+                    <small style="color: #666;">Được trích theo đơn thành công</small>
+                  </div>
+                  <strong style="font-size: 17px; color: #b91c1c;"><?= number_format($fundSummary['TongTichLuy'] ?? 0, 0, ',', '.') ?>đ</strong>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: #fbf9f6; border-radius: 6px; border-left: 4px solid #2563eb;">
+                  <div>
+                    <strong style="display: block; font-size: 14.5px; color: #2c1a0e;">Tổng quỹ đã giải ngân</strong>
+                    <small style="color: #666;">Có chứng từ ủy nhiệm chi</small>
+                  </div>
+                  <strong style="font-size: 17px; color: #2563eb;"><?= number_format($fundSummary['TongGiaiNgan'] ?? 0, 0, ',', '.') ?>đ</strong>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: #fbf9f6; border-radius: 6px; border-left: 4px solid #d97706;">
+                  <div>
+                    <strong style="display: block; font-size: 14.5px; color: #2c1a0e;">Quỹ còn lại sẵn sàng giải ngân</strong>
+                    <small style="color: #666;">Đã trích trừ đi đã chuyển khoản</small>
+                  </div>
+                  <strong style="font-size: 17px; color: #d97706;"><?= number_format(max(0, ($fundSummary['TongTichLuy'] ?? 0) - ($fundSummary['TongGiaiNgan'] ?? 0)), 0, ',', '.') ?>đ</strong>
+                </div>
+              </div>
+            </article>
+          </div>
         </div>
       </div>
 
@@ -577,12 +725,24 @@ if (empty($initialOrders)) {
                     $isPending = ($st === 'Chờ xử lý');
                   ?>
                     <tr>
-                      <td><code><?= htmlspecialchars($ret['MaYeuCau']) ?></code></td>
+                      <td>
+                        <a href="javascript:void(0)" onclick="openReturnDetailModal('<?= htmlspecialchars($ret['MaYeuCau']) ?>')" style="color: #2c1a0e; font-weight: bold; text-decoration: underline;" title="Bấm để xem chi tiết & hình ảnh minh chứng">
+                          <code><?= htmlspecialchars($ret['MaYeuCau']) ?></code>
+                        </a>
+                      </td>
                       <td>
                         <strong style="color: #2c1a0e;"><?= htmlspecialchars($ret['MaDonHang']) ?></strong>
+                        <?php if (!empty($ret['TenNguoiNhan'])): ?>
+                          <div style="font-size: 11.5px; color: #777; margin-top: 2px;"><?= htmlspecialchars($ret['TenNguoiNhan']) ?></div>
+                        <?php endif; ?>
                       </td>
                       <td style="color: #333; line-height: 1.5;">
-                        <?= htmlspecialchars($ret['LyDoDoiTra']) ?>
+                        <div><?= htmlspecialchars($ret['LyDoDoiTra']) ?></div>
+                        <?php if (!empty($ret['HinhAnhMinhChung'])): ?>
+                          <a href="javascript:void(0)" onclick="openReturnDetailModal('<?= htmlspecialchars($ret['MaYeuCau']) ?>')" style="display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 11.5px; color: #2e7d32; font-weight: 600; text-decoration: none;">
+                            📷 <span>Xem hình ảnh minh chứng</span>
+                          </a>
+                        <?php endif; ?>
                       </td>
                       <td style="color: #666; font-size: 13px;">
                         <?= date('d/m/Y H:i', strtotime($ret['NgayYeuCau'])) ?>
@@ -594,15 +754,14 @@ if (empty($initialOrders)) {
                         <?= htmlspecialchars($ret['HuongXuLy'] ?: ($isPending ? 'Chưa xử lý' : 'Đã duyệt')) ?>
                       </td>
                       <td>
-                        <?php if ($isPending): ?>
-                          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                          <button type="button" onclick="openReturnDetailModal('<?= htmlspecialchars($ret['MaYeuCau']) ?>')" style="padding: 4px 8px; font-size: 12px; background: #2c1a0e; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-weight: 600;" title="Xem chi tiết & ảnh minh chứng">Chi tiết</button>
+                          <?php if ($isPending): ?>
                             <button type="button" onclick="adminProcessReturn('<?= htmlspecialchars($ret['MaYeuCau']) ?>', 'doi')" style="padding: 4px 8px; font-size: 12px; background: #2e7d32; color: #fff; border: none; border-radius: 3px; cursor: pointer;" title="Đồng ý đổi hàng">Đổi</button>
                             <button type="button" onclick="adminProcessReturn('<?= htmlspecialchars($ret['MaYeuCau']) ?>', 'hoantien')" style="padding: 4px 8px; font-size: 12px; background: #1565c0; color: #fff; border: none; border-radius: 3px; cursor: pointer;" title="Hoàn tiền và hủy phần trích quỹ">Hoàn tiền</button>
                             <button type="button" onclick="adminProcessReturn('<?= htmlspecialchars($ret['MaYeuCau']) ?>', 'tuchoi')" style="padding: 4px 6px; font-size: 12px; background: #c94336; color: #fff; border: none; border-radius: 3px; cursor: pointer;" title="Từ chối yêu cầu">Từ chối</button>
-                          </div>
-                        <?php else: ?>
-                          <span style="font-size: 12px; color: #888;">Đã đóng</span>
-                        <?php endif; ?>
+                          <?php endif; ?>
+                        </div>
                       </td>
                     </tr>
                   <?php endforeach; ?>
@@ -711,6 +870,7 @@ if (empty($initialOrders)) {
     // 1. DỮ LIỆU TỒN KHO & ĐƠN HÀNG BAN ĐẦU
     let inventoryData = <?= json_encode($initialInventory, JSON_UNESCAPED_UNICODE) ?>;
     let ordersData = <?= json_encode($initialOrders, JSON_UNESCAPED_UNICODE) ?>;
+    let returnsData = <?= json_encode($dbReturns, JSON_UNESCAPED_UNICODE) ?>;
     let currentTab = 'overview';
     let searchQuery = '';
     let selectedRange = '30';
@@ -1139,21 +1299,180 @@ if (empty($initialOrders)) {
       }
     }
 
-    // --- RETURN ORDER PROCESSING FUNCTION ---
-    async function adminProcessReturn(maYeuCau, huongXuLy) {
-      let lyDo = '';
-      let nhapKho = false;
-      if (huongXuLy === 'tuchoi') {
+    // --- RETURN ORDER PROCESSING FUNCTION & DETAIL MODAL ---
+    let currentViewingReturnId = null;
+
+    function openReturnDetailModal(maYeuCau) {
+      currentViewingReturnId = maYeuCau;
+      const ret = (returnsData || []).find(r => r.MaYeuCau === maYeuCau);
+      if (!ret) return;
+
+      document.getElementById('modalReturnIdTitle').textContent = 'Yêu cầu đổi trả #' + ret.MaYeuCau;
+      
+      const badge = document.getElementById('modalReturnStatusBadge');
+      const st = ret.TrangThaiYeuCau || 'Chờ xử lý';
+      badge.textContent = st;
+      if (st === 'Đã hoàn tất' || st === 'Đã đồng ý đổi' || st === 'Đã hoàn tiền') {
+        badge.style.background = '#2e7d32';
+      } else if (st === 'Đã từ chối' || st === 'Từ chối') {
+        badge.style.background = '#c94336';
+      } else {
+        badge.style.background = '#d97706';
+      }
+
+      document.getElementById('modalReturnOrderId').textContent = '#' + ret.MaDonHang;
+      const totalVal = ret.TongTienDonHang ? parseInt(ret.TongTienDonHang).toLocaleString('vi-VN') + 'đ' : 'Đơn ' + ret.MaDonHang;
+      document.getElementById('modalReturnOrderTotal').textContent = totalVal;
+      
+      const custName = ret.TenNguoiNhan || 'Khách hàng';
+      const custPhone = ret.SoDienThoaiNhan || 'Chưa có SĐT';
+      document.getElementById('modalReturnCustomer').textContent = `${custName} (${custPhone})`;
+      document.getElementById('modalReturnAddress').textContent = ret.DiaChiGiaoHang || 'Chưa cập nhật địa chỉ';
+      document.getElementById('modalReturnDate').textContent = ret.NgayYeuCau || 'Gần đây';
+      document.getElementById('modalReturnReason').textContent = ret.LyDoDoiTra || 'Không có ghi chú thêm.';
+
+      // Gallery hình ảnh
+      const gallery = document.getElementById('modalReturnImagesGallery');
+      let rawImg = ret.HinhAnhMinhChung ? ret.HinhAnhMinhChung.trim() : '';
+      let imgList = [];
+
+      if (rawImg) {
+        if (rawImg.startsWith('[') && rawImg.endsWith(']')) {
+          try { imgList = JSON.parse(rawImg); } catch(e) { imgList = [rawImg]; }
+        } else if (rawImg.includes(',')) {
+          imgList = rawImg.split(',').map(s => s.trim()).filter(Boolean);
+        } else {
+          imgList = [rawImg];
+        }
+      }
+
+      if (imgList.length === 0) {
+        gallery.innerHTML = `
+          <div style="padding: 14px 18px; background: #f9f9f9; border: 1px dashed #ccc; border-radius: 4px; color: #777; font-size: 13px; width: 100%;">
+            ℹ️ Khách hàng không đính kèm tệp hình ảnh khi gửi yêu cầu này.
+          </div>
+        `;
+      } else {
+        gallery.innerHTML = imgList.map((imgSrc, idx) => {
+          return `
+            <div style="position: relative; border: 1px solid #dcdcdc; border-radius: 6px; overflow: hidden; width: 140px; cursor: pointer; transition: transform 0.15s; background: #fff;" 
+                 onclick="openImageLightbox('${imgSrc}')" title="Bấm để phóng to">
+              <img src="${imgSrc}" alt="Ảnh ${idx + 1}" style="width: 100%; height: 110px; object-fit: cover; display: block;" 
+                   onerror="this.onerror=null; this.src='https://placehold.co/400x300/f5ebe0/4a3525?text=Ảnh+Minh+Chứng';">
+              <div style="text-align: center; font-size: 11px; padding: 4px; background: #fafafa; color: #555; border-top: 1px solid #eee;">
+                🔍 Xem ảnh ${idx + 1} (phóng to)
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Khối ra quyết định
+      const decisionSection = document.getElementById('modalReturnDecisionSection');
+      const isPending = (st === 'Chờ xử lý');
+
+      if (isPending) {
+        decisionSection.innerHTML = `
+          <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 14px; margin-top: 6px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 13.5px; font-weight: bold; color: #1e293b;">Đưa ra quyết định xử lý:</h4>
+            
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+              <button type="button" onclick="confirmModalReturn('doi')" 
+                      style="padding: 8px 16px; background: #2e7d32; color: #fff; border: none; border-radius: 4px; font-weight: bold; font-size: 13px; cursor: pointer;">
+                ✓ Duyệt Đổi hàng
+              </button>
+
+              <div style="display: flex; align-items: center; gap: 8px; background: #fff; padding: 4px 10px; border: 1px solid #93c5fd; border-radius: 4px;">
+                <button type="button" onclick="confirmModalReturn('hoantien')" 
+                        style="padding: 6px 14px; background: #1565c0; color: #fff; border: none; border-radius: 4px; font-weight: bold; font-size: 13px; cursor: pointer;">
+                  ✓ Duyệt Hoàn tiền
+                </button>
+                <label style="font-size: 12.5px; color: #1e3a8a; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px;">
+                  <input type="checkbox" id="modalReturnRestockCheckbox" checked> Nhập lại kho (bao bì còn nguyên)
+                </label>
+              </div>
+            </div>
+
+            <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px; margin-top: 10px;">
+              <div style="font-size: 12.5px; color: #64748b; margin-bottom: 6px;">Hoặc từ chối yêu cầu đổi trả (bắt buộc nhập lý do gửi khách):</div>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="modalReturnRejectReason" placeholder="Nhập lý do từ chối gửi cho khách..." 
+                       style="flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px;">
+                <button type="button" onclick="confirmModalReturn('tuchoi')" 
+                        style="padding: 8px 14px; background: #dc2626; color: #fff; border: none; border-radius: 4px; font-weight: bold; font-size: 13px; cursor: pointer;">
+                  ✕ Từ chối
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        decisionSection.innerHTML = `
+          <div style="padding: 12px 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; font-size: 13.5px; color: #166534;">
+            <strong>Trạng thái xử lý:</strong> ${ret.HuongXuLy || ret.TrangThaiYeuCau}<br>
+            <span style="font-size: 12.5px; color: #15803d;">Thời điểm duyệt: ${ret.NgayXuLy || 'Đã ghi nhận'}</span>
+          </div>
+        `;
+      }
+
+      const modal = document.getElementById('returnDetailModalBackdrop');
+      if (modal) modal.style.display = 'grid';
+    }
+
+    function closeReturnDetailModal() {
+      const modal = document.getElementById('returnDetailModalBackdrop');
+      if (modal) modal.style.display = 'none';
+      currentViewingReturnId = null;
+    }
+
+    function openImageLightbox(src) {
+      const img = document.getElementById('lightboxImage');
+      if (img) img.src = src;
+      const lb = document.getElementById('imageLightboxBackdrop');
+      if (lb) lb.style.display = 'grid';
+    }
+
+    function closeImageLightbox() {
+      const lb = document.getElementById('imageLightboxBackdrop');
+      if (lb) lb.style.display = 'none';
+    }
+
+    function confirmModalReturn(action) {
+      if (!currentViewingReturnId) return;
+      
+      if (action === 'tuchoi') {
+        const reasonInput = document.getElementById('modalReturnRejectReason');
+        const reason = reasonInput ? reasonInput.value.trim() : '';
+        if (!reason) {
+          alert('Vui lòng nhập lý do từ chối để thông báo đến khách hàng.');
+          if (reasonInput) reasonInput.focus();
+          return;
+        }
+        adminProcessReturn(currentViewingReturnId, 'tuchoi', reason);
+      } else if (action === 'hoantien') {
+        const cb = document.getElementById('modalReturnRestockCheckbox');
+        const nhapKho = cb ? cb.checked : true;
+        adminProcessReturn(currentViewingReturnId, 'hoantien', '', nhapKho);
+      } else {
+        adminProcessReturn(currentViewingReturnId, 'doi', '', false);
+      }
+    }
+
+    async function adminProcessReturn(maYeuCau, huongXuLy, lyDoArg = null, nhapKhoArg = null) {
+      let lyDo = lyDoArg !== null ? lyDoArg : '';
+      let nhapKho = nhapKhoArg !== null ? nhapKhoArg : false;
+
+      if (lyDoArg === null && huongXuLy === 'tuchoi') {
         lyDo = prompt('Nhập lý do từ chối yêu cầu đổi trả:');
         if (lyDo === null) return;
         if (!lyDo.trim()) {
           alert('Vui lòng nhập lý do từ chối.');
           return;
         }
-      } else if (huongXuLy === 'hoantien') {
+      } else if (nhapKhoArg === null && huongXuLy === 'hoantien') {
         if (!confirm(`Xác nhận duyệt hoàn tiền và hủy phần trích quỹ cho yêu cầu ${maYeuCau}?`)) return;
         nhapKho = confirm("Bạn có muốn NHẬP LẠI KHO số lượng sản phẩm này không?\n\n- Nhấn [OK]: Nhập lại kho (nếu bao bì còn nguyên seal, chưa mở).\n- Nhấn [Cancel]: KHÔNG nhập kho (nếu thức ăn bị hỏng/ẩm mốc cần tiêu hủy).");
-      } else {
+      } else if (huongXuLy === 'doi' && lyDoArg === null && nhapKhoArg === null) {
         if (!confirm(`Xác nhận duyệt đồng ý đổi hàng cho yêu cầu ${maYeuCau}?`)) return;
       }
 
@@ -1363,12 +1682,15 @@ if (empty($initialOrders)) {
       showAdminToast('Xuất dữ liệu', 'Đang kết xuất và tải file CSV danh sách đơn hàng...');
     }
 
-    // 7. RENDER TAB OVERVIEW
+    // 7. RENDER TAB OVERVIEW & BIỂU ĐỒ DOANH THU THỰC TẾ
     function renderOverview() {
+      renderOverviewKPIs();
+      renderRevenueChart(selectedRange);
+
       const feed = document.getElementById('overviewRecentOrders');
       if (feed) {
-        feed.innerHTML = ordersData.slice(0, 4).map(order => {
-          const initial = order.customer.trim().split(' ').slice(-1)[0][0] || 'K';
+        feed.innerHTML = ordersData.slice(0, 5).map(order => {
+          const initial = order.customer ? (order.customer.trim().split(' ').slice(-1)[0][0] || 'K') : 'K';
           return `
             <div>
               <span>${initial}</span>
@@ -1381,6 +1703,164 @@ if (empty($initialOrders)) {
             </div>
           `;
         }).join('');
+      }
+    }
+
+    function renderOverviewKPIs() {
+      let deliveredRev = 0;
+      let deliveredCount = 0;
+      let newCount = 0;
+      let totalOrders = ordersData.length;
+
+      ordersData.forEach(o => {
+        const st = o.status;
+        const tot = parseInt(String(o.total).replace(/\D/g, '')) || 0;
+        if (st === 'Giao thành công' || st === 'Giao hàng thành công' || st === 'Đã giao') {
+          deliveredRev += tot;
+          deliveredCount++;
+        } else if (st === 'Chờ xác nhận') {
+          newCount++;
+        }
+      });
+
+      const revEl = document.getElementById('kpiRevenueVal');
+      if (revEl) revEl.textContent = deliveredRev.toLocaleString('vi-VN') + 'đ';
+      const revSub = document.getElementById('kpiRevenueSub');
+      if (revSub) revSub.textContent = `${deliveredCount} đơn hoàn tất giao`;
+
+      const ordEl = document.getElementById('kpiOrdersVal');
+      if (ordEl) ordEl.textContent = totalOrders;
+      const ordSub = document.getElementById('kpiOrdersSub');
+      if (ordSub) ordSub.textContent = `${newCount} mới · ${deliveredCount} đã giao`;
+    }
+
+    function renderRevenueChart(days = 30) {
+      const chartContainer = document.querySelector('.ops-chart');
+      if (!chartContainer) return;
+
+      const agg = {};
+      ordersData.forEach(o => {
+        let dStr = o.date;
+        if (!dStr) return;
+        const parts = dStr.split('/');
+        if (parts.length >= 2) {
+          const key = `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}`;
+          if (!agg[key]) {
+            const y = parts[2] ? parseInt(parts[2]) : 2026;
+            agg[key] = { 
+              date: key, 
+              revenue: 0, 
+              orders: 0, 
+              ts: new Date(y, parseInt(parts[1]) - 1, parseInt(parts[0])).getTime() 
+            };
+          }
+          agg[key].orders++;
+          const st = o.status;
+          if (st === 'Giao thành công' || st === 'Giao hàng thành công' || st === 'Đã giao') {
+            const tot = parseInt(String(o.total).replace(/\D/g, '')) || 0;
+            agg[key].revenue += tot;
+          }
+        }
+      });
+
+      let points = Object.values(agg).sort((a, b) => a.ts - b.ts);
+
+      if (points.length === 0) {
+        const today = new Date();
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(today.getTime() - i * 86400000);
+          const dStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+          points.push({ date: dStr, revenue: 0, orders: 0 });
+        }
+      }
+
+      // Giữ tối đa 8 cột để biểu đồ thoáng đẹp
+      if (points.length > 8) {
+        points = points.slice(-8);
+      }
+
+      // Tìm max revenue & max orders
+      let maxRev = Math.max(...points.map(p => p.revenue), 500000);
+      if (maxRev <= 500000) maxRev = 500000;
+      else if (maxRev <= 1000000) maxRev = 1000000;
+      else if (maxRev <= 2000000) maxRev = 2000000;
+      else if (maxRev <= 5000000) maxRev = 5000000;
+      else maxRev = Math.ceil(maxRev / 5000000) * 5000000;
+
+      let maxOrders = Math.max(...points.map(p => p.orders), 3);
+      maxOrders = Math.ceil(maxOrders / 3) * 3;
+
+      // Cập nhật trục Y
+      const yAxis = chartContainer.querySelector('.ops-y-axis');
+      if (yAxis) {
+        const step = maxRev / 3;
+        const formatY = (v) => {
+          if (v === 0) return '0';
+          if (v >= 1000000) return (v / 1000000).toFixed(v % 1000000 === 0 ? 0 : 1) + 'tr';
+          return (v / 1000).toFixed(0) + 'k';
+        };
+        yAxis.innerHTML = `
+          <span>${formatY(maxRev)}</span>
+          <span>${formatY(step * 2)}</span>
+          <span>${formatY(step)}</span>
+          <span>0</span>
+        `;
+      }
+
+      // Kích thước SVG
+      const W = 760;
+      const baseline = 221;
+      const maxBarH = 190;
+      const maxLineH = 150;
+
+      const N = points.length;
+      const stepX = W / (N + 1);
+
+      let rectsSvg = '';
+      let linePoints = [];
+      let circlesSvg = '';
+      let xAxisHtml = '';
+
+      points.forEach((p, idx) => {
+        const cx = stepX * (idx + 1);
+        const barW = Math.min(38, Math.max(26, Math.floor(stepX * 0.42)));
+        const x = cx - (barW / 2);
+        const barH = Math.max(p.revenue > 0 ? 8 : 2, Math.round((p.revenue / maxRev) * maxBarH));
+        const y = baseline - barH;
+
+        const lineY = baseline - Math.max(4, Math.round((p.orders / maxOrders) * maxLineH));
+        linePoints.push(`${Math.round(cx)} ${Math.round(lineY)}`);
+
+        rectsSvg += `
+          <rect x="${Math.round(x)}" y="${y}" width="${barW}" height="${barH}" rx="3" style="cursor: pointer;">
+            <title>Ngày ${p.date}: Doanh thu ${p.revenue.toLocaleString('vi-VN')}đ (${p.orders} đơn hàng)</title>
+          </rect>
+        `;
+
+        circlesSvg += `
+          <circle cx="${Math.round(cx)}" cy="${Math.round(lineY)}" r="4" style="cursor: pointer;">
+            <title>Ngày ${p.date}: ${p.orders} đơn hàng</title>
+          </circle>
+        `;
+
+        xAxisHtml += `<span>${p.date}</span>`;
+      });
+
+      const svg = chartContainer.querySelector('svg');
+      if (svg) {
+        svg.innerHTML = `
+          <g class="grid-lines">
+            <path d="M0 20H760M0 87H760M0 154H760M0 221H760" />
+          </g>
+          ${rectsSvg}
+          <path class="order-line" d="M ${linePoints.join(' L ')}" />
+          ${circlesSvg}
+        `;
+      }
+
+      const xAxis = chartContainer.querySelector('.ops-x-axis');
+      if (xAxis) {
+        xAxis.innerHTML = xAxisHtml;
       }
     }
 
@@ -1399,6 +1879,7 @@ if (empty($initialOrders)) {
         const rEl = document.getElementById('reportRange' + i);
         if (rEl) rEl.textContent = `Dữ liệu ${val} ngày gần nhất`;
       }
+      renderRevenueChart(val);
     }
 
     function toggleNotifications() {
@@ -1436,6 +1917,115 @@ if (empty($initialOrders)) {
         }
       });
     });
+
+    // --- CSV EXPORT UTILITIES (BÁO CÁO KINH DOANH) ---
+    function downloadCSV(filename, rows) {
+      const processRow = function (row) {
+        let finalVal = '';
+        for (let j = 0; j < row.length; j++) {
+          let innerValue = row[j] === null || row[j] === undefined ? '' : row[j].toString();
+          let result = innerValue.replace(/"/g, '""');
+          if (result.search(/("|,|\n)/g) >= 0)
+            result = '"' + result + '"';
+          if (j > 0)
+            finalVal += ',';
+          finalVal += result;
+        }
+        return finalVal + '\r\n';
+      };
+
+      let csvFile = '\uFEFF'; // UTF-8 BOM
+      for (let i = 0; i < rows.length; i++) {
+        csvFile += processRow(rows[i]);
+      }
+
+      const blob = new Blob([csvFile], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+
+    function exportRevenueReportCSV() {
+      const rows = [
+        ['MÃ ĐƠN HÀNG', 'NGÀY ĐẶT', 'KHÁCH HÀNG', 'SỐ ĐIỆN THOẠI', 'TỔNG TIỀN (VNĐ)', 'QUỸ CỨU TRỢ 5% (VNĐ)', 'TRẠNG THÁI']
+      ];
+      ordersData.forEach(o => {
+        rows.push([
+          o.id,
+          o.date,
+          o.customer,
+          o.phone,
+          o.total ? o.total.replace(/[^\d]/g, '') : '0',
+          o.fund ? o.fund.replace(/[^\d]/g, '') : '0',
+          o.status
+        ]);
+      });
+      downloadCSV(`KIBO_BaoCao_DoanhThu_${new Date().toISOString().slice(0,10)}.csv`, rows);
+      showAdminToast('Tải thành công', 'Đã xuất file báo cáo doanh thu CSV thành công.', 'success');
+    }
+
+    function exportOrdersStatusCSV() {
+      const rows = [
+        ['MÃ ĐƠN HÀNG', 'NGÀY ĐẶT', 'KHÁCH HÀNG', 'SẢN PHẨM', 'ĐỊA CHỈ GIAO HÀNG', 'TỔNG TIỀN', 'TRẠNG THÁI']
+      ];
+      ordersData.forEach(o => {
+        rows.push([
+          o.id,
+          o.date,
+          o.customer,
+          o.items,
+          o.address,
+          o.total,
+          o.status
+        ]);
+      });
+      downloadCSV(`KIBO_BaoCao_DonHang_${new Date().toISOString().slice(0,10)}.csv`, rows);
+      showAdminToast('Tải thành công', 'Đã xuất danh sách đơn hàng CSV thành công.', 'success');
+    }
+
+    function exportInventoryReportCSV() {
+      const rows = [
+        ['MÃ BIẾN THỂ / SKU', 'TÊN SẢN PHẨM', 'DANH MỤC', 'SỐ LƯỢNG TỒN', 'ĐÃ BÁN', 'TÌNH TRẠNG KHO']
+      ];
+      inventoryData.forEach(item => {
+        const stock = parseInt(item.stock || item.soluongton || 0);
+        rows.push([
+          item.sku || item.id,
+          item.name,
+          item.category,
+          stock,
+          item.sold || 0,
+          stock <= 5 ? 'Cảnh báo sắp hết (<= 5)' : 'Đủ hàng an toàn'
+        ]);
+      });
+      downloadCSV(`KIBO_BaoCao_TonKho_${new Date().toISOString().slice(0,10)}.csv`, rows);
+      showAdminToast('Tải thành công', 'Đã xuất danh sách tồn kho CSV thành công.', 'success');
+    }
+
+    function exportFundReportCSV() {
+      const rows = [
+        ['MÃ ĐƠN HÀNG', 'NGÀY ĐẶT', 'TỔNG ĐƠN HÀNG (VNĐ)', 'KHOẢN TRÍCH QUỸ 5% (VNĐ)', 'TRẠM CỨU HỘ THỤ HƯỞNG', 'TRẠNG THÁI ĐƠN']
+      ];
+      ordersData.forEach(o => {
+        rows.push([
+          o.id,
+          o.date,
+          o.total ? o.total.replace(/[^\d]/g, '') : '0',
+          o.fund ? o.fund.replace(/[^\d]/g, '') : '0',
+          o.shelter,
+          o.status
+        ]);
+      });
+      downloadCSV(`KIBO_DoiSoat_QuyCuuTro_${new Date().toISOString().slice(0,10)}.csv`, rows);
+      showAdminToast('Tải thành công', 'Đã xuất file đối soát Quỹ cứu trợ 5% CSV thành công.', 'success');
+    }
   </script>
 
   <!-- MODAL THÊM DANH MỤC MỚI (DẠNG BASIC) -->
@@ -1825,5 +2415,68 @@ if (empty($initialOrders)) {
       }
     }
   </script>
+  <!-- MODAL CHI TIẾT YÊU CẦU ĐỔI TRẢ & HÌNH ẢNH MINH CHỨNG -->
+  <div id="returnDetailModalBackdrop" onclick="if(event.target === this) closeReturnDetailModal()" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); z-index: 9999999; place-items: center; padding: 16px; overflow-y: auto;">
+    <div style="background: #ffffff; width: min(640px, 95vw); border-radius: 6px; border: 1px solid #dcdcdc; box-shadow: 0 8px 30px rgba(0,0,0,0.2); overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <!-- Header -->
+      <div style="background: #2c1a0e; color: #ffffff; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <h3 id="modalReturnIdTitle" style="margin: 0; font-size: 16px; font-weight: bold; color: #ffffff;">Yêu cầu đổi trả #DT000</h3>
+          <span id="modalReturnStatusBadge" style="display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11.5px; font-weight: bold; background: #d97706; color: #ffffff;">Chờ xử lý</span>
+        </div>
+        <button type="button" onclick="closeReturnDetailModal()" style="background: none; border: none; font-size: 20px; color: #f0ede8; cursor: pointer; line-height: 1; padding: 0 4px;">✕</button>
+      </div>
+
+      <!-- Body -->
+      <div style="padding: 18px; display: flex; flex-direction: column; gap: 16px; max-height: 75vh; overflow-y: auto;">
+        
+        <!-- Khối Thông tin đơn hàng & Khách hàng -->
+        <div style="background: #fbf9f6; border: 1px solid #ebd9c8; border-radius: 6px; padding: 12px 14px; font-size: 13.5px; line-height: 1.6;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #e2cfbd; padding-bottom: 6px; margin-bottom: 8px;">
+            <div>Mã đơn hàng: <strong id="modalReturnOrderId" style="color: #2c1a0e; font-size: 14.5px;">--</strong></div>
+            <div style="font-weight: bold; color: #2e7d32;" id="modalReturnOrderTotal">0đ</div>
+          </div>
+          <div>Khách hàng: <strong id="modalReturnCustomer">--</strong></div>
+          <div>Địa chỉ nhận hàng: <span id="modalReturnAddress" style="color: #555;">--</span></div>
+          <div style="color: #777; font-size: 12.5px; margin-top: 4px;">Thời điểm yêu cầu: <span id="modalReturnDate">--</span></div>
+        </div>
+
+        <!-- Khối Lý do đổi trả -->
+        <div>
+          <label style="display: block; font-weight: bold; font-size: 13px; color: #2c1a0e; margin-bottom: 6px;">Lý do khách hàng yêu cầu đổi trả:</label>
+          <div id="modalReturnReason" style="padding: 12px 14px; background: #fff8f0; border-left: 4px solid #ea580c; border-radius: 4px; font-size: 14px; color: #333; line-height: 1.5;">
+            --
+          </div>
+        </div>
+
+        <!-- Khối Hình ảnh minh chứng (Proof Images) -->
+        <div>
+          <label style="display: block; font-weight: bold; font-size: 13px; color: #2c1a0e; margin-bottom: 6px;">Hình ảnh minh chứng thực tế từ khách hàng:</label>
+          <div id="modalReturnImagesGallery" style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <!-- Render ảnh minh chứng -->
+          </div>
+        </div>
+
+        <!-- Khối Ra quyết định / Hướng xử lý -->
+        <div id="modalReturnDecisionSection">
+          <!-- Render form ra quyết định hoặc thông tin đã xử lý -->
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div style="background: #f7f5f2; padding: 12px 18px; border-top: 1px solid #ebd9c8; display: flex; justify-content: flex-end;">
+        <button type="button" onclick="closeReturnDetailModal()" style="padding: 7px 16px; background: #e5e0d8; color: #333; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 600;">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIGHTBOX XEM ẢNH PHÓNG TO -->
+  <div id="imageLightboxBackdrop" onclick="closeImageLightbox()" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); z-index: 99999999; place-items: center; padding: 20px;">
+    <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+      <button type="button" onclick="closeImageLightbox()" style="position: absolute; top: -36px; right: 0; background: none; border: none; font-size: 30px; color: #fff; cursor: pointer;">✕</button>
+      <img id="lightboxImage" src="" alt="Hình ảnh phóng to" style="max-width: 90vw; max-height: 85vh; border-radius: 6px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); object-fit: contain;">
+    </div>
+  </div>
 </body>
 </html>

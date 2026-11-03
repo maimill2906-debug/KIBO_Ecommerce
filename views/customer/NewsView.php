@@ -29,11 +29,11 @@ $articles = [
     [
         'slug' => 'ban-giao-quy-cuu-tro-nong-lam',
         'type' => 'fund',
-        'title' => 'Hành Trình Bàn Giao 2.340.000đ Quỹ Cứu Trợ Đến Trạm Nông Lâm',
+        'title' => 'Hành Trình Bàn Giao Quỹ Cứu Trợ Đến Trạm Cứu Hộ Đối Tác',
         'date' => '12/05/2026',
         'category' => 'HOẠT ĐỘNG QUỸ CỨU TRỢ',
         'image' => 'https://images.unsplash.com/photo-1563460716037-460a3ad24ba9?auto=format&fit=crop&w=900&q=85',
-        'excerpt' => 'Khoản đóng góp từ các đơn hàng thành công trong tháng đã được KIBO đối soát và bàn giao đến Trạm Cứu Hộ Nông Lâm. Xem chi tiết chứng từ và kế hoạch sử dụng quỹ.'
+        'excerpt' => 'Khoản đóng góp 5% từ các đơn hàng thành công đã được KIBO đối soát minh bạch và giải ngân trực tiếp cho trạm cứu hộ bảo trợ. Xem chi tiết chứng từ ủy nhiệm chi và kế hoạch sử dụng quỹ.'
     ],
     [
         'slug' => 'cham-soc-long-muot-cho-meo',

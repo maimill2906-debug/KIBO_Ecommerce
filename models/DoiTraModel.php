@@ -15,12 +15,22 @@ class DoiTraModel {
         $db = Database::getConnection();
         if ($db) {
             try {
-                $sql = "SELECT mayeucau as \"MaYeuCau\", madonhang as \"MaDonHang\", 
-                               lydodoitra as \"LyDoDoiTra\", hinhanhminhchung as \"HinhAnhMinhChung\", 
-                               ngayyeucau as \"NgayYeuCau\", trangthaiyeucau as \"TrangThaiYeuCau\", 
-                               huongxuly as \"HuongXuLy\", ngayxuly as \"NgayXuLy\"
-                        FROM yeu_cau_doi_tra 
-                        ORDER BY ngayyeucau DESC";
+                $sql = "SELECT dt.mayeucau as \"MaYeuCau\", 
+                               dt.madonhang as \"MaDonHang\", 
+                               dt.lydodoitra as \"LyDoDoiTra\", 
+                               dt.hinhanhminhchung as \"HinhAnhMinhChung\", 
+                               dt.ngayyeucau as \"NgayYeuCau\", 
+                               dt.trangthaiyeucau as \"TrangThaiYeuCau\", 
+                               dt.huongxuly as \"HuongXuLy\", 
+                               dt.ngayxuly as \"NgayXuLy\",
+                               dh.tennguoinhan as \"TenNguoiNhan\",
+                               dh.sodienthoainhan as \"SoDienThoaiNhan\",
+                               dh.tongthanhtoan as \"TongTienDonHang\",
+                               dh.diachigiaohang as \"DiaChiGiaoHang\",
+                               dh.trangthaidonhang as \"TrangThaiDonHang\"
+                        FROM yeu_cau_doi_tra dt
+                        LEFT JOIN don_hang dh ON dt.madonhang = dh.madonhang
+                        ORDER BY dt.ngayyeucau DESC";
                 return $db->query($sql)->fetchAll();
             } catch (Exception $e) {
                 error_log("Lỗi getAll DoiTra: " . $e->getMessage());

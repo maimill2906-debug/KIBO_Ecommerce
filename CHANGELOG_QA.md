@@ -242,4 +242,32 @@ Hệ thống KIBO đã được tái cấu trúc, vá toàn bộ các lỗ hổn
    - Sửa `user2@gmail.com` thành `hoangphuc@gmail.com` trong `DOC_CSDL_CAP_NHAT_WORD.md`, khớp 100% với `database_seed_kibo.sql`.
    - Loại bỏ hoàn toàn các tập tin dư thừa: `test_suite.php` cũ, `crop_hero.*`, `inspect_img.php`, `figma_rendered.png` và file zip lồng bên trong.
 
+### 7. Rà Soát & Xóa Bỏ Dữ Liệu Hardcoded Toàn Diện Trên Web (Audit Thực Tế)
+- **Danh mục Sản phẩm & Bộ lọc Catalog (`SanPhamView.php`)**:
+  - Gỡ bỏ hoàn toàn việc set cứng tag `Thức ăn hạt` và `Royal Canin` khi vừa load trang.
+  - Bộ lọc hoạt động động theo đúng checkbox thương hiệu, danh mục, khoảng giá và tình trạng hàng.
+  - Xóa bỏ điểm đánh giá giả (`★ 5.0, 18 Reviews`) ở toàn bộ thẻ sản phẩm.
+  - Ẩn thẻ giá gốc gạch ngang `<del>` nếu sản phẩm không có giảm giá.
+- **Trang Chi Tiết Sản Phẩm (`ProductDetailView.php`)**:
+  - Xóa mảng `$allProducts` và sản phẩm mẫu fallback `SP001`. Nếu ID sản phẩm không tồn tại, trả về trang 404 thân thiện.
+  - Nối danh sách danh mục bên thanh sidebar với `SanPhamModel::getDanhSachDanhMuc()`.
+- **Trang Về Chúng Tôi (`AboutView.php`)**:
+  - Xóa mốc thời gian lịch sử ảo (2022, 2024, 120 khách hàng), thay bằng 3 cam kết cốt lõi: Khởi nguồn, Cơ chế 5% và Minh bạch dòng tiền.
+- **Thống nhất Thông tin Hotline**:
+  - Thống nhất toàn bộ hotline trên Header, Footer, và `config/business.php` về duy nhất một số: `0772 906 756`.
+- **Giao diện Quản trị Đổi Trả (`DashboardView.php` - Returns Tab)**:
+  - Thêm cửa sổ chi tiết yêu cầu đổi trả (Modal) hiển thị đầy đủ thông tin khách hàng, số điện thoại, lý do đổi trả và bộ sưu tập ảnh minh chứng có chức năng phóng to (Lightbox).
+  - Tích hợp các nút quyết định trực tiếp trong Modal: Đổi hàng, Hoàn tiền (kèm checkbox Nhập lại kho), Từ chối (kèm lý do).
+- **Admin KPI Dashboard & Biểu Đồ Doanh Thu Động (`DashboardView.php`)**:
+  - Chuyển đổi 4 thẻ KPI hàng đầu (`Doanh thu`, `Quỹ cứu trợ 5%`, `Đơn hàng`, `Tồn kho`) sang tính toán thời gian thực từ các đơn hàng thực tế trong CSDL PostgreSQL.
+  - Vẽ lại biểu đồ cột & đường SVG động theo các ngày có phát sinh đơn hàng thực tế (Tháng 10 & 11/2026), loại bỏ biểu đồ tháng 6 giả.
+  - Khắc phục triệt để PHP Warning `Undefined array key "soluongton"` ở dòng 87-88.
+- **Chuông Thông Báo Động & Tab Báo Cáo Kinh Doanh (`DashboardView.php`)**:
+  - Chuông thông báo hiển thị đúng số lượng sản phẩm sắp hết hàng, đơn hàng chờ duyệt, yêu cầu đổi trả chờ xử lý và tổng quỹ đã trích từ CSDL.
+  - Tích hợp xuất file CSV thực tế có hỗ trợ tiếng Việt UTF-8 BOM cho cả 4 loại báo cáo: Doanh thu, Đơn hàng, Tồn kho, Quỹ cứu trợ.
+  - Bổ sung bảng phân bổ trạng thái đơn hàng và bảng đối soát dòng tiền trong Tab Báo Cáo.
+- **Trang Tin Tức & Quỹ Cứu Trợ (`NewsView.php`, `NewsDetailView.php`, `QuyCuuTroView.php`)**:
+  - Xóa bỏ con số giả `2.340.000đ` trong tiêu đề bài viết tin tức.
+  - Xóa vòng lặp giả `setInterval` tự cộng 250đ trên trang Quỹ Cứu Trợ. Hiển thị chứng từ và số liệu thật từ bảng `quy_cuu_tro` và `tram_cuu_ho`.
+
 
