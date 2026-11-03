@@ -45,7 +45,7 @@ $dbHost = getenv('DB_HOST') ?: 'localhost';
 $dbName = getenv('DB_NAME') ?: 'postgres';
 
 $passed = 0;
-$total = 16;
+$total = 18;
 
 function assertTest(string $tc, string $description, bool $condition, string $details = '') {
     global $passed;
@@ -392,9 +392,13 @@ try {
 }
 
 // ---------------------------------------------------------------------
-// TC9: Hủy đơn hàng (Chỉ khi Chờ xác nhận/Chờ đóng gói, hoàn kho, hoàn voucher, quỹ -> Đã hủy)
+// TC9: Hủy đơn hàng (Cho phép khi Chờ xác nhận hoặc Chờ đóng gói, hoàn kho, hoàn voucher, quỹ -> Đã hủy)
 // ---------------------------------------------------------------------
 try {
+    $tkh09 = 'TKH_09';
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$tkh09]);
+    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, NULL, 'Cancel Tester', 'c09@kibo.local', 0)")->execute([$tkh09]);
+
     $db->prepare("DELETE FROM voucher WHERE mavoucher = 'TEST_CANCEL'")->execute();
     $db->prepare("INSERT INTO voucher (mavoucher, tenvoucher, loaigiamgia, giatrigiam, donhangtoithieu, soluongconlai, ngaybatdau, ngayketthuc, kichhoat) 
                   VALUES ('TEST_CANCEL', 'Hủy', 'SoTien', 20000, 100000, 5, NOW() - INTERVAL '1 days', NOW() + INTERVAL '10 days', true)")->execute();
@@ -408,15 +412,20 @@ try {
         'voucherCode' => 'TEST_CANCEL',
         'paymentMethod' => 'cod'
     ];
-    $orderRes = DonHangModel::taoDonHang($orderData, 'KH001');
+    $orderRes = DonHangModel::taoDonHang($orderData, $tkh09);
     $oid = $orderRes['orderId'];
 
+    // 1. Chuyển sang 'Chờ đóng gói'
+    $stepGoi = DonHangModel::capNhatTrangThai($oid, 'Chờ đóng gói');
+
+    // 2. Hủy đơn khi đang 'Chờ đóng gói' (khách hủy hợp lệ)
     $cancelRes = DonHangModel::capNhatTrangThai($oid, 'Đã hủy');
     $fundStatus = $db->query("SELECT trangthaiquy FROM quy_cuu_tro WHERE madonhang = '{$oid}'")->fetchColumn();
     $stockAfter = (int)$db->query("SELECT soluongton FROM bien_the WHERE mabienthe = 'BT001'")->fetchColumn();
     $vcAfter = (int)$db->query("SELECT soluongconlai FROM voucher WHERE mavoucher = 'TEST_CANCEL'")->fetchColumn();
 
-    $c9 = ($cancelRes['success']) 
+    $c9 = ($stepGoi['success'])
+       && ($cancelRes['success']) 
        && ($fundStatus === 'Đã hủy') 
        && ($stockAfter === $stockBefore) 
        && ($vcAfter === $vcBefore);
@@ -426,9 +435,10 @@ try {
     $db->prepare("DELETE FROM quy_cuu_tro WHERE madonhang = ?")->execute([$oid]);
     $db->prepare("DELETE FROM thanh_toan WHERE madonhang = ?")->execute([$oid]);
     $db->prepare("DELETE FROM don_hang WHERE madonhang = ?")->execute([$oid]);
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$tkh09]);
     $db->prepare("DELETE FROM voucher WHERE mavoucher = 'TEST_CANCEL'")->execute();
 
-    assertTest("TC9", "Hủy đơn hàng: Chỉ hủy khi Chờ xác nhận/Chờ đóng gói, hoàn kho, hoàn voucher và hủy trích quỹ", $c9);
+    assertTest("TC9", "Hủy đơn hàng: Cho phép hủy khi Chờ xác nhận hoặc Chờ đóng gói, hoàn kho, hoàn voucher và hủy trích quỹ", $c9);
 } catch (Throwable $e) {
     assertTest("TC9", "Hủy đơn hàng", false, $e->getMessage());
 }
@@ -683,10 +693,14 @@ try {
     // 1. Tạo khoản trích quỹ ở trạng thái 'Đã trích quỹ' kèm đơn hàng hợp lệ
     $testMaDongGop = 'TEST_QCT_15';
     $testMaDonHang = 'TEST_DH_15';
+    $tkh15 = 'TKH_15';
     $db->prepare("DELETE FROM quy_cuu_tro WHERE madonggop = ?")->execute([$testMaDongGop]);
     $db->prepare("DELETE FROM don_hang WHERE madonhang = ?")->execute([$testMaDonHang]);
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$tkh15]);
+    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, NULL, 'Fund Tester', 'f15@kibo.local', 0)")->execute([$tkh15]);
+
     $db->prepare("INSERT INTO don_hang (madonhang, makh, trangthaidonhang, tongtienhang, tongthanhtoan, ngaydathang, tennguoinhan, sodienthoainhan, diachigiaohang) 
-                  VALUES (?, 'KH001', 'Giao thành công', 1000000, 1000000, NOW(), 'Test Recipient', '0901234567', 'HCM')")->execute([$testMaDonHang]);
+                  VALUES (?, ?, 'Giao thành công', 1000000, 1000000, NOW(), 'Test Recipient', '0901234567', 'HCM')")->execute([$testMaDonHang, $tkh15]);
     $db->prepare("INSERT INTO quy_cuu_tro (madonggop, madonhang, sotiendonggop, ngayghinhan, matracuu, trangthaiquy, machungtu) 
                   VALUES (?, ?, 50000, NOW(), 'TEST_TC15', 'Đã trích quỹ', NULL)")->execute([$testMaDongGop, $testMaDonHang]);
 
@@ -702,6 +716,7 @@ try {
     // Dọn dẹp
     $db->prepare("DELETE FROM quy_cuu_tro WHERE madonggop = ?")->execute([$testMaDongGop]);
     $db->prepare("DELETE FROM don_hang WHERE madonhang = ?")->execute([$testMaDonHang]);
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$tkh15]);
     if (!empty($maCT)) {
         $db->prepare("DELETE FROM chung_tu_giai_ngan WHERE machungtu = ?")->execute([$maCT]);
     }
@@ -771,6 +786,99 @@ try {
     assertTest("TC16", "Voucher nâng cao: Áp dụng 'giảm tối đa' (giamtoida) và chặn mỗi tài khoản dùng quá 1 lần", $isMaxCapped && $isSecondAttemptBlocked);
 } catch (Throwable $e) {
     assertTest("TC16", "Voucher nâng cao", false, $e->getMessage());
+}
+
+// ---------------------------------------------------------------------
+// TC17: Quy trình 5 bước Admin UI (Khớp 100% nút bấm giao diện không nhảy cóc)
+// ---------------------------------------------------------------------
+try {
+    $tkh17 = 'TKH_17';
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$tkh17]);
+    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, NULL, 'State Lifecycle Tester', 'u17@kibo.local', 0)")->execute([$tkh17]);
+
+    $orderData = [
+        'customer' => ['name' => 'Lifecycle User', 'phone' => '0771717171', 'address' => 'Quận 1, TP.HCM'],
+        'items' => [['id' => 'BT001', 'name' => 'KIBO Cá Hồi', 'variant' => 'Túi 1.5kg', 'price' => 285000, 'quantity' => 1]],
+        'paymentMethod' => 'cod'
+    ];
+    $resOrder = DonHangModel::taoDonHang($orderData, $tkh17);
+    $oid17 = $resOrder['orderId'];
+
+    // Bước 1: UI nhấn "Duyệt đơn" -> Chờ đóng gói
+    $step1 = DonHangModel::capNhatTrangThai($oid17, 'Chờ đóng gói');
+
+    // Bước 2: UI nhấn "Đã xuất kho" -> Đã xuất kho
+    $step2 = DonHangModel::capNhatTrangThai($oid17, 'Đã xuất kho');
+
+    // Bước 3: UI nhấn "Bắt đầu giao" -> Đang giao
+    $step3 = DonHangModel::capNhatTrangThai($oid17, 'Đang giao');
+
+    // Bước 4: UI nhấn "Giao thành công" -> Giao thành công
+    $step4 = DonHangModel::capNhatTrangThai($oid17, 'Giao thành công');
+
+    // Bước 5: Kiểm tra trạng thái cuối cùng và thử lùi hoặc nhảy ngược lại => BỊ CHẶN
+    $stepInvalid = DonHangModel::capNhatTrangThai($oid17, 'Chờ xác nhận');
+
+    $allStepsPass = ($step1['success'] && $step2['success'] && $step3['success'] && $step4['success'] && !$stepInvalid['success']);
+
+    // Dọn dẹp
+    $db->prepare("DELETE FROM chi_tiet_don_hang WHERE madonhang = ?")->execute([$oid17]);
+    $db->prepare("DELETE FROM quy_cuu_tro WHERE madonhang = ?")->execute([$oid17]);
+    $db->prepare("DELETE FROM thanh_toan WHERE madonhang = ?")->execute([$oid17]);
+    $db->prepare("DELETE FROM don_hang WHERE madonhang = ?")->execute([$oid17]);
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$tkh17]);
+    $db->prepare("UPDATE bien_the SET soluongton = soluongton + 1 WHERE mabienthe = 'BT001'")->execute();
+
+    assertTest("TC17", "Quy trình máy trạng thái 5 bước Admin UI: Tuần tự Chờ xác nhận -> Chờ đóng gói -> Đã xuất kho -> Đang giao -> Giao thành công", $allStepsPass);
+} catch (Throwable $e) {
+    assertTest("TC17", "Quy trình máy trạng thái 5 bước Admin UI", false, $e->getMessage());
+}
+
+// ---------------------------------------------------------------------
+// TC18: Tùy chọn Nhập lại kho khi Hoàn tiền & Che chắn thông báo lỗi (BusinessException)
+// ---------------------------------------------------------------------
+try {
+    $tkh18 = 'TKH_18';
+    $db->prepare("DELETE FROM yeu_cau_doi_tra WHERE madonhang IN ('TEST_DH_18A', 'TEST_DH_18B')")->execute();
+    $db->prepare("DELETE FROM chi_tiet_don_hang WHERE madonhang IN ('TEST_DH_18A', 'TEST_DH_18B')")->execute();
+    $db->prepare("DELETE FROM thanh_toan WHERE madonhang IN ('TEST_DH_18A', 'TEST_DH_18B')")->execute();
+    $db->prepare("DELETE FROM don_hang WHERE madonhang IN ('TEST_DH_18A', 'TEST_DH_18B') OR makh = ?")->execute([$tkh18]);
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$tkh18]);
+    $db->prepare("INSERT INTO khach_hang (makh, matk, hoten, email, diemtichluy) VALUES (?, NULL, 'Return Tester', 'u18@kibo.local', 0)")->execute([$tkh18]);
+
+    // Nhánh A: Hoàn tiền có nhập lại kho (nhaplaikho = true)
+    $stockBeforeA = (int)$db->query("SELECT soluongton FROM bien_the WHERE mabienthe = 'BT001'")->fetchColumn();
+    $db->prepare("INSERT INTO don_hang (madonhang, makh, trangthaidonhang, tongtienhang, tongthanhtoan, ngaydathang, tennguoinhan, sodienthoainhan, diachigiaohang, ngaygiaothanhcong) 
+                  VALUES ('TEST_DH_18A', ?, 'Giao thành công', 285000, 285000, NOW(), 'Tester 18A', '0771818181', 'HCM', NOW())")->execute([$tkh18]);
+    $db->prepare("INSERT INTO chi_tiet_don_hang (madonhang, mabienthe, soluong, dongia, thanhtien) VALUES ('TEST_DH_18A', 'BT001', 2, 285000, 570000)")->execute();
+    $db->prepare("INSERT INTO thanh_toan (magiaodich, madonhang, phuongthuctt, sotien, thoigiantt, trangthaitt) VALUES ('TEST_GD_18A', 'TEST_DH_18A', 'COD', 285000, NOW(), 'Thành công')")->execute();
+    $resYCA = DoiTraModel::taoYeuCau('TEST_DH_18A', 'Bao bì nguyên seal muốn hoàn lại', '', '', '0771818181');
+    $resXuLyA = DoiTraModel::xuLy($resYCA['mayeucau'], 'hoantien', 'Đồng ý hoàn tiền nhập kho', true);
+    $stockAfterA = (int)$db->query("SELECT soluongton FROM bien_the WHERE mabienthe = 'BT001'")->fetchColumn();
+    $isRestocked = ($stockAfterA === $stockBeforeA + 2);
+
+    // Nhánh B: Hoàn tiền KHÔNG nhập kho (nhaplaikho = false - thức ăn ẩm mốc tiêu hủy)
+    $stockBeforeB = (int)$db->query("SELECT soluongton FROM bien_the WHERE mabienthe = 'BT001'")->fetchColumn();
+    $db->prepare("INSERT INTO don_hang (madonhang, makh, trangthaidonhang, tongtienhang, tongthanhtoan, ngaydathang, tennguoinhan, sodienthoainhan, diachigiaohang, ngaygiaothanhcong) 
+                  VALUES ('TEST_DH_18B', ?, 'Giao thành công', 285000, 285000, NOW(), 'Tester 18B', '0771818182', 'HCM', NOW())")->execute([$tkh18]);
+    $db->prepare("INSERT INTO chi_tiet_don_hang (madonhang, mabienthe, soluong, dongia, thanhtien) VALUES ('TEST_DH_18B', 'BT001', 3, 285000, 855000)")->execute();
+    $db->prepare("INSERT INTO thanh_toan (magiaodich, madonhang, phuongthuctt, sotien, thoigiantt, trangthaitt) VALUES ('TEST_GD_18B', 'TEST_DH_18B', 'COD', 285000, NOW(), 'Thành công')")->execute();
+    $resYCB = DoiTraModel::taoYeuCau('TEST_DH_18B', 'Hạt bị mốc tiêu hủy', '', '', '0771818182');
+    $resXuLyB = DoiTraModel::xuLy($resYCB['mayeucau'], 'hoantien', 'Tiêu hủy hàng lỗi', false);
+    $stockAfterB = (int)$db->query("SELECT soluongton FROM bien_the WHERE mabienthe = 'BT001'")->fetchColumn();
+    $isNotRestocked = ($stockAfterB === $stockBeforeB);
+
+    // Dọn dẹp
+    $db->prepare("DELETE FROM yeu_cau_doi_tra WHERE madonhang IN ('TEST_DH_18A', 'TEST_DH_18B')")->execute();
+    $db->prepare("DELETE FROM chi_tiet_don_hang WHERE madonhang IN ('TEST_DH_18A', 'TEST_DH_18B')")->execute();
+    $db->prepare("DELETE FROM thanh_toan WHERE madonhang IN ('TEST_DH_18A', 'TEST_DH_18B')")->execute();
+    $db->prepare("DELETE FROM don_hang WHERE madonhang IN ('TEST_DH_18A', 'TEST_DH_18B')")->execute();
+    $db->prepare("DELETE FROM khach_hang WHERE makh = ?")->execute([$tkh18]);
+    $db->prepare("UPDATE bien_the SET soluongton = soluongton - 2 WHERE mabienthe = 'BT001'")->execute();
+
+    assertTest("TC18", "Tùy chọn nhập lại kho khi hoàn tiền: Nhập kho (nhaplaikho=true) vs Tiêu hủy hàng hỏng (nhaplaikho=false)", $isRestocked && $isNotRestocked);
+} catch (Throwable $e) {
+    assertTest("TC18", "Tùy chọn nhập lại kho khi hoàn tiền", false, $e->getMessage());
 }
 
 echo "\n====================================================================\n";

@@ -114,8 +114,8 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Bạn không có quyền thao tác trên đơn hàng này.']);
             exit;
         }
-        if ($ord['trangthaidonhang'] !== TrangThai::DH_CHO_XAC_NHAN) {
-            echo json_encode(['success' => false, 'message' => 'Chỉ có thể hủy khi đơn hàng ở trạng thái \'Chờ xác nhận\'.']);
+        if (!in_array($ord['trangthaidonhang'], [TrangThai::DH_CHO_XAC_NHAN, TrangThai::DH_CHO_DONG_GOI], true)) {
+            echo json_encode(['success' => false, 'message' => "Chỉ có thể hủy khi đơn hàng ở trạng thái 'Chờ xác nhận' hoặc 'Chờ đóng gói'."]);
             exit;
         }
 
@@ -192,7 +192,7 @@ switch ($action) {
         $raw = file_get_contents('php://input');
         $input = json_decode($raw, true) ?: $_POST;
         $maYC = trim($input['mayeucau'] ?? '');
-        $actionType = trim($input['action_type'] ?? ($input['hanhdong'] ?? ''));
+        $actionType = trim($input['action_type'] ?? ($input['hanhdong'] ?? ($input['huongxuly'] ?? '')));
         $note = trim($input['ghichu'] ?? ($input['lydotuchoi'] ?? ''));
         $nhapLaiKho = !empty($input['nhaplaikho']) && ($input['nhaplaikho'] === true || $input['nhaplaikho'] === '1' || $input['nhaplaikho'] === 'true' || $input['nhaplaikho'] === 'on');
         $res = DoiTraModel::xuLy($maYC, $actionType, $note, $nhapLaiKho);

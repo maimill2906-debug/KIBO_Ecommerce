@@ -6,6 +6,7 @@
 // ====================================================================
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/BusinessException.php';
 require_once __DIR__ . '/TrangThai.php';
 
 class DonHangModel {
@@ -246,10 +247,10 @@ class DonHangModel {
             $tenNhan = trim($orderData['tennguoinhan'] ?? ($orderData['customer']['name'] ?? ''));
             $sdtNhan = preg_replace('/[^\d]/', '', trim($orderData['sodienthoainhan'] ?? ($orderData['customer']['phone'] ?? '')));
             if (mb_strlen($tenNhan) < 2) {
-                throw new Exception('Họ và tên người nhận phải có ít nhất 2 ký tự.');
+                throw new BusinessException('Họ và tên người nhận phải có ít nhất 2 ký tự.');
             }
             if (!preg_match('/^0[0-9]{9}$/', $sdtNhan)) {
-                throw new Exception('Số điện thoại người nhận không hợp lệ (phải bắt đầu bằng 0 và gồm 10 chữ số).');
+                throw new BusinessException('Số điện thoại người nhận không hợp lệ (phải bắt đầu bằng 0 và gồm 10 chữ số).');
             }
 
             // 2. Validate phương thức thanh toán
@@ -263,13 +264,13 @@ class DonHangModel {
             }
             $allowedPT = ['Thanh toán khi nhận hàng (COD)', 'Chuyển khoản VietQR'];
             if (!in_array($phuongThuc, $allowedPT, true)) {
-                throw new Exception('Phương thức thanh toán không hợp lệ.');
+                throw new BusinessException('Phương thức thanh toán không hợp lệ.');
             }
 
             // 3. Validate items giỏ hàng
             $rawItems = $orderData['items'] ?? [];
             if (empty($rawItems) || !is_array($rawItems)) {
-                throw new Exception('Giỏ hàng trống! Vui lòng chọn sản phẩm.');
+                throw new BusinessException('Giỏ hàng trống! Vui lòng chọn sản phẩm.');
             }
 
             // Gộp item trùng mã biến thể
@@ -278,10 +279,10 @@ class DonHangModel {
                 $id = trim($it['id'] ?? ($it['mabienthe'] ?? ''));
                 $qty = (int)($it['quantity'] ?? ($it['qty'] ?? 1));
                 if ($id === '' || $qty < 1 || $qty > 99) {
-                    throw new Exception("Số lượng sản phẩm không hợp lệ (cho phép từ 1 đến 99).");
+                    throw new BusinessException("Số lượng sản phẩm không hợp lệ (cho phép từ 1 đến 99).");
                 }
                 if (!preg_match('/^BT[0-9]+$/', $id)) {
-                    throw new Exception("Mã sản phẩm '{$id}' không đúng định dạng biến thể hợp lệ.");
+                    throw new BusinessException("Mã sản phẩm '{$id}' không đúng định dạng biến thể hợp lệ.");
                 }
                 $consolidatedItems[$id] = ($consolidatedItems[$id] ?? 0) + $qty;
             }
@@ -300,13 +301,13 @@ class DonHangModel {
                 $stmtBT->execute([$maBT]);
                 $btRow = $stmtBT->fetch();
                 if (!$btRow) {
-                    throw new Exception("Biến thể sản phẩm '{$maBT}' không tồn tại trong hệ thống.");
+                    throw new BusinessException("Biến thể sản phẩm '{$maBT}' không tồn tại trong hệ thống.");
                 }
                 if ($btRow['trangthai'] !== 'Đang bán') {
-                    throw new Exception("Sản phẩm '{$btRow['tensp']}' hiện đã ngừng kinh doanh.");
+                    throw new BusinessException("Sản phẩm '{$btRow['tensp']}' hiện đã ngừng kinh doanh.");
                 }
                 if ((int)$btRow['soluongton'] < $qty) {
-                    throw new Exception("Sản phẩm '{$btRow['tensp']}' không đủ số lượng tồn kho (còn {$btRow['soluongton']}, yêu cầu {$qty}).");
+                    throw new BusinessException("Sản phẩm '{$btRow['tensp']}' không đủ số lượng tồn kho (còn {$btRow['soluongton']}, yêu cầu {$qty}).");
                 }
 
                 // Trừ tồn kho
@@ -348,31 +349,31 @@ class DonHangModel {
                 $vRow = $stmtV->fetch();
 
                 if (!$vRow) {
-                    throw new Exception("Mã giảm giá '{$maVoucher}' không tồn tại trong hệ thống.");
+                    throw new BusinessException("Mã giảm giá '{$maVoucher}' không tồn tại trong hệ thống.");
                 }
                 if (isset($vRow['kichhoat']) && !$vRow['kichhoat']) {
-                    throw new Exception("Mã giảm giá '{$maVoucher}' hiện đang bị tạm khóa.");
+                    throw new BusinessException("Mã giảm giá '{$maVoucher}' hiện đang bị tạm khóa.");
                 }
                 $nowTs = time();
                 if (!empty($vRow['ngaybatdau']) && strtotime($vRow['ngaybatdau']) > $nowTs) {
-                    throw new Exception("Mã giảm giá '{$maVoucher}' chưa đến thời gian áp dụng.");
+                    throw new BusinessException("Mã giảm giá '{$maVoucher}' chưa đến thời gian áp dụng.");
                 }
                 if (!empty($vRow['ngayketthuc']) && strtotime($vRow['ngayketthuc']) < $nowTs) {
-                    throw new Exception("Mã giảm giá '{$maVoucher}' đã hết hạn sử dụng.");
+                    throw new BusinessException("Mã giảm giá '{$maVoucher}' đã hết hạn sử dụng.");
                 }
                 if ((int)$vRow['soluongconlai'] <= 0) {
-                    throw new Exception("Mã giảm giá '{$maVoucher}' đã hết lượt sử dụng.");
+                    throw new BusinessException("Mã giảm giá '{$maVoucher}' đã hết lượt sử dụng.");
                 }
                 $minOrder = (float)($vRow['donhangtoithieu'] ?? 0);
                 if ($tongTienHang < $minOrder) {
-                    throw new Exception("Đơn hàng tối thiểu để áp dụng mã '{$maVoucher}' là " . number_format($minOrder, 0, ',', '.') . "đ.");
+                    throw new BusinessException("Đơn hàng tối thiểu để áp dụng mã '{$maVoucher}' là " . number_format($minOrder, 0, ',', '.') . "đ.");
                 }
 
                 // Trừ lượt dùng voucher
                 $stmtUseV = $db->prepare("UPDATE voucher SET soluongconlai = soluongconlai - 1 WHERE mavoucher = ? AND soluongconlai > 0");
                 $stmtUseV->execute([$vRow['mavoucher']]);
                 if ($stmtUseV->rowCount() !== 1) {
-                    throw new Exception("Mã giảm giá đã hết lượt sử dụng ngay trước khi thanh toán.");
+                    throw new BusinessException("Mã giảm giá đã hết lượt sử dụng ngay trước khi thanh toán.");
                 }
 
                 $loaiGiam = $vRow['loaigiamgia'] ?? 'SoTien';
@@ -395,7 +396,7 @@ class DonHangModel {
                     $chkUsed = $db->prepare("SELECT 1 FROM don_hang WHERE makh = ? AND UPPER(mavoucher) = UPPER(?) AND trangthaidonhang <> ? LIMIT 1");
                     $chkUsed->execute([$tempCustomerCheck, $maVoucher, TrangThai::DH_DA_HUY]);
                     if ($chkUsed->fetch()) {
-                        throw new Exception("Mỗi tài khoản chỉ được áp dụng mã giảm giá '{$maVoucher}' 1 lần.");
+                        throw new BusinessException("Mỗi tài khoản chỉ được áp dụng mã giảm giá '{$maVoucher}' 1 lần.");
                     }
                 }
             }
@@ -511,6 +512,14 @@ class DonHangModel {
                 'ship' => $phiShip,
                 'fund_amount' => $tienDongGop
             ];
+        } catch (BusinessException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
         } catch (PDOException $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
@@ -524,9 +533,10 @@ class DonHangModel {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
+            error_log("Unexpected error in taoDonHang: " . $e->getMessage());
             return [
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => 'Hệ thống đang bận, vui lòng thử lại sau.'
             ];
         }
     }
@@ -549,7 +559,7 @@ class DonHangModel {
             $normalizedStatus = $statusMap[$trangThaiMoi] ?? $trangThaiMoi;
 
             if (!in_array($normalizedStatus, TrangThai::getDanhSachDonHang(), true)) {
-                throw new Exception("Trạng thái '{$trangThaiMoi}' không hợp lệ.");
+                throw new BusinessException("Trạng thái '{$trangThaiMoi}' không hợp lệ.");
             }
 
             // 1. Khóa dòng đơn hàng
@@ -557,7 +567,7 @@ class DonHangModel {
             $stmtDH->execute([$maDonHang]);
             $order = $stmtDH->fetch();
             if (!$order) {
-                throw new Exception("Không tìm thấy đơn hàng '{$maDonHang}'.");
+                throw new BusinessException("Không tìm thấy đơn hàng '{$maDonHang}'.");
             }
 
             $currentStatus = $order['trangthaidonhang'];
@@ -577,7 +587,7 @@ class DonHangModel {
             ];
 
             if (!isset($allowedTransitions[$currentStatus]) || !in_array($normalizedStatus, $allowedTransitions[$currentStatus], true)) {
-                throw new Exception("Không thể chuyển trạng thái đơn hàng từ '{$currentStatus}' sang '{$normalizedStatus}'.");
+                throw new BusinessException("Không thể chuyển trạng thái đơn hàng từ '{$currentStatus}' sang '{$normalizedStatus}'.");
             }
 
             // 2. Xử lý chuyển trạng thái
@@ -642,6 +652,14 @@ class DonHangModel {
                 'madonhang' => $maDonHang,
                 'trangthai' => $normalizedStatus
             ];
+        } catch (BusinessException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
         } catch (PDOException $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
@@ -655,9 +673,10 @@ class DonHangModel {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
+            error_log("Unexpected error in capNhatTrangThai: " . $e->getMessage());
             return [
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => 'Hệ thống đang bận, vui lòng thử lại sau.'
             ];
         }
     }

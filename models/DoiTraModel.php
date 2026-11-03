@@ -5,6 +5,7 @@
 // ====================================================================
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/BusinessException.php';
 require_once __DIR__ . '/TrangThai.php';
 require_once __DIR__ . '/IdGen.php';
 
@@ -82,7 +83,7 @@ class DoiTraModel {
             $genericErr = "Không tìm thấy đơn hàng hoặc thông tin xác minh không đúng.";
 
             if (!$order) {
-                throw new Exception($genericErr);
+                throw new BusinessException($genericErr);
             }
 
             // 2. Xác thực quyền sở hữu đơn hàng (Bảo mật nghiêm ngặt)
@@ -90,7 +91,7 @@ class DoiTraModel {
             if ($isRegisteredAccount) {
                 // Khách có tài khoản: BẮT BUỘC phải đăng nhập và MaKH trong session phải khớp chính xác
                 if (empty($maKH) || $order['makh'] !== $maKH) {
-                    throw new Exception($genericErr);
+                    throw new BusinessException($genericErr);
                 }
             } else {
                 // Khách vãng lai (makh dạng KV... hoặc matk IS NULL):
@@ -100,13 +101,13 @@ class DoiTraModel {
                 $isMatchingPhone = (!empty($sdt) && $sdt === $orderPhoneClean);
 
                 if (!$isMatchingSession && !$isMatchingPhone) {
-                    throw new Exception($genericErr);
+                    throw new BusinessException($genericErr);
                 }
             }
 
             // 3. Trạng thái đơn phải là 'Giao thành công'
             if ($order['trangthaidonhang'] !== TrangThai::DH_GIAO_THANH_CONG) {
-                throw new Exception("Chỉ có thể yêu cầu đổi trả cho đơn hàng đã 'Giao thành công'.");
+                throw new BusinessException("Chỉ có thể yêu cầu đổi trả cho đơn hàng đã 'Giao thành công'.");
             }
 
             // 4. Kiểm tra thời hạn 3 ngày kể từ ngaygiaothanhcong
@@ -118,7 +119,7 @@ class DoiTraModel {
             $maxSeconds = $soNgay * 86400;
 
             if ($diffSeconds > $maxSeconds) {
-                throw new Exception("Đã quá thời hạn đổi trả {$soNgay} ngày kể từ khi nhận hàng thành công.");
+                throw new BusinessException("Đã quá thời hạn đổi trả {$soNgay} ngày kể từ khi nhận hàng thành công.");
             }
 
             // 5. Kiểm tra chưa có yêu cầu đổi trả nào còn hiệu lực
@@ -127,7 +128,7 @@ class DoiTraModel {
             $existYC = $chkYC->fetch();
 
             if ($existYC) {
-                throw new Exception("Đơn hàng #{$maDonHang} đã có yêu cầu đổi trả ({$existYC['trangthaiyeucau']}), không thể tạo thêm.");
+                throw new BusinessException("Đơn hàng #{$maDonHang} đã có yêu cầu đổi trả ({$existYC['trangthaiyeucau']}), không thể tạo thêm.");
             }
 
             // 6. Sinh mã DT mới bằng IdGen
@@ -145,6 +146,11 @@ class DoiTraModel {
                 'message' => "Gửi yêu cầu đổi trả thành công cho đơn #{$maDonHang}!",
                 'mayeucau' => $maYC
             ];
+        } catch (BusinessException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return ['success' => false, 'message' => $e->getMessage()];
         } catch (PDOException $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
@@ -155,7 +161,8 @@ class DoiTraModel {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
-            return ['success' => false, 'message' => $e->getMessage()];
+            error_log("Unexpected error in taoYeuCau DoiTraModel: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Hệ thống đang bận, vui lòng thử lại sau.'];
         }
     }
 
@@ -175,10 +182,10 @@ class DoiTraModel {
             $yc = $stmt->fetch();
 
             if (!$yc) {
-                throw new Exception("Không tìm thấy yêu cầu đổi trả '{$maYeuCau}'.");
+                throw new BusinessException("Không tìm thấy yêu cầu đổi trả '{$maYeuCau}'.");
             }
             if ($yc['trangthaiyeucau'] !== TrangThai::DT_CHO_XU_LY) {
-                throw new Exception("Yêu cầu này đã được xử lý trước đó (Trạng thái: {$yc['trangthaiyeucau']}).");
+                throw new BusinessException("Yêu cầu này đã được xử lý trước đó (Trạng thái: {$yc['trangthaiyeucau']}).");
             }
 
             $maDonHang = $yc['madonhang'];
@@ -228,13 +235,13 @@ class DoiTraModel {
                 $stmtQuy->execute([TrangThai::QUY_DA_HUY, $maDonHang, TrangThai::QUY_DA_GIAI_NGAN]);
             } elseif ($hanhDong === 'tuchoi') {
                 if (empty($ghiChu)) {
-                    throw new Exception("Bắt buộc phải nhập lý do khi từ chối yêu cầu đổi trả.");
+                    throw new BusinessException("Bắt buộc phải nhập lý do khi từ chối yêu cầu đổi trả.");
                 }
                 $newStatus = TrangThai::DT_TU_CHOI;
                 $stmtUp = $db->prepare("UPDATE yeu_cau_doi_tra SET trangthaiyeucau = ?, huongxuly = ?, ngayxuly = NOW() WHERE mayeucau = ?");
                 $stmtUp->execute([$newStatus, $ghiChu, $maYeuCau]);
             } else {
-                throw new Exception("Hành động xử lý '{$hanhDong}' không hợp lệ.");
+                throw new BusinessException("Hành động xử lý '{$hanhDong}' không hợp lệ.");
             }
 
             $db->commit();
@@ -244,6 +251,11 @@ class DoiTraModel {
                 'mayeucau' => $maYeuCau,
                 'trangthai' => $newStatus
             ];
+        } catch (BusinessException $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return ['success' => false, 'message' => $e->getMessage()];
         } catch (PDOException $e) {
             if ($db->inTransaction()) {
                 $db->rollBack();
@@ -254,7 +266,8 @@ class DoiTraModel {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
-            return ['success' => false, 'message' => $e->getMessage()];
+            error_log("Unexpected error in xuLy DoiTraModel: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Hệ thống đang bận, vui lòng thử lại sau.'];
         }
     }
 }

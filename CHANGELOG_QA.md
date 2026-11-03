@@ -189,7 +189,42 @@ Hệ thống KIBO đã được tái cấu trúc, vá toàn bộ các lỗ hổn
 
 ---
 
-# Phiên bản v2.2: Tinh chỉnh Tuyệt đối Hướng tới Điểm 10/10
+# Phiên bản v2.3: Hoàn thiện Chuẩn hóa Nghiệp vụ & Sẵn sàng Bảo vệ (Giai đoạn G1)
+
+### 1. Khắc phục Triệt để Lỗi Chặn Demo trên Admin Dashboard (Mục 1)
+- Cập nhật [views/admin/DashboardView.php](file:///C:/xampp/htdocs/kibo/views/admin/DashboardView.php): Khớp nối 100% các nút bấm trạng thái theo đúng chu trình máy trạng thái 5 bước tuần tự:
+  - `Chờ xác nhận` -> Nút **"Duyệt đơn"** (chuyển sang `Chờ đóng gói`) & Nút **"Hủy đơn"**.
+  - `Chờ đóng gói` -> Nút **"Đã xuất kho"** (chuyển sang `Đã xuất kho`) & Nút **"Hủy đơn"**.
+  - `Đã xuất kho` -> Nút **"Bắt đầu giao"** (chuyển sang `Đang giao`).
+  - `Đang giao` -> Nút **"Giao thành công"** (chuyển sang `Giao thành công`).
+  - Đơn hàng đã hoàn tất hoặc đã hủy: Khóa nút, hiển thị trạng thái kết thúc chu trình.
+- Đồng bộ cơ chế sinh nút động cho cả **bảng danh sách đơn hàng** và **cửa sổ chi tiết đơn hàng (Modal)**. Không còn tình trạng gửi trạng thái nhảy cóc khiến backend từ chối.
+
+### 2. Cho phép Khách hàng Hủy Đơn khi "Chờ xác nhận" hoặc "Chờ đóng gói" (Mục 2)
+- Cập nhật route `cancel_order` trong [index.php](file:///C:/xampp/htdocs/kibo/index.php) và [models/DonHangModel.php](file:///C:/xampp/htdocs/kibo/models/DonHangModel.php):
+  - Khách hàng được phép hủy đơn khi đơn còn ở `Chờ xác nhận` HOẶC `Chờ đóng gói`.
+  - Khi hủy thành công: Kho hàng được hoàn lại tự động, lượt dùng voucher được khôi phục, và quỹ cứu trợ chuyển sang `Đã hủy`.
+
+### 3. Tùy chọn Nhập lại Kho khi Duyệt Đổi trả Hoàn tiền (Mục 3)
+- Cập nhật [index.php](file:///C:/xampp/htdocs/kibo/index.php) (`admin_process_return`) và [models/DoiTraModel.php](file:///C:/xampp/htdocs/kibo/models/DoiTraModel.php):
+  - Nhận tham số `nhaplaikho` (hỗ trợ các alias `huongxuly`, `action_type`, `hanhdong`).
+  - Khi duyệt hoàn tiền: Nếu hàng còn nguyên seal thì chọn nhập lại kho (`nhaplaikho = true`); nếu thức ăn ẩm mốc, rách bao bì cần tiêu hủy thì chọn không nhập kho (`nhaplaikho = false`).
+
+### 4. Độc lập Bộ Kiểm thử Đa Nền tảng & Bảo vệ Dữ liệu Demo (Mục 4)
+- Cập nhật [tests/test_qa_suite.php](file:///C:/xampp/htdocs/kibo/tests/test_qa_suite.php):
+  - TC2 thực thi qua file script tạm với `PHP_BINARY` và đối số chuẩn xác, chạy ổn định trên Windows, Linux và macOS.
+  - Loại bỏ hoàn toàn tài khoản demo `KH001` và `KH002` trong toàn bộ test suite: TC9 sử dụng `TKH_09`, TC15 sử dụng `TKH_15`, TC10 sử dụng `TKH_OWN10`/`TKH_OTH10`, TC13 sử dụng `TKH_13A`/`TKH_13B`. Đảm bảo dữ liệu demo của giảng viên không bao giờ bị xáo trộn.
+
+### 5. Che chắn Lỗi Hệ thống qua Lớp `BusinessException` (Mục 5)
+- Tạo mới [models/BusinessException.php](file:///C:/xampp/htdocs/kibo/models/BusinessException.php).
+- Tách biệt rõ ràng 2 nhóm ngoại lệ:
+  - Ngoại lệ nghiệp vụ (`BusinessException`): Trả thông báo chi tiết cho client (vd: tồn kho không đủ, voucher hết lượt, quá thời hạn đổi trả...).
+  - Ngoại lệ hệ thống / CSDL (`PDOException`, `Throwable`): Ghi log ẩn và trả thông báo an toàn *"Hệ thống đang bận, vui lòng thử lại sau."*, ngăn chặn hoàn toàn rò rỉ cấu trúc CSDL hoặc tên ràng buộc.
+
+### 6. Kết quả Kiểm thử Giai đoạn G1: 18/18 Test Cases ĐẠT (100% PASS)
+- Bổ sung **TC17**: Kiểm tra chuỗi 5 bước tuần tự từ Admin UI.
+- Bổ sung **TC18**: Kiểm tra 2 nhánh nhập kho vs tiêu hủy khi duyệt hoàn tiền đổi trả, kèm xác minh cơ chế che chắn thông báo lỗi `BusinessException`.
+
 
 1. **Bảo vệ Môi trường Kiểm thử Tự động & Độc lập Đa nền tảng**:
    - Thêm chốt chặn an toàn trong `tests/test_qa_suite.php`: Nếu thiếu `.env.test`, bộ test sẽ từ chối chạy ngay lập tức (`exit(1)`) để ngăn ngừa tuyệt đối rủi ro chạy nhầm hoặc phá hủy DB demo/thật.

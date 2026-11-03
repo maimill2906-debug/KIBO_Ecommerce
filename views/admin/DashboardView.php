@@ -1191,10 +1191,24 @@ if (empty($initialOrders)) {
           const statusClass = isDone ? 'done' : (isCancelled ? 'cancelled' : 'processing');
 
           let quickBtn = '';
-          if (isPending) {
-            quickBtn = `<button type="button" class="ops-row-action" style="background: #2e7d32; color: #ffffff; border: none; font-weight: 700; margin-left: 6px;" onclick="updateOrderStatus('${order.id}', 'Đang giao')">Duyệt đơn</button>`;
+          if (order.status === 'Chờ xác nhận') {
+            quickBtn = `
+              <button type="button" class="ops-row-action" style="background: #2e7d32; color: #ffffff; border: none; font-weight: 700; margin-left: 6px;" onclick="updateOrderStatus('${order.id}', 'Chờ đóng gói')">Duyệt đơn</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #c94336; border: 1px solid #dcdcdc; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hủy đơn</button>
+            `;
+          } else if (order.status === 'Chờ đóng gói') {
+            quickBtn = `
+              <button type="button" class="ops-row-action" style="background: #0284c7; color: #ffffff; border: none; font-weight: 700; margin-left: 6px;" onclick="updateOrderStatus('${order.id}', 'Đã xuất kho')">Đã xuất kho</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #c94336; border: 1px solid #dcdcdc; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hủy đơn</button>
+            `;
+          } else if (order.status === 'Đã xuất kho') {
+            quickBtn = `
+              <button type="button" class="ops-row-action" style="background: #d97706; color: #ffffff; border: none; font-weight: 700; margin-left: 6px;" onclick="updateOrderStatus('${order.id}', 'Đang giao')">Bắt đầu giao</button>
+            `;
           } else if (order.status === 'Đang giao' || order.status === 'Đang giao hàng') {
-            quickBtn = `<button type="button" class="ops-row-action" style="background: #1565c0; color: #ffffff; border: none; font-weight: 700; margin-left: 6px;" onclick="updateOrderStatus('${order.id}', 'Giao thành công')">Giao xong</button>`;
+            quickBtn = `
+              <button type="button" class="ops-row-action" style="background: #1565c0; color: #ffffff; border: none; font-weight: 700; margin-left: 6px;" onclick="updateOrderStatus('${order.id}', 'Giao thành công')">Giao thành công</button>
+            `;
           }
 
           return `
@@ -1272,6 +1286,34 @@ if (empty($initialOrders)) {
       document.getElementById('modalTotal').textContent = order.total;
       document.getElementById('modalFund').textContent = order.fund;
       document.getElementById('modalShelterDesc').textContent = 'Trực tiếp phân bổ đến: ' + (order.shelter || 'Trạm cứu hộ liên kết');
+
+      // Bước kế tiếp hợp lệ
+      const actionsContainer = document.getElementById('modalOrderNextActions');
+      if (actionsContainer) {
+        let btns = '';
+        if (order.status === 'Chờ xác nhận') {
+          btns = `
+            <button type="button" onclick="updateCurrentOrderModalStatus('Chờ đóng gói')" style="padding: 6px 12px; background: #2e7d32; color: #fff; border: none; border-radius: 3px; font-size: 12.5px; font-weight: bold; cursor: pointer;">Duyệt đơn (Chờ đóng gói)</button>
+            <button type="button" onclick="updateCurrentOrderModalStatus('Đã hủy')" style="padding: 6px 10px; background: #fff; color: #c94336; border: 1px solid #ccc; border-radius: 3px; font-size: 12.5px; cursor: pointer;">Hủy đơn</button>
+          `;
+        } else if (order.status === 'Chờ đóng gói') {
+          btns = `
+            <button type="button" onclick="updateCurrentOrderModalStatus('Đã xuất kho')" style="padding: 6px 12px; background: #0284c7; color: #fff; border: none; border-radius: 3px; font-size: 12.5px; font-weight: bold; cursor: pointer;">Đã xuất kho</button>
+            <button type="button" onclick="updateCurrentOrderModalStatus('Đã hủy')" style="padding: 6px 10px; background: #fff; color: #c94336; border: 1px solid #ccc; border-radius: 3px; font-size: 12.5px; cursor: pointer;">Hủy đơn</button>
+          `;
+        } else if (order.status === 'Đã xuất kho') {
+          btns = `
+            <button type="button" onclick="updateCurrentOrderModalStatus('Đang giao')" style="padding: 6px 12px; background: #d97706; color: #fff; border: none; border-radius: 3px; font-size: 12.5px; font-weight: bold; cursor: pointer;">Bắt đầu giao</button>
+          `;
+        } else if (order.status === 'Đang giao' || order.status === 'Đang giao hàng') {
+          btns = `
+            <button type="button" onclick="updateCurrentOrderModalStatus('Giao thành công')" style="padding: 6px 12px; background: #1565c0; color: #fff; border: none; border-radius: 3px; font-size: 12.5px; font-weight: bold; cursor: pointer;">Giao thành công</button>
+          `;
+        } else {
+          btns = `<span style="font-size: 12px; color: #666; font-style: italic;">Đơn hàng đã kết thúc chu trình (${order.status})</span>`;
+        }
+        actionsContainer.innerHTML = btns;
+      }
 
       const modal = document.getElementById('orderDetailModalBackdrop');
       if (modal) modal.style.display = 'grid';
@@ -1534,13 +1576,11 @@ if (empty($initialOrders)) {
 
       <!-- Body -->
       <div style="padding: 16px; display: flex; flex-direction: column; gap: 14px; max-height: 70vh; overflow-y: auto;">
-        <!-- Khối chuyển trạng thái đơn (Dành cho Admin) -->
+        <!-- Khối chuyển trạng thái đơn (Dành cho Admin - Đúng thứ tự máy trạng thái) -->
         <div style="background: #fdfdfd; border: 1px solid #e0e0e0; border-radius: 4px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-          <span style="font-size: 13px; font-weight: bold; color: #333;">Chuyển trạng thái:</span>
-          <div style="display: flex; gap: 6px;">
-            <button type="button" onclick="updateCurrentOrderModalStatus('Đang giao')" style="padding: 5px 10px; background: #2e7d32; color: #fff; border: none; border-radius: 3px; font-size: 12.5px; font-weight: bold; cursor: pointer;">Duyệt &amp; Giao hàng</button>
-            <button type="button" onclick="updateCurrentOrderModalStatus('Giao thành công')" style="padding: 5px 10px; background: #1565c0; color: #fff; border: none; border-radius: 3px; font-size: 12.5px; font-weight: bold; cursor: pointer;">Giao thành công</button>
-            <button type="button" onclick="updateCurrentOrderModalStatus('Đã hủy')" style="padding: 5px 8px; background: #fff; color: #c94336; border: 1px solid #ccc; border-radius: 3px; font-size: 12.5px; cursor: pointer;">Hủy đơn</button>
+          <span style="font-size: 13px; font-weight: bold; color: #333;">Bước kế tiếp hợp lệ:</span>
+          <div id="modalOrderNextActions" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <!-- Render tự động theo quy trình 5 bước -->
           </div>
         </div>
 
