@@ -88,14 +88,14 @@ if ($isValidCode) {
       <div class="tracking-intro">
         <span class="eyebrow brown">THEO DÕI ĐƠN HÀNG VÀ ĐÓNG GÓP 5%</span>
         <h1>Tra cứu đơn hàng</h1>
-        <p>Nhập mã đơn hàng (ví dụ: <strong>KB-8921</strong> hoặc mã <strong>KB-...</strong> trên hóa đơn) để theo dõi lộ trình vận chuyển và xác minh minh bạch khoản 5% trích vào Quỹ cứu trợ.</p>
+        <p>Theo dõi lộ trình vận chuyển và xác minh minh bạch khoản 5% trích vào Quỹ cứu trợ.</p>
       </div>
 
       <form action="index.php" method="GET" class="tracking-card">
         <input type="hidden" name="action" value="tracking">
         <label>
           <?= kibo_icon('search', 22) ?>
-          <input type="text" name="order" value="<?= htmlspecialchars($orderCodeInput) ?>" placeholder="Nhập mã đơn hàng (ví dụ: KB-8921)..." required autofocus>
+          <input type="text" name="order" value="<?= htmlspecialchars($orderCodeInput) ?>" placeholder="Nhập mã đơn hàng..." required autofocus>
         </label>
         <button type="submit" class="btn primary">Kiểm tra ngay</button>
       </form>
@@ -111,13 +111,13 @@ if ($isValidCode) {
       <?php endif; ?>
 
       <?php if (!$searched): ?>
-        <!-- KHUNG HƯỚNG DẪN KHI CHƯA NHẬP MÃ -->
+        <!-- KHUNG HƯỚNG DẪN DUY NHẤT KHI CHƯA NHẬP MÃ -->
         <div class="tracking-empty-hint">
           <div class="hint-icon">
             <?= kibo_icon('box', 36) ?>
           </div>
           <h3>Nhập mã đơn hàng của bạn để tra cứu</h3>
-          <p>Vui lòng nhập mã đơn hàng (ví dụ: <strong>KB-8921</strong> hoặc <strong>KB-261104...</strong>) được cấp khi hoàn tất đặt hàng hoặc trong mục <strong>Tài khoản</strong> để xem hành trình vận chuyển và xác minh 5% đóng góp Quỹ cứu trợ.</p>
+          <p>Vui lòng nhập mã đơn hàng (định dạng <strong>KB-XXXXXX</strong>) được cấp khi hoàn tất đặt hàng hoặc trong mục <strong>Tài khoản</strong> để xem hành trình vận chuyển và xác minh 5% đóng góp Quỹ cứu trợ.</p>
         </div>
       <?php endif; ?>
 
