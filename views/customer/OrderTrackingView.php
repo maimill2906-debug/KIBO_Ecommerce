@@ -88,21 +88,25 @@ if ($isValidCode) {
       <div class="tracking-intro">
         <span class="eyebrow brown">THEO DÕI ĐƠN HÀNG VÀ ĐÓNG GÓP 5%</span>
         <h1>Tra cứu đơn hàng</h1>
-        <p>Nhập mã đơn <strong>KB-XXXX</strong> để theo dõi lộ trình vận chuyển và xác minh minh bạch khoản 5% trích vào Quỹ cứu trợ.</p>
+        <p>Nhập mã đơn hàng (ví dụ: <strong>KB-8921</strong> hoặc mã <strong>KB-...</strong> trên hóa đơn) để theo dõi lộ trình vận chuyển và xác minh minh bạch khoản 5% trích vào Quỹ cứu trợ.</p>
       </div>
 
       <form action="index.php" method="GET" class="tracking-card">
         <input type="hidden" name="action" value="tracking">
         <label>
           <?= kibo_icon('search', 22) ?>
-          <input type="text" name="order" value="<?= htmlspecialchars($orderCodeInput) ?>" placeholder="Nhập mã đơn hàng..." required autofocus>
+          <input type="text" name="order" value="<?= htmlspecialchars($orderCodeInput) ?>" placeholder="Nhập mã đơn hàng (ví dụ: KB-8921)..." required autofocus>
         </label>
         <button type="submit" class="btn primary">Kiểm tra ngay</button>
       </form>
 
       <?php if ($searched && !$isValidCode): ?>
         <div class="tracking-error">
-          ⚠️ Mã đơn "<strong><?= htmlspecialchars($orderCodeInput) ?></strong>" chưa đúng định dạng. Vui lòng nhập theo cú pháp <strong>KB-XXXX</strong> (ví dụ: <strong>KB-8921</strong>).
+          ⚠️ Vui lòng nhập mã đơn hàng của bạn để tra cứu.
+        </div>
+      <?php elseif ($searched && $isValidCode && !$orderData): ?>
+        <div class="tracking-error" style="background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 14px 18px; border-radius: 6px; margin: 18px 0; font-size: 14px;">
+          ❌ Không tìm thấy thông tin cho mã đơn "<strong><?= htmlspecialchars($orderCodeInput) ?></strong>". Vui lòng kiểm tra lại mã trên hóa đơn/email hoặc trong mục <strong>Lịch sử đơn hàng</strong> của bạn.
         </div>
       <?php endif; ?>
 
@@ -113,7 +117,7 @@ if ($isValidCode) {
             <?= kibo_icon('box', 36) ?>
           </div>
           <h3>Nhập mã đơn hàng của bạn để tra cứu</h3>
-          <p>Vui lòng nhập mã đơn hàng (định dạng <strong>KB-XXXX</strong>) được cấp khi hoàn tất đặt hàng hoặc trong mục <strong>Tài khoản</strong> để xem hành trình vận chuyển và xác minh 5% đóng góp Quỹ cứu trợ.</p>
+          <p>Vui lòng nhập mã đơn hàng (ví dụ: <strong>KB-8921</strong> hoặc <strong>KB-261104...</strong>) được cấp khi hoàn tất đặt hàng hoặc trong mục <strong>Tài khoản</strong> để xem hành trình vận chuyển và xác minh 5% đóng góp Quỹ cứu trợ.</p>
         </div>
       <?php endif; ?>
 
