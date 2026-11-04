@@ -11,7 +11,7 @@ $titles = [
     'privacy' => 'Chính Sách Bảo Mật Thông Tin Khách Hàng'
 ];
 $pageTitle = ($titles[$tab] ?? 'Chính Sách') . ' — KIBO PET\'S HOME';
-$activeMenu = '';
+$activeMenu = 'policy';
 require __DIR__ . '/header.php';
 ?>
 

@@ -109,6 +109,7 @@ $currentUser = $_SESSION['user'] ?? null;
       <a href="index.php?action=products" class="<?= ($activeMenu === 'products') ? 'active-menu' : '' ?>">SẢN PHẨM</a>
       <a href="index.php?action=rescue" class="<?= ($activeMenu === 'rescue') ? 'active-menu' : '' ?>">QUỸ CỨU TRỢ</a>
       <a href="index.php?action=tracking" class="<?= ($activeMenu === 'tracking') ? 'active-menu' : '' ?>">TRA CỨU ĐƠN</a>
+      <a href="index.php?action=policy" class="<?= ($activeMenu === 'policy') ? 'active-menu' : '' ?>">HỖ TRỢ KHÁCH HÀNG</a>
       <?php if ($currentUser): ?>
         <a href="<?= ($currentUser['VaiTro'] === 'Admin') ? 'index.php?action=admin' : 'index.php?action=account' ?>" class="<?= ($activeMenu === 'account') ? 'active-menu' : '' ?>">TÀI KHOẢN</a>
       <?php else: ?>
