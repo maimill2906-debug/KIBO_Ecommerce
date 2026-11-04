@@ -26,8 +26,8 @@
       <div>
         <h3>Khám phá</h3>
         <a href="index.php?action=about">Về KIBO</a>
-        <a href="index.php?action=products">Sản phẩm cho chó</a>
-        <a href="index.php?action=products">Sản phẩm cho mèo</a>
+        <a href="index.php?action=products&species=dog">Sản phẩm cho chó</a>
+        <a href="index.php?action=products&species=cat">Sản phẩm cho mèo</a>
         <a href="index.php?action=rescue">Quỹ cứu trợ 5%</a>
         <a href="index.php?action=tracking">Tra cứu đơn hàng</a>
       </div>
@@ -35,10 +35,10 @@
       <!-- Cột 3: Hỗ trợ khách hàng -->
       <div>
         <h3>Hỗ trợ khách hàng</h3>
-        <a href="javascript:void(0)">Chính sách giao hàng</a>
-        <a href="javascript:void(0)">Đổi trả trong 3 ngày</a>
-        <a href="javascript:void(0)">Điều khoản sử dụng</a>
-        <a href="javascript:void(0)">Chính sách bảo mật</a>
+        <a href="index.php?action=policy&tab=shipping">Chính sách giao hàng</a>
+        <a href="index.php?action=policy&tab=return">Đổi trả trong 3 ngày</a>
+        <a href="index.php?action=policy&tab=terms">Điều khoản sử dụng</a>
+        <a href="index.php?action=policy&tab=privacy">Chính sách bảo mật</a>
       </div>
 
       <!-- Cột 4: KIBO luôn lắng nghe -->

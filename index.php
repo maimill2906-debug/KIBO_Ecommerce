@@ -27,6 +27,10 @@ switch ($action) {
         require __DIR__ . '/views/customer/AboutView.php';
         break;
 
+    case 'policy':
+        require __DIR__ . '/views/customer/PolicyView.php';
+        break;
+
     case 'products':
     case 'sanpham':
     case 'catalog':
