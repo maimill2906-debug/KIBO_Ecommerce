@@ -95,7 +95,7 @@ $totalCatalogCount = count($catalogProducts);
         <span><?= kibo_icon('paw', 28) ?></span>
         <div>
           <small>DINH DƯỠNG THÚ CƯNG CHÍNH HÃNG</small>
-          <h1>Thức ăn & Phụ kiện tuyển chọn cho Boss</h1>
+          <h1>Thế giới dinh dưỡng & Đồ dùng thú cưng KIBO</h1>
         </div>
       </div>
     </div>
