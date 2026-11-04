@@ -187,6 +187,14 @@ class QuyCuuTroModel {
             $stmtEligible->execute([TrangThai::QUY_DA_TRICH]);
             $eligibleRows = $stmtEligible->fetchAll();
 
+            $totalEligible = array_sum(array_column($eligibleRows, 'sotiendonggop'));
+            if ($totalEligible <= 0) {
+                throw new Exception("Hiện tại quỹ cứu trợ chưa có số dư khả dụng (0đ) để thực hiện giải ngân.");
+            }
+            if ($soTien > $totalEligible) {
+                throw new Exception("Số tiền giải ngân (" . number_format($soTien, 0, ',', '.') . "đ) vượt quá số dư khả dụng của quỹ hiện có (" . number_format($totalEligible, 0, ',', '.') . "đ).");
+            }
+
             // 3. Tạo mã chứng từ mới
             require_once __DIR__ . '/IdGen.php';
             $maChungTu = IdGen::next($db, 'chung_tu_giai_ngan', 'machungtu', 'CT', 3);
@@ -211,6 +219,10 @@ class QuyCuuTroModel {
             }
 
             $db->commit();
+
+            require_once __DIR__ . '/NhatKyModel.php';
+            NhatKyModel::ghi('Giải ngân quỹ cứu trợ', 'chung_tu_giai_ngan', $maChungTu, "Giải ngân " . number_format($soTien, 0, ',', '.') . "đ cho {$stationName} ({$maTram}). Mục đích: {$mucDich}");
+
             return [
                 'success' => true,
                 'message' => "Lập chứng từ giải ngân '{$maChungTu}' thành công cho {$stationName} (" . number_format($soTien, 0, ',', '.') . "đ). Đã liên kết {$countAllocated} khoản trích quỹ.",

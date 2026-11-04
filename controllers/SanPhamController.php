@@ -9,7 +9,7 @@ class SanPhamController {
     }
 
     public function index() {
-        $allProducts = SanPhamModel::getAllForView();
+        $allProducts = SanPhamModel::getAllForView(true);
         $filterStats = SanPhamModel::getFilterStats();
 
         // Đọc các bộ lọc từ query string (nếu có)
@@ -44,7 +44,7 @@ class SanPhamController {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
             'categories' => $this->sanPhamModel->getCategories(),
-            'products' => $this->sanPhamModel->getAllProductsWithVariants()
+            'products' => $this->sanPhamModel->getAllProductsWithVariants(true)
         ], JSON_UNESCAPED_UNICODE);
     }
 

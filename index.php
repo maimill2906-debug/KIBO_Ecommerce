@@ -175,12 +175,27 @@ switch ($action) {
         }
         $maKH = $_SESSION['user']['MaKH'] ?? '';
         require_once __DIR__ . '/models/DoiTraModel.php';
+        require_once __DIR__ . '/models/UploadHelper.php';
         $raw = file_get_contents('php://input');
         $input = json_decode($raw, true) ?: $_POST;
         $maDH = trim($input['madonhang'] ?? '');
         $lyDo = trim($input['lydo'] ?? '');
         $hinhAnh = trim($input['hinhanh'] ?? '');
         $sdt = trim($input['sdt'] ?? ($input['sodienthoai'] ?? ''));
+
+        // Hỗ trợ upload ảnh thật nếu có gửi file
+        if (!empty($_FILES['hinhanh_file'])) {
+            $up = UploadHelper::uploadFile('hinhanh_file', 'returns', ['image/jpeg', 'image/png', 'image/webp']);
+            if ($up['success']) {
+                $hinhAnh = $up['path'];
+            }
+        } elseif (!empty($_FILES['hinhanh'])) {
+            $up = UploadHelper::uploadFile('hinhanh', 'returns', ['image/jpeg', 'image/png', 'image/webp']);
+            if ($up['success']) {
+                $hinhAnh = $up['path'];
+            }
+        }
+
         $res = DoiTraModel::taoYeuCau($maDH, $lyDo, $hinhAnh, $maKH, $sdt);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
@@ -203,6 +218,7 @@ switch ($action) {
         requireAdmin();
         header('Content-Type: application/json; charset=utf-8');
         require_once __DIR__ . '/models/QuyCuuTroModel.php';
+        require_once __DIR__ . '/models/UploadHelper.php';
         $raw = file_get_contents('php://input');
         $input = json_decode($raw, true) ?: $_POST;
         $maTram = trim($input['matram'] ?? '');
@@ -210,6 +226,20 @@ switch ($action) {
         $ngayCK = trim($input['ngaychuyenkhoan'] ?? '');
         $mucDich = trim($input['mucdich'] ?? '');
         $fileCT = trim($input['filechungtu'] ?? '');
+
+        // Hỗ trợ upload file chứng từ thật nếu có
+        if (!empty($_FILES['filechungtu'])) {
+            $up = UploadHelper::uploadFile('filechungtu', 'disbursements', ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+            if ($up['success']) {
+                $fileCT = $up['path'];
+            }
+        } elseif (!empty($_FILES['filechungtu_upload'])) {
+            $up = UploadHelper::uploadFile('filechungtu_upload', 'disbursements', ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+            if ($up['success']) {
+                $fileCT = $up['path'];
+            }
+        }
+
         $res = QuyCuuTroModel::giaiNgan($maTram, $soTien, $ngayCK, $mucDich, $fileCT);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
@@ -226,6 +256,52 @@ switch ($action) {
         $input = json_decode($raw, true) ?: $_POST;
         $res = SanPhamModel::themSanPham($input);
         echo json_encode($res);
+        exit;
+
+    case 'admin_edit_product':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/SanPhamModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $maSP = $input['masp'] ?? '';
+        $res = SanPhamModel::suaSanPham($maSP, $input);
+        echo json_encode($res);
+        exit;
+
+    case 'admin_toggle_product_status':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/SanPhamModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $maSP = $input['masp'] ?? '';
+        $trangThai = $input['trangthai'] ?? null;
+        $res = SanPhamModel::doiTrangThaiSanPham($maSP, $trangThai);
+        echo json_encode($res);
+        exit;
+
+    case 'admin_toggle_user_status':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/KhachHangModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $maTK = $input['matk'] ?? '';
+        $trangThai = $input['trangthai'] ?? null;
+        $res = KhachHangModel::doiTrangThaiTaiKhoan($maTK, $trangThai);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'admin_confirm_payment':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/ThanhToanModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $id = $input['id'] ?? ($input['magiaodich'] ?? ($input['madonhang'] ?? ''));
+        $res = ThanhToanModel::xacNhanNhanTien($id);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 
     case 'admin_create_category':
@@ -248,8 +324,20 @@ switch ($action) {
         $input = json_decode($raw, true) ?: $_POST;
         $orderId = $input['madonhang'] ?? '';
         $newStatus = $input['trangthai'] ?? '';
-        $res = DonHangModel::capNhatTrangThai($orderId, $newStatus);
+        $maVanDon = $input['mavandon'] ?? null;
+        $res = DonHangModel::capNhatTrangThai($orderId, $newStatus, $maVanDon);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'admin_print_order':
+        requireAdmin();
+        require_once __DIR__ . '/models/DonHangModel.php';
+        $orderId = $_GET['id'] ?? ($_GET['madonhang'] ?? '');
+        $order = DonHangModel::getOrderDetail($orderId);
+        if (!$order) {
+            die("Không tìm thấy đơn hàng #{$orderId}");
+        }
+        require __DIR__ . '/views/admin/PrintPackingSlipView.php';
         exit;
 
     case 'admin_voucher_list':
@@ -330,6 +418,24 @@ switch ($action) {
             if (!empty($res['makh'])) $_SESSION['user']['MaKH'] = $res['makh'];
         }
         header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'change_password':
+        header('Content-Type: application/json; charset=utf-8');
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            @session_start();
+        }
+        if (empty($_SESSION['user']['MaTK'])) {
+            echo json_encode(['success' => false, 'message' => 'Vui lòng đăng nhập để đổi mật khẩu.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        require_once __DIR__ . '/models/TaiKhoanModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $oldPass = $input['old_password'] ?? ($input['matkhaucu'] ?? '');
+        $newPass = $input['new_password'] ?? ($input['matkhaumoi'] ?? '');
+        $res = TaiKhoanModel::doiMatKhau($_SESSION['user']['MaTK'], $oldPass, $newPass);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 

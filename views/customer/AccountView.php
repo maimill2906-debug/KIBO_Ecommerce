@@ -70,11 +70,16 @@ foreach ($allReturns as $r) {
       
       <!-- CỘT TRÁI: THÔNG TIN KHÁCH HÀNG -->
       <section style="background: #ffffff; border: 1px solid #dcdcdc; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); overflow: hidden;">
-        <div style="background: #f7f7f7; padding: 14px 20px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: center;">
+        <div style="background: #f7f7f7; padding: 14px 20px; border-bottom: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
           <h3 style="margin: 0; font-size: 15px; font-weight: bold; color: #222;">Thông tin cá nhân</h3>
-          <button type="button" onclick="openEditProfileModal()" style="padding: 4px 10px; border: 1px solid #767676; background: #fff; color: #111; border-radius: 3px; font-size: 12.5px; font-weight: 500; cursor: pointer;">
-            ✏️ Chỉnh sửa
-          </button>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" onclick="openChangePasswordModal()" style="padding: 4px 10px; border: 1px solid #767676; background: #fff; color: #111; border-radius: 3px; font-size: 12.5px; font-weight: 500; cursor: pointer;">
+              🔑 Đổi mật khẩu
+            </button>
+            <button type="button" onclick="openEditProfileModal()" style="padding: 4px 10px; border: 1px solid #767676; background: #fff; color: #111; border-radius: 3px; font-size: 12.5px; font-weight: 500; cursor: pointer;">
+              ✏️ Chỉnh sửa
+            </button>
+          </div>
         </div>
         <div style="padding: 20px;">
           <div style="text-align: center; padding-bottom: 18px; border-bottom: 1px dashed #e5e5e5; margin-bottom: 18px;">
@@ -353,14 +358,21 @@ async function handleReturnSubmit(e) {
     return;
   }
 
+  const imageInput = document.getElementById('returnProofImage');
   btn.disabled = true;
   btn.innerHTML = '⏳ Đang gửi...';
 
   try {
+    const formData = new FormData();
+    formData.append('madonhang', madonhang);
+    formData.append('lydo', lydo);
+    if (imageInput && imageInput.files && imageInput.files[0]) {
+      formData.append('hinhanh_file', imageInput.files[0]);
+    }
+
     const resp = await fetch('index.php?action=submit_return', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ madonhang, lydo })
+      body: formData
     });
     const res = await resp.json();
     if (res.success) {
@@ -387,6 +399,76 @@ async function handleReturnSubmit(e) {
     btn.disabled = false;
     btn.innerHTML = 'Gửi yêu cầu';
   }
+}
+
+function openChangePasswordModal() {
+  document.getElementById('changePasswordModal').style.display = 'grid';
+  document.getElementById('changePasswordAlert').style.display = 'none';
+  document.getElementById('changePasswordForm').reset();
+}
+
+function closeChangePasswordModal() {
+  document.getElementById('changePasswordModal').style.display = 'none';
+}
+
+async function handleChangePasswordSubmit(e) {
+  e.preventDefault();
+  const oldPass = document.getElementById('oldPassword').value;
+  const newPass = document.getElementById('newPassword').value;
+  const confirmPass = document.getElementById('confirmNewPassword').value;
+  const alertEl = document.getElementById('changePasswordAlert');
+  const btn = document.getElementById('btnSubmitPassword');
+
+  if (newPass.length < 8) {
+    alertEl.textContent = 'Mật khẩu mới phải có ít nhất 8 ký tự.';
+    alertEl.style.display = 'block';
+    alertEl.style.background = '#fdf2f2';
+    alertEl.style.color = '#c94336';
+    return;
+  }
+
+  if (newPass !== confirmPass) {
+    alertEl.textContent = 'Mật khẩu xác nhận không khớp.';
+    alertEl.style.display = 'block';
+    alertEl.style.background = '#fdf2f2';
+    alertEl.style.color = '#c94336';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang xử lý...';
+
+  try {
+    const resp = await fetch('index.php?action=change_password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old_password: oldPass, new_password: newPass })
+    });
+    const res = await resp.json();
+    if (res.success) {
+      alertEl.textContent = '✓ ' + (res.message || 'Đổi mật khẩu thành công!');
+      alertEl.style.display = 'block';
+      alertEl.style.background = '#eaf4e6';
+      alertEl.style.color = '#2e7d32';
+      setTimeout(() => {
+        closeChangePasswordModal();
+      }, 1500);
+    } else {
+      alertEl.textContent = res.message || 'Không thể đổi mật khẩu.';
+      alertEl.style.display = 'block';
+      alertEl.style.background = '#fdf2f2';
+      alertEl.style.color = '#c94336';
+    }
+  } catch (err) {
+    alertEl.textContent = 'Lỗi kết nối máy chủ.';
+    alertEl.style.display = 'block';
+    alertEl.style.background = '#fdf2f2';
+    alertEl.style.color = '#c94336';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Lưu mật khẩu mới';
+  }
+}
 }
 
 async function cancelOrder(orderId) {
@@ -428,9 +510,43 @@ async function cancelOrder(orderId) {
         <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 5px;">Lý do đổi trả *</label>
         <textarea id="returnReason" rows="3" required placeholder="Ví dụ: Bao bì còn nguyên vẹn, muốn đổi sang hạt cho mèo con hoặc đổi phân loại..." style="width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; outline: none; resize: vertical;"></textarea>
       </div>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 5px;">Hình ảnh minh chứng (JPG/PNG, tối đa 5MB)</label>
+        <input type="file" id="returnProofImage" accept="image/jpeg,image/png,image/webp" style="width: 100%; font-size: 13px; padding: 4px 0;">
+        <small style="color: #777; font-size: 11.5px; display: block; margin-top: 3px;">Tải ảnh thực tế sản phẩm/bao bì để cửa hàng hỗ trợ nhanh nhất.</small>
+      </div>
       <div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px; border-top: 1px solid #eee;">
         <button type="button" onclick="closeReturnModal()" style="padding: 8px 18px; border: 1px solid #767676; background: #efefef; color: #111; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Hủy bỏ</button>
         <button type="submit" id="btnSubmitReturn" style="padding: 8px 22px; border: 1px solid #2c1a0e; background: #2c1a0e; color: #fff; border-radius: 4px; font-size: 13.5px; font-weight: 600; cursor: pointer;">Gửi yêu cầu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL ĐỔI MẬT KHẨU -->
+<div id="changePasswordModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 999999; place-items: center; padding: 16px;">
+  <div style="background: #ffffff; width: min(440px, 94vw); border-radius: 4px; border: 1px solid #c8c8c8; box-shadow: 0 10px 25px rgba(0,0,0,0.18); font-family: Arial, sans-serif; overflow: hidden;">
+    <div style="background: #f5f5f5; padding: 14px 20px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #222;">Đổi mật khẩu tài khoản</h3>
+      <button type="button" onclick="closeChangePasswordModal()" style="background: none; border: none; font-size: 20px; color: #666; cursor: pointer; line-height: 1;">✕</button>
+    </div>
+    <form id="changePasswordForm" onsubmit="handleChangePasswordSubmit(event)" style="padding: 20px 24px;">
+      <div id="changePasswordAlert" style="display: none; padding: 10px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 13.5px; font-weight: 600;"></div>
+      <div style="margin-bottom: 14px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 5px;">Mật khẩu hiện tại *</label>
+        <input type="password" id="oldPassword" required placeholder="Nhập mật khẩu đang dùng" style="width: 100%; height: 38px; padding: 0 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 14px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 5px;">Mật khẩu mới (tối thiểu 8 ký tự) *</label>
+        <input type="password" id="newPassword" required minlength="8" placeholder="Nhập mật khẩu mới" style="width: 100%; height: 38px; padding: 0 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 18px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 5px;">Xác nhận mật khẩu mới *</label>
+        <input type="password" id="confirmNewPassword" required minlength="8" placeholder="Nhập lại mật khẩu mới" style="width: 100%; height: 38px; padding: 0 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 10px; border-top: 1px solid #eee;">
+        <button type="button" onclick="closeChangePasswordModal()" style="padding: 8px 18px; border: 1px solid #767676; background: #efefef; color: #111; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Hủy bỏ</button>
+        <button type="submit" id="btnSubmitPassword" style="padding: 8px 22px; border: 1px solid #2c1a0e; background: #2c1a0e; color: #fff; border-radius: 4px; font-size: 13.5px; font-weight: 600; cursor: pointer;">Lưu mật khẩu mới</button>
       </div>
     </form>
   </div>

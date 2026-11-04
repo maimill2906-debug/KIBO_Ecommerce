@@ -8,52 +8,165 @@
 require_once __DIR__ . '/../config/database.php';
 
 class TaiKhoanModel {
-    public static function authenticate($username, $password) {
-        $username = trim($username);
-        if (empty($username) || empty($password)) {
-            return null;
+
+    public static function kiemTraKhoaBruteForce($ip, $identifier) {
+        $db = Database::getConnection();
+        if (!$db) return false;
+        try {
+            $stmt = $db->prepare("SELECT solanthatbai, khoaden FROM dang_nhap_that_bai WHERE ip = ? AND email = ?");
+            $stmt->execute([$ip, strtolower($identifier)]);
+            $row = $stmt->fetch();
+            if ($row && !empty($row['khoaden'])) {
+                $lockUntil = strtotime($row['khoaden']);
+                if ($lockUntil > time()) {
+                    $remainingMins = max(1, (int)ceil(($lockUntil - time()) / 60));
+                    return $remainingMins;
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Lỗi check brute force: " . $e->getMessage());
+        }
+        return false;
+    }
+
+    public static function ghiNhanDangNhapThatBai($ip, $identifier) {
+        $db = Database::getConnection();
+        if (!$db) return;
+        try {
+            $email = strtolower($identifier);
+            $stmt = $db->prepare("SELECT solanthatbai, lancoicuoi FROM dang_nhap_that_bai WHERE ip = ? AND email = ?");
+            $stmt->execute([$ip, $email]);
+            $row = $stmt->fetch();
+
+            if ($row) {
+                $lastTime = strtotime($row['lancoicuoi']);
+                $attempts = (time() - $lastTime > 900) ? 1 : ((int)$row['solanthatbai'] + 1);
+                $lockUntil = ($attempts >= 5) ? date('Y-m-d H:i:s', time() + 900) : null;
+                $upd = $db->prepare("UPDATE dang_nhap_that_bai SET solanthatbai = ?, khoaden = ?, lancoicuoi = NOW() WHERE ip = ? AND email = ?");
+                $upd->execute([$attempts, $lockUntil, $ip, $email]);
+            } else {
+                $ins = $db->prepare("INSERT INTO dang_nhap_that_bai (ip, email, solanthatbai, khoaden, lancoicuoi) VALUES (?, ?, 1, NULL, NOW())");
+                $ins->execute([$ip, $email]);
+            }
+        } catch (Exception $e) {
+            error_log("Lỗi ghi nhận đăng nhập thất bại: " . $e->getMessage());
+        }
+    }
+
+    public static function xoaDangNhapThatBai($ip, $identifier) {
+        $db = Database::getConnection();
+        if (!$db) return;
+        try {
+            $stmt = $db->prepare("DELETE FROM dang_nhap_that_bai WHERE ip = ? AND email = ?");
+            $stmt->execute([$ip, strtolower($identifier)]);
+        } catch (Exception $e) {
+            error_log("Lỗi xóa brute force: " . $e->getMessage());
+        }
+    }
+
+    public static function authenticateWithStatus($identifier, $password, $ip = '') {
+        $identifier = trim((string)$identifier);
+        $password = (string)$password;
+        $ip = $ip ?: ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+
+        if (empty($identifier) || empty($password)) {
+            return ['success' => false, 'user' => null, 'error' => 'Vui lòng nhập đầy đủ thông tin đăng nhập.'];
         }
 
-        // Từ chối đăng nhập nếu tendangnhap kết thúc @kibo.local (tài khoản vãng lai)
-        if (str_ends_with(strtolower($username), '@kibo.local')) {
-            return null;
+        // Chặn tài khoản vãng lai @kibo.local
+        if (str_ends_with(strtolower($identifier), '@kibo.local')) {
+            return ['success' => false, 'user' => null, 'error' => 'Tài khoản không hợp lệ.'];
+        }
+
+        // Kiểm tra khóa tạm do Brute-force
+        $lockMins = self::kiemTraKhoaBruteForce($ip, $identifier);
+        if ($lockMins !== false) {
+            return [
+                'success' => false, 
+                'user' => null, 
+                'error' => "Tài khoản tạm thời bị khóa {$lockMins} phút do đăng nhập sai nhiều lần. Vui lòng thử lại sau.",
+                'is_locked_temp' => true
+            ];
         }
 
         $db = Database::getConnection();
-        if ($db) {
-            try {
+        if (!$db) {
+            return ['success' => false, 'user' => null, 'error' => 'Lỗi kết nối cơ sở dữ liệu.'];
+        }
+
+        try {
+            // Hỗ trợ đăng nhập bằng Email HOẶC Số điện thoại
+            $cleanPhone = preg_replace('/[^\d]/', '', $identifier);
+            $isPhone = (strlen($cleanPhone) >= 9 && strlen($cleanPhone) <= 11 && !str_contains($identifier, '@'));
+
+            if ($isPhone) {
+                $sql = "SELECT tk.matk, tk.tendangnhap, tk.matkhau, tk.vaitro, tk.trangthai, kh.hoten, kh.makh,
+                               s.sodienthoai,
+                               (SELECT diachichitiet FROM dia_chi_kh WHERE makh = kh.makh LIMIT 1) as diachi
+                        FROM sdt_kh s
+                        JOIN khach_hang kh ON s.makh = kh.makh
+                        JOIN tai_khoan tk ON kh.matk = tk.matk
+                        WHERE s.sodienthoai = ? LIMIT 1";
+                $stmt = $db->prepare($sql);
+                $stmt->execute([$cleanPhone]);
+                $acc = $stmt->fetch();
+            } else {
                 $sql = "SELECT tk.matk, tk.tendangnhap, tk.matkhau, tk.vaitro, tk.trangthai, kh.hoten, kh.makh,
                                (SELECT sodienthoai FROM sdt_kh WHERE makh = kh.makh LIMIT 1) as sodienthoai,
                                (SELECT diachichitiet FROM dia_chi_kh WHERE makh = kh.makh LIMIT 1) as diachi
                         FROM tai_khoan tk
                         LEFT JOIN khach_hang kh ON tk.matk = kh.matk
-                        WHERE LOWER(tk.tendangnhap) = LOWER(?) AND tk.trangthai = 'Hoạt động'";
+                        WHERE LOWER(tk.tendangnhap) = LOWER(?) LIMIT 1";
                 $stmt = $db->prepare($sql);
-                $stmt->execute([$username]);
+                $stmt->execute([$identifier]);
                 $acc = $stmt->fetch();
-
-                if ($acc) {
-                    $hash = $acc['matkhau'];
-                    // Chỉ dùng password_verify, tuyệt đối không dùng backdoor 123456 hoặc so sánh plain text
-                    if (password_verify($password, $hash)) {
-                        return [
-                            'MaTK' => $acc['matk'],
-                            'TenDangNhap' => $acc['tendangnhap'],
-                            'VaiTro' => $acc['vaitro'],
-                            'TrangThai' => $acc['trangthai'],
-                            'HoTen' => !empty($acc['hoten']) ? $acc['hoten'] : $acc['tendangnhap'],
-                            'MaKH' => $acc['makh'] ?? '',
-                            'SoDienThoai' => $acc['sodienthoai'] ?? '',
-                            'DiaChi' => $acc['diachi'] ?? ''
-                        ];
-                    }
-                }
-            } catch (Exception $e) {
-                error_log("Lỗi authenticate: " . $e->getMessage());
             }
-        }
 
-        return null;
+            if (!$acc) {
+                self::ghiNhanDangNhapThatBai($ip, $identifier);
+                return ['success' => false, 'user' => null, 'error' => 'Email/Số điện thoại hoặc mật khẩu không chính xác.'];
+            }
+
+            // Kiểm tra mật khẩu
+            if (!password_verify($password, $acc['matkhau'])) {
+                self::ghiNhanDangNhapThatBai($ip, $identifier);
+                return ['success' => false, 'user' => null, 'error' => 'Email/Số điện thoại hoặc mật khẩu không chính xác.'];
+            }
+
+            // Kiểm tra trạng thái tài khoản bị khóa
+            if (($acc['trangthai'] ?? '') === 'Bị khóa') {
+                return [
+                    'success' => false, 
+                    'user' => null, 
+                    'error' => 'Tài khoản đang bị tạm khóa, vui lòng liên hệ hotline 0772 906 756 để được hỗ trợ.',
+                    'is_banned' => true
+                ];
+            }
+
+            // Đăng nhập thành công -> Xóa lịch sử sai
+            self::xoaDangNhapThatBai($ip, $identifier);
+
+            $user = [
+                'MaTK' => $acc['matk'],
+                'TenDangNhap' => $acc['tendangnhap'],
+                'VaiTro' => $acc['vaitro'],
+                'TrangThai' => $acc['trangthai'],
+                'HoTen' => !empty($acc['hoten']) ? $acc['hoten'] : $acc['tendangnhap'],
+                'MaKH' => $acc['makh'] ?? '',
+                'SoDienThoai' => $acc['sodienthoai'] ?? '',
+                'DiaChi' => $acc['diachi'] ?? ''
+            ];
+
+            return ['success' => true, 'user' => $user, 'error' => null];
+        } catch (Exception $e) {
+            error_log("Lỗi authenticateWithStatus: " . $e->getMessage());
+            return ['success' => false, 'user' => null, 'error' => 'Hệ thống đang bận, vui lòng thử lại sau.'];
+        }
+    }
+
+    public static function authenticate($username, $password) {
+        $res = self::authenticateWithStatus($username, $password);
+        return $res['user'] ?? null;
     }
 
     public static function getAll() {
@@ -117,6 +230,17 @@ class TaiKhoanModel {
                 return ['success' => false, 'message' => 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc chọn email khác!'];
             }
 
+            // Kiểm tra trùng số điện thoại
+            if (!empty($phone)) {
+                $checkPhone = $db->prepare("SELECT s.makh FROM sdt_kh s 
+                                            JOIN khach_hang kh ON s.makh = kh.makh 
+                                            WHERE s.sodienthoai = ? AND kh.matk IS NOT NULL");
+                $checkPhone->execute([$phone]);
+                if ($checkPhone->fetch()) {
+                    return ['success' => false, 'message' => 'Số điện thoại này đã được sử dụng bởi một tài khoản khác.'];
+                }
+            }
+
             $db->beginTransaction();
 
             // 2. Sinh mã TK mới: TK + số
@@ -171,6 +295,42 @@ class TaiKhoanModel {
             }
             error_log("Lỗi tạo tài khoản: " . $e->getMessage());
             return ['success' => false, 'message' => 'Đăng ký tài khoản không thành công. Vui lòng thử lại sau!'];
+        }
+    }
+
+    public static function doiMatKhau($maTK, $matKhauCu, $matKhauMoi) {
+        $maTK = trim((string)$maTK);
+        $matKhauCu = (string)$matKhauCu;
+        $matKhauMoi = (string)$matKhauMoi;
+
+        if (empty($maTK) || empty($matKhauCu) || empty($matKhauMoi)) {
+            return ['success' => false, 'message' => 'Vui lòng điền đầy đủ mật khẩu hiện tại và mật khẩu mới.'];
+        }
+        if (mb_strlen($matKhauMoi) < 8) {
+            return ['success' => false, 'message' => 'Mật khẩu mới phải có ít nhất 8 ký tự.'];
+        }
+
+        $db = Database::getConnection();
+        if (!$db) return ['success' => false, 'message' => 'Lỗi kết nối CSDL'];
+
+        try {
+            $stmt = $db->prepare("SELECT matkhau FROM tai_khoan WHERE matk = ?");
+            $stmt->execute([$maTK]);
+            $hash = $stmt->fetchColumn();
+            if (!$hash || !password_verify($matKhauCu, $hash)) {
+                return ['success' => false, 'message' => 'Mật khẩu hiện tại không chính xác.'];
+            }
+
+            $newHash = password_hash($matKhauMoi, PASSWORD_BCRYPT);
+            $upd = $db->prepare("UPDATE tai_khoan SET matkhau = ? WHERE matk = ?");
+            $upd->execute([$newHash, $maTK]);
+
+            require_once __DIR__ . '/NhatKyModel.php';
+            NhatKyModel::ghi('Đổi mật khẩu', 'tai_khoan', $maTK, 'Đổi mật khẩu tài khoản thành công');
+
+            return ['success' => true, 'message' => 'Đổi mật khẩu thành công!'];
+        } catch (Exception $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
         }
     }
 }

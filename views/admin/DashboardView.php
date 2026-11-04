@@ -20,6 +20,9 @@ require_once __DIR__ . '/../../models/DoiTraModel.php';
 require_once __DIR__ . '/../../models/VoucherModel.php';
 require_once __DIR__ . '/../../models/QuyCuuTroModel.php';
 require_once __DIR__ . '/../../models/TramCuuHoModel.php';
+require_once __DIR__ . '/../../models/KhachHangModel.php';
+require_once __DIR__ . '/../../models/ThanhToanModel.php';
+require_once __DIR__ . '/../../models/NhatKyModel.php';
 
 $dbReturns = DoiTraModel::getAll();
 $dbVouchers = VoucherModel::getAllAdmin();
@@ -27,6 +30,10 @@ $fundSummary = QuyCuuTroModel::getFundSummary();
 $fundTransactions = QuyCuuTroModel::getRecentTransactions(30);
 $shelters = TramCuuHoModel::getShelters();
 $disbursements = TramCuuHoModel::getDisbursements();
+$customersList = KhachHangModel::layDanhSachKhachHang();
+$paymentsList = ThanhToanModel::getAllWithOrders();
+$reconciliationList = ThanhToanModel::layDanhSachDoiSoat();
+$auditLogs = NhatKyModel::layDanhSach(50);
 
 // Dữ liệu Tồn kho & Đã bán tính trực tiếp từ CSDL thật (bien_the & chi_tiet_don_hang)
 $initialInventory = SanPhamModel::getInventoryWithSales();
@@ -198,6 +205,12 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
         </button>
         <button type="button" onclick="switchAdminTab('returns')">
           <?= kibo_icon('truck', 17) ?> <span>Yêu cầu đổi trả</span>
+        </button>
+        <button type="button" onclick="switchAdminTab('customers')">
+          <?= kibo_icon('user', 17) ?> <span>Khách hàng</span>
+        </button>
+        <button type="button" onclick="switchAdminTab('payments')">
+          <?= kibo_icon('card', 17) ?> <span>Giao dịch thanh toán</span>
         </button>
       </nav>
 
@@ -862,6 +875,179 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
         </article>
       </div>
 
+      <!-- ====================================================================
+           TAB 8: QUẢN LÝ KHÁCH HÀNG (CUSTOMERS - BẢNG KHACH_HANG & TAI_KHOAN)
+           ==================================================================== -->
+      <div id="tabContent_customers" class="tab-pane" style="display: none;">
+        <article class="ops-card ops-table-card">
+          <header class="ops-card-header">
+            <div>
+              <h2>Danh sách khách hàng</h2>
+              <p>Quản lý tài khoản, lịch sử tích lũy và kiểm soát trạng thái truy cập.</p>
+            </div>
+            <div style="font-size: 13px; color: #666;">
+              Tổng cộng: <strong><?= count($customersList ?? []) ?></strong> khách hàng
+            </div>
+          </header>
+          <div class="ops-table-wrap">
+            <table class="ops-table">
+              <thead>
+                <tr>
+                  <th style="width: 10%;">Mã KH</th>
+                  <th style="width: 18%;">Họ và tên</th>
+                  <th style="width: 18%;">Email / Tài khoản</th>
+                  <th style="width: 12%;">Số điện thoại</th>
+                  <th style="width: 10%;">Tổng đơn</th>
+                  <th style="width: 14%;">Tổng chi tiêu</th>
+                  <th style="width: 10%;">Trạng thái</th>
+                  <th style="width: 8%;">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if (!empty($customersList)): ?>
+                  <?php foreach ($customersList as $cust): 
+                    $isLocked = ($cust['trangthai'] === 'Bị khóa');
+                    $isAdmin = (($cust['vaitro'] ?? '') === 'Admin');
+                  ?>
+                    <tr>
+                      <td><code><?= htmlspecialchars($cust['makh']) ?></code></td>
+                      <td>
+                        <strong><?= htmlspecialchars($cust['hoten']) ?></strong>
+                        <?php if ($isAdmin): ?>
+                          <span style="display: inline-block; padding: 2px 6px; background: #2c1a0e; color: #fff; border-radius: 3px; font-size: 10px; font-weight: bold; margin-left: 4px;">ADMIN</span>
+                        <?php endif; ?>
+                      </td>
+                      <td style="color: #444;"><?= htmlspecialchars($cust['email'] ?? 'Chưa cập nhật') ?></td>
+                      <td><?= htmlspecialchars($cust['sodienthoai'] ?: 'Chưa có SĐT') ?></td>
+                      <td><strong><?= (int)$cust['tongdon'] ?></strong> đơn</td>
+                      <td style="color: #2e7d32; font-weight: 600;"><?= number_format((float)$cust['tongchitieu'], 0, ',', '.') ?>đ</td>
+                      <td>
+                        <span class="ops-stock-status <?= $isLocked ? 'out' : 'good' ?>">
+                          <?= htmlspecialchars($cust['trangthai'] ?: 'Hoạt động') ?>
+                        </span>
+                      </td>
+                      <td>
+                        <?php if (!$isAdmin && !empty($cust['matk'])): ?>
+                          <button type="button" 
+                                  onclick="adminToggleUserStatus('<?= htmlspecialchars($cust['matk']) ?>', '<?= $isLocked ? 'Bị khóa' : 'Hoạt động' ?>')"
+                                  style="padding: 4px 8px; font-size: 11.5px; border: 1px solid <?= $isLocked ? '#2e7d32' : '#c94336' ?>; background: <?= $isLocked ? '#eaf4e6' : '#fdf2f2' ?>; color: <?= $isLocked ? '#2e7d32' : '#c94336' ?>; border-radius: 3px; cursor: pointer; font-weight: 600;">
+                            <?= $isLocked ? 'Mở khóa' : 'Khóa' ?>
+                          </button>
+                        <?php else: ?>
+                          <span style="color: #999; font-size: 11.5px;">--</span>
+                        <?php endif; ?>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <tr><td colspan="8" style="text-align: center; padding: 30px; color: #777;">Chưa có dữ liệu khách hàng.</td></tr>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
+      <!-- ====================================================================
+           TAB 9: GIAO DỊCH THANH TOÁN (PAYMENTS - BẢNG THANH_TOAN & ĐỐI SOÁT)
+           ==================================================================== -->
+      <div id="tabContent_payments" class="tab-pane" style="display: none;">
+        
+        <!-- Khối Cảnh báo Đối soát -->
+        <?php if (!empty($reconciliationList)): ?>
+          <div style="background: #fff8e1; border: 1px solid #ffe082; border-left: 4px solid #f59e0b; padding: 14px 18px; border-radius: 4px; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 6px; font-size: 14.5px; color: #b45309; display: flex; align-items: center; gap: 6px;">
+              ⚠️ Cần đối soát thanh toán (<?= count($reconciliationList) ?> giao dịch)
+            </h3>
+            <p style="margin: 0 0 10px; font-size: 13px; color: #78350f;">
+              Các đơn hàng giao thành công nhưng chưa nhận tiền, hoặc đơn chuyển khoản VietQR quá hạn 24h chưa được xác nhận.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <?php foreach ($reconciliationList as $rec): ?>
+                <div style="background: #ffffff; border: 1px solid #fed7aa; padding: 8px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 12.5px;">
+                  <div>
+                    Đơn <strong>#<?= htmlspecialchars($rec['madonhang']) ?></strong> (<?= htmlspecialchars($rec['tennguoinhan'] ?? '') ?>) 
+                    - Số tiền: <strong style="color: #2c1a0e;"><?= number_format((float)$rec['sotien'], 0, ',', '.') ?>đ</strong> 
+                    - PT: <strong><?= htmlspecialchars($rec['phuongthuctt']) ?></strong>
+                    <span style="color: #c2410c; margin-left: 6px;">[<?= htmlspecialchars($rec['lydodoisoat']) ?>]</span>
+                  </div>
+                  <button type="button" onclick="adminConfirmPayment('<?= htmlspecialchars($rec['magiaodich']) ?>')" style="padding: 4px 10px; background: #2e7d32; color: #fff; border: none; border-radius: 3px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                    ✓ Đã nhận tiền
+                  </button>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </div>
+        <?php endif; ?>
+
+        <!-- Bảng tất cả giao dịch thanh toán -->
+        <article class="ops-card ops-table-card">
+          <header class="ops-card-header">
+            <div>
+              <h2>Nhật ký giao dịch thanh toán</h2>
+              <p>Lịch sử thanh toán VietQR và thu tiền khi giao hàng (COD).</p>
+            </div>
+            <div style="font-size: 13px; color: #666;">
+              Tổng: <strong><?= count($paymentsList ?? []) ?></strong> giao dịch
+            </div>
+          </header>
+          <div class="ops-table-wrap">
+            <table class="ops-table">
+              <thead>
+                <tr>
+                  <th style="width: 12%;">Mã giao dịch</th>
+                  <th style="width: 14%;">Mã đơn hàng</th>
+                  <th style="width: 18%;">Khách hàng / SĐT</th>
+                  <th style="width: 12%;">Phương thức</th>
+                  <th style="width: 14%;">Số tiền</th>
+                  <th style="width: 14%;">Thời gian</th>
+                  <th style="width: 10%;">Trạng thái</th>
+                  <th style="width: 6%;">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if (!empty($paymentsList)): ?>
+                  <?php foreach ($paymentsList as $pay): 
+                    $isSuccess = ($pay['trangthaitt'] === 'Thành công');
+                    $stClass = $isSuccess ? 'good' : (($pay['trangthaitt'] === 'Hoàn tiền') ? 'out' : 'low');
+                  ?>
+                    <tr>
+                      <td><code><?= htmlspecialchars($pay['magiaodich']) ?></code></td>
+                      <td><strong style="color: #2c1a0e;"><?= htmlspecialchars($pay['madonhang']) ?></strong></td>
+                      <td>
+                        <div><?= htmlspecialchars($pay['tennguoinhan'] ?? 'Khách vãng lai') ?></div>
+                        <small style="color: #777;"><?= htmlspecialchars($pay['sodienthoainhan'] ?? '') ?></small>
+                      </td>
+                      <td>
+                        <span style="font-weight: 600; color: <?= $pay['phuongthuctt'] === 'VietQR' ? '#1565c0' : '#4e342e' ?>;">
+                          <?= htmlspecialchars($pay['phuongthuctt']) ?>
+                        </span>
+                      </td>
+                      <td style="font-weight: bold; color: #2e7d32;"><?= number_format((float)$pay['sotien'], 0, ',', '.') ?>đ</td>
+                      <td style="color: #666; font-size: 12.5px;">
+                        <?= !empty($pay['thoigiantt']) ? date('d/m/Y H:i', strtotime($pay['thoigiantt'])) : '--' ?>
+                      </td>
+                      <td>
+                        <span class="ops-stock-status <?= $stClass ?>"><?= htmlspecialchars($pay['trangthaitt']) ?></span>
+                      </td>
+                      <td>
+                        <?php if (!$isSuccess && $pay['trangthaitt'] !== 'Hoàn tiền'): ?>
+                          <button type="button" onclick="adminConfirmPayment('<?= htmlspecialchars($pay['magiaodich']) ?>')" style="padding: 3px 8px; font-size: 11px; background: #2e7d32; color: #fff; border: none; border-radius: 3px; cursor: pointer; font-weight: bold;" title="Xác nhận nhận tiền">Xác nhận</button>
+                        <?php else: ?>
+                          <span style="color: #999; font-size: 11px;">✓ Xong</span>
+                        <?php endif; ?>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <tr><td colspan="8" style="text-align: center; padding: 30px; color: #777;">Chưa có giao dịch thanh toán nào.</td></tr>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
     </section>
   </div>
 
@@ -882,7 +1068,9 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       fund: { title: 'Đối soát Quỹ cứu trợ', desc: 'Theo dõi khoản trích 5% và lịch sử giải ngân.' },
       vouchers: { title: 'Quản lý mã giảm giá', desc: 'Tạo mới, kích hoạt hoặc vô hiệu hóa các mã ưu đãi khách hàng.' },
       reports: { title: 'Báo cáo kinh doanh', desc: 'Tổng hợp số liệu theo thời gian và danh mục.' },
-      returns: { title: 'Quản lý yêu cầu đổi trả', desc: 'Tiếp nhận và xử lý yêu cầu đổi trả 3 ngày theo quy định CSDL.' }
+      returns: { title: 'Quản lý yêu cầu đổi trả', desc: 'Tiếp nhận và xử lý yêu cầu đổi trả 3 ngày theo quy định CSDL.' },
+      customers: { title: 'Quản lý khách hàng', desc: 'Danh sách khách hàng, theo dõi chi tiêu và phân quyền khóa tài khoản.' },
+      payments: { title: 'Giao dịch thanh toán & Đối soát', desc: 'Theo dõi dòng tiền thanh toán VietQR / COD và xác nhận nhận tiền.' }
     };
 
     // 2. CHUYỂN ĐỔI TAB MƯỢT MÀ
@@ -892,7 +1080,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       
       // Update sidebar active buttons
       const navButtons = document.querySelectorAll('#adminNav button');
-      const tabs = ['overview', 'orders', 'inventory', 'fund', 'vouchers', 'reports', 'returns'];
+      const tabs = ['overview', 'orders', 'inventory', 'fund', 'vouchers', 'reports', 'returns', 'customers', 'payments'];
       navButtons.forEach((btn, index) => {
         btn.className = (tabs[index] === tab) ? 'active' : '';
       });
@@ -947,7 +1135,11 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
               <td><strong style="font-size: 13px;">${item.stock}</strong></td>
               <td><span class="ops-stock-status ${st.className}">${st.label}</span></td>
               <td>
-                <button type="button" class="ops-restock" onclick="restockItem('${item.id}')">+ Nhập thêm</button>
+                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                  <button type="button" class="ops-restock" onclick="restockItem('${item.id}')">+ Nhập</button>
+                  <button type="button" class="ops-restock" style="background: #2c1a0e; color: #fff;" onclick="openEditProductModal('${item.id}', '${item.name.replace(/'/g, "\\'")}', '${item.stock}')">✏️ Sửa</button>
+                  <button type="button" class="ops-restock" style="background: ${item.trangthai === 'Ngừng bán' ? '#1565c0' : '#c94336'}; color: #fff;" onclick="adminToggleProductStatus('${item.id}', '${item.trangthai || 'Đang bán'}')">${item.trangthai === 'Ngừng bán' ? 'Mở bán' : 'Ẩn'}</button>
+                </div>
               </td>
             </tr>
           `;
@@ -1047,6 +1239,71 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       }
     }
 
+    function openEditProductModal(id, name, stock) {
+      document.getElementById('editProductMasp').value = id;
+      document.getElementById('editProductTensp').value = name;
+      document.getElementById('editProductSoluongton').value = stock;
+      document.getElementById('modalEditProductTitle').textContent = 'Chỉnh sửa sản phẩm #' + id;
+      document.getElementById('modalEditProductBackdrop').style.display = 'grid';
+    }
+
+    function closeEditProductModal() {
+      document.getElementById('modalEditProductBackdrop').style.display = 'none';
+    }
+
+    async function handleEditProductSubmit(e) {
+      e.preventDefault();
+      const masp = document.getElementById('editProductMasp').value;
+      const tensp = document.getElementById('editProductTensp').value;
+      const giaban = document.getElementById('editProductGiaban').value;
+      const soluongton = document.getElementById('editProductSoluongton').value;
+      const btn = document.getElementById('btnSaveEditProduct');
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Đang lưu...';
+
+      try {
+        const resp = await fetch('index.php?action=admin_edit_product', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ masp, tensp, giaban, soluongton })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          showAdminToast('Thành công', res.message, 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          showAdminToast('Lỗi', res.error || 'Không thể lưu sản phẩm.', 'error');
+        }
+      } catch (err) {
+        showAdminToast('Lỗi kết nối', err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Lưu thay đổi';
+      }
+    }
+
+    async function adminToggleProductStatus(masp, currentStatus) {
+      const nextStatus = (currentStatus === 'Ngừng bán') ? 'Đang bán' : 'Ngừng bán';
+      if (!confirm(`Xác nhận chuyển trạng thái sản phẩm ${masp} sang "${nextStatus}"?`)) return;
+      try {
+        const resp = await fetch('index.php?action=admin_toggle_product_status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ masp, trangthai: nextStatus })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          showAdminToast('Thành công', res.message, 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          showAdminToast('Thất bại', res.error || 'Không thể đổi trạng thái sản phẩm.', 'error');
+        }
+      } catch (err) {
+        showAdminToast('Lỗi kết nối', err.message, 'error');
+      }
+    }
+
     function updateImagePreview(url) {
       const img = document.getElementById('imgPreview');
       const placeholder = document.getElementById('imgPlaceholder');
@@ -1141,12 +1398,25 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
     async function submitNewProduct(e) {
       e.preventDefault();
       const name = document.getElementById('newProdName').value.trim();
+      if (!name) {
+        alert('Vui lòng nhập tên sản phẩm.');
+        return;
+      }
       const catCode = document.getElementById('newProdCategory').value;
+      if (!catCode) {
+        alert('Vui lòng chọn danh mục sản phẩm.');
+        return;
+      }
+      const rawPrice = document.getElementById('newProdPrice').value;
+      const price = parseFloat(rawPrice);
+      if (isNaN(price) || price <= 0) {
+        alert('Giá bán phải là số hợp lệ và lớn hơn 0đ.');
+        return;
+      }
       const catText = document.getElementById('newProdCategory').selectedOptions[0].text;
       const brand = document.getElementById('newProdBrand').value.trim() || 'KIBO Original';
       const variant = document.getElementById('newProdVariant').value.trim() || 'Tiêu chuẩn';
-      const price = parseFloat(document.getElementById('newProdPrice').value) || 100000;
-      const stock = parseInt(document.getElementById('newProdStock').value) || 50;
+      const stock = parseInt(document.getElementById('newProdStock').value) || 0;
       const desc = document.getElementById('newProdDesc').value.trim();
       const image = document.getElementById('newProdImage') ? document.getElementById('newProdImage').value.trim() : 'assets/images/products/sp_kibo_cahoi.png';
 
@@ -1173,7 +1443,12 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
         });
         const res = await resp.json();
 
-        const newId = res.masp || ('SP' + Date.now());
+        if (!res.success) {
+          showAdminToast('Lỗi tạo sản phẩm', res.error || 'Không thể thêm sản phẩm.', 'error');
+          return;
+        }
+
+        const newId = res.masp;
         const newSku = 'KBO-' + newId;
 
         // Cập nhật danh sách tồn kho trên giao diện ngay
@@ -1565,6 +1840,8 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
 
       document.getElementById('modalOrderId').textContent = 'Đơn hàng #' + order.id;
       document.getElementById('modalOrderDate').textContent = 'Ngày đặt hàng: ' + (order.date || 'Gần đây');
+      const printBtn = document.getElementById('modalOrderPrintBtn');
+      if (printBtn) printBtn.href = 'index.php?action=admin_print_order&id=' + encodeURIComponent(order.id);
 
       const badge = document.getElementById('modalOrderStatusBadge');
       badge.textContent = order.status;
@@ -1645,11 +1922,18 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
     }
 
     async function updateOrderStatus(orderId, newStatus) {
+      let maVanDon = null;
+      if (newStatus === 'Đã xuất kho') {
+        const inputVD = prompt('Nhập mã vận đơn (Tracking Code) đơn vị vận chuyển (để trống nếu sinh tự động):');
+        if (inputVD !== null && inputVD.trim()) {
+          maVanDon = inputVD.trim();
+        }
+      }
       try {
         const resp = await fetch('index.php?action=admin_update_order_status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ madonhang: orderId, trangthai: newStatus })
+          body: JSON.stringify({ madonhang: orderId, trangthai: newStatus, mavandon: maVanDon })
         });
         const res = await resp.json();
         if (res.success) {
@@ -1665,6 +1949,47 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
         }
       } catch (e) {
         showAdminToast('Lỗi kết nối', e.message, 'error');
+      }
+    }
+
+    async function adminToggleUserStatus(matk, currentStatus) {
+      const nextStatus = (currentStatus === 'Bị khóa') ? 'Hoạt động' : 'Bị khóa';
+      if (!confirm(`Xác nhận chuyển trạng thái tài khoản ${matk} sang "${nextStatus}"?`)) return;
+      try {
+        const resp = await fetch('index.php?action=admin_toggle_user_status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ matk, trangthai: nextStatus })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          showAdminToast('Thành công', res.message, 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          showAdminToast('Thất bại', res.message || 'Không thể cập nhật trạng thái tài khoản.', 'error');
+        }
+      } catch (err) {
+        showAdminToast('Lỗi kết nối', err.message, 'error');
+      }
+    }
+
+    async function adminConfirmPayment(id) {
+      if (!confirm(`Xác nhận đã nhận đủ tiền chuyển khoản cho giao dịch ${id}?`)) return;
+      try {
+        const resp = await fetch('index.php?action=admin_confirm_payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          showAdminToast('Thành công', res.message, 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          showAdminToast('Thất bại', res.message || 'Không thể xác nhận thanh toán.', 'error');
+        }
+      } catch (err) {
+        showAdminToast('Lỗi kết nối', err.message, 'error');
       }
     }
 
@@ -2152,6 +2477,35 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
     </div>
   </div>
 
+  <!-- MODAL CHỈNH SỬA SẢN PHẨM -->
+  <div id="modalEditProductBackdrop" onclick="if(event.target === this) closeEditProductModal()" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 9999999; place-items: center; padding: 16px;">
+    <div style="background: #ffffff; width: min(480px, 95vw); border-radius: 4px; border: 1px solid #dcdcdc; box-shadow: 0 4px 16px rgba(0,0,0,0.15); overflow: hidden; font-family: Arial, sans-serif;">
+      <div style="background: #2c1a0e; color: #ffffff; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;">
+        <h3 id="modalEditProductTitle" style="margin: 0; font-size: 15px; font-weight: bold; color: #fff;">Chỉnh sửa sản phẩm</h3>
+        <button type="button" onclick="closeEditProductModal()" style="background: none; border: none; font-size: 18px; color: #fff; cursor: pointer;">✕</button>
+      </div>
+      <form id="formEditProduct" onsubmit="handleEditProductSubmit(event)" style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+        <input type="hidden" id="editProductMasp">
+        <div>
+          <label style="display: block; font-size: 12.5px; font-weight: bold; margin-bottom: 4px; color: #333;">Tên sản phẩm *</label>
+          <input type="text" id="editProductTensp" required style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 12.5px; font-weight: bold; margin-bottom: 4px; color: #333;">Giá bán (VNĐ) *</label>
+          <input type="number" id="editProductGiaban" required min="1000" step="1000" style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 12.5px; font-weight: bold; margin-bottom: 4px; color: #333;">Số lượng tồn kho</label>
+          <input type="number" id="editProductSoluongton" min="0" style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;">
+          <button type="button" onclick="closeEditProductModal()" style="padding: 6px 14px; background: #eee; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;">Hủy</button>
+          <button type="submit" id="btnSaveEditProduct" style="padding: 6px 18px; background: #2c1a0e; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Lưu thay đổi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- MODAL CHI TIẾT ĐƠN HÀNG (DẠNG BASIC) -->
   <div id="orderDetailModalBackdrop" onclick="if(event.target === this) closeOrderDetailModal()" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 9999999; place-items: center; padding: 16px; overflow-y: auto;">
     <div style="background: #ffffff; width: min(560px, 95vw); border-radius: 4px; border: 1px solid #dcdcdc; box-shadow: 0 4px 16px rgba(0,0,0,0.15); overflow: hidden; font-family: Arial, sans-serif;">
@@ -2161,7 +2515,10 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
           <h3 id="modalOrderId" style="margin: 0; font-size: 15px; font-weight: bold; color: #333;">Đơn hàng #KB-0000</h3>
           <span id="modalOrderStatusBadge" style="display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #d97706; color: #ffffff;">Chờ xác nhận</span>
         </div>
-        <button type="button" onclick="closeOrderDetailModal()" style="background: none; border: none; font-size: 18px; color: #666; cursor: pointer; line-height: 1; padding: 0 4px;">✕</button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <a id="modalOrderPrintBtn" href="#" target="_blank" style="padding: 4px 10px; font-size: 12px; background: #2e7d32; color: #fff; border-radius: 3px; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">🖨️ In phiếu</a>
+          <button type="button" onclick="closeOrderDetailModal()" style="background: none; border: none; font-size: 18px; color: #666; cursor: pointer; line-height: 1; padding: 0 4px;">✕</button>
+        </div>
       </div>
 
       <!-- Body -->

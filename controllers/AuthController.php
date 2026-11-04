@@ -32,7 +32,8 @@ class AuthController {
             }
         }
 
-        $user = TaiKhoanModel::authenticate($email, $pass);
+        $authResult = TaiKhoanModel::authenticateWithStatus($email, $pass);
+        $user = $authResult['user'] ?? null;
 
         $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') || 
                   (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false);
@@ -60,13 +61,14 @@ class AuthController {
             }
             exit;
         } else {
+            $errorMsg = $authResult['error'] ?? 'Email/Số điện thoại hoặc mật khẩu không chính xác.';
             if ($isAjax) {
                 header('Content-Type: application/json; charset=utf-8');
-                echo json_encode(['success' => false, 'message' => 'Email hoặc mật khẩu không chính xác'], JSON_UNESCAPED_UNICODE);
+                echo json_encode(['success' => false, 'message' => $errorMsg], JSON_UNESCAPED_UNICODE);
                 return;
             }
 
-            $_SESSION['login_error'] = 'Email hoặc mật khẩu không chính xác. Vui lòng thử lại!';
+            $_SESSION['login_error'] = $errorMsg;
             header('Location: index.php?action=login');
             exit;
         }

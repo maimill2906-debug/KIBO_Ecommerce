@@ -139,4 +139,71 @@ class KhachHangModel {
             return ['success' => false, 'message' => 'Lỗi cập nhật thông tin cá nhân, vui lòng thử lại sau.'];
         }
     }
+
+    public static function layDanhSachKhachHang() {
+        $db = Database::getConnection();
+        if (!$db) return [];
+
+        try {
+            $sql = "SELECT 
+                        kh.makh,
+                        kh.matk,
+                        kh.hoten,
+                        COALESCE(tk.tendangnhap, kh.email) as email,
+                        (SELECT sodienthoai FROM sdt_kh WHERE makh = kh.makh LIMIT 1) as sodienthoai,
+                        (SELECT diachichitiet FROM dia_chi_kh WHERE makh = kh.makh LIMIT 1) as diachi,
+                        COALESCE(tk.trangthai, 'Hoạt động') as trangthai,
+                        tk.vaitro,
+                        COALESCE(stats.tongdon, 0) as tongdon,
+                        COALESCE(stats.tongtien, 0) as tongchitieu
+                    FROM khach_hang kh
+                    LEFT JOIN tai_khoan tk ON kh.matk = tk.matk
+                    LEFT JOIN (
+                        SELECT makh, COUNT(madonhang) as tongdon, SUM(tongthanhtoan) as tongtien 
+                        FROM don_hang 
+                        WHERE trangthaidonhang <> 'Đã hủy'
+                        GROUP BY makh
+                    ) stats ON kh.makh = stats.makh
+                    ORDER BY kh.makh DESC";
+            return $db->query($sql)->fetchAll();
+        } catch (Exception $e) {
+            error_log("Lỗi layDanhSachKhachHang: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public static function doiTrangThaiTaiKhoan($maTK, $trangThaiMoi = null) {
+        $db = Database::getConnection();
+        if (!$db) return ['success' => false, 'message' => 'Lỗi kết nối CSDL'];
+
+        try {
+            $stmt = $db->prepare("SELECT matk, vaitro, trangthai, tendangnhap FROM tai_khoan WHERE matk = ?");
+            $stmt->execute([$maTK]);
+            $user = $stmt->fetch();
+            if (!$user) {
+                return ['success' => false, 'message' => 'Tài khoản không tồn tại.'];
+            }
+
+            if (($user['vaitro'] ?? '') === 'Admin') {
+                return ['success' => false, 'message' => 'Không thể khóa hoặc đổi trạng thái tài khoản Quản trị viên (Admin).'];
+            }
+
+            $current = $user['trangthai'] ?? 'Hoạt động';
+            $newStatus = $trangThaiMoi ?: ($current === 'Hoạt động' ? 'Bị khóa' : 'Hoạt động');
+
+            $upd = $db->prepare("UPDATE tai_khoan SET trangthai = ? WHERE matk = ?");
+            $upd->execute([$newStatus, $maTK]);
+
+            require_once __DIR__ . '/NhatKyModel.php';
+            NhatKyModel::ghi('Đổi trạng thái tài khoản', 'tai_khoan', $maTK, "Tài khoản {$user['tendangnhap']} chuyển sang: {$newStatus}");
+
+            return [
+                'success' => true, 
+                'trangthai' => $newStatus,
+                'message' => "Đã chuyển trạng thái tài khoản '{$user['tendangnhap']}' sang '{$newStatus}'."
+            ];
+        } catch (Exception $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
 }

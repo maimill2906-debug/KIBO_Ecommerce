@@ -11,8 +11,8 @@ require_once __DIR__ . '/../models/DonHangModel.php';
 
 class HomeController {
     public function index() {
-        // Lấy toàn bộ sản phẩm & 3 sản phẩm nổi bật cho Featured Products Grid
-        $productsJs       = SanPhamModel::getAllForView();
+        // Lấy toàn bộ sản phẩm đang bán & 3 sản phẩm nổi bật cho Featured Products Grid
+        $productsJs       = SanPhamModel::getAllForView(true);
         $featuredProducts = SanPhamModel::getFeaturedProducts(3);
 
         // Lấy số liệu minh bạch Quỹ Cứu Trợ 5%

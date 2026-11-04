@@ -391,13 +391,26 @@ class DonHangModel {
                 $tienGiam = min($tongTienHang, $tienGiam);
                 $maVoucher = $vRow['mavoucher'];
 
-                // Giới hạn 1 lần sử dụng cho mỗi khách hàng có tài khoản
+                // Giới hạn số lần sử dụng cho mỗi khách hàng (cột moikhachtoida, mặc định 1)
+                $maxPerCustomer = !empty($vRow['moikhachtoida']) ? (int)$vRow['moikhachtoida'] : 1;
                 $tempCustomerCheck = $maKHOption ?: (!empty($_SESSION['user']['MaKH']) ? $_SESSION['user']['MaKH'] : null);
                 if (!empty($tempCustomerCheck)) {
-                    $chkUsed = $db->prepare("SELECT 1 FROM don_hang WHERE makh = ? AND UPPER(mavoucher) = UPPER(?) AND trangthaidonhang <> ? LIMIT 1");
+                    $chkUsed = $db->prepare("SELECT COUNT(*) FROM don_hang WHERE makh = ? AND UPPER(mavoucher) = UPPER(?) AND trangthaidonhang <> ?");
                     $chkUsed->execute([$tempCustomerCheck, $maVoucher, TrangThai::DH_DA_HUY]);
-                    if ($chkUsed->fetch()) {
-                        throw new BusinessException("Mỗi tài khoản chỉ được áp dụng mã giảm giá '{$maVoucher}' 1 lần.");
+                    $usedCount = (int)$chkUsed->fetchColumn();
+                    if ($usedCount >= $maxPerCustomer) {
+                        throw new BusinessException("Mỗi tài khoản chỉ được áp dụng mã giảm giá '{$maVoucher}' tối đa {$maxPerCustomer} lần.");
+                    }
+                } else {
+                    // Kiểm tra theo số điện thoại nhận hàng đối với khách vãng lai
+                    $sdtNhan = !empty($orderData['sodienthoai']) ? trim($orderData['sodienthoai']) : '';
+                    if (!empty($sdtNhan)) {
+                        $chkPhoneUsed = $db->prepare("SELECT COUNT(*) FROM don_hang WHERE sodienthoainhan = ? AND UPPER(mavoucher) = UPPER(?) AND trangthaidonhang <> ?");
+                        $chkPhoneUsed->execute([$sdtNhan, $maVoucher, TrangThai::DH_DA_HUY]);
+                        $usedPhoneCount = (int)$chkPhoneUsed->fetchColumn();
+                        if ($usedPhoneCount >= $maxPerCustomer) {
+                            throw new BusinessException("Mỗi số điện thoại chỉ được áp dụng mã giảm giá '{$maVoucher}' tối đa {$maxPerCustomer} lần.");
+                        }
                     }
                 }
             }
@@ -542,7 +555,7 @@ class DonHangModel {
         }
     }
 
-    public static function capNhatTrangThai($maDonHang, $trangThaiMoi) {
+    public static function capNhatTrangThai($maDonHang, $trangThaiMoi, $maVanDon = null) {
         $db = Database::getConnection();
         if (!$db) {
             return ['success' => false, 'message' => 'Lỗi kết nối cơ sở dữ liệu'];
@@ -591,6 +604,13 @@ class DonHangModel {
                 throw new BusinessException("Không thể chuyển trạng thái đơn hàng từ '{$currentStatus}' sang '{$normalizedStatus}'.");
             }
 
+            // Cập nhật mã vận đơn nếu có truyền vào
+            $maVanDon = trim((string)$maVanDon);
+            if (!empty($maVanDon)) {
+                $stmtMV = $db->prepare("UPDATE don_hang SET mavandon = ? WHERE madonhang = ?");
+                $stmtMV->execute([$maVanDon, $maDonHang]);
+            }
+
             // 2. Xử lý chuyển trạng thái
             if ($normalizedStatus === TrangThai::DH_GIAO_THANH_CONG) {
                 // a. Cập nhật ngaygiaothanhcong
@@ -601,8 +621,9 @@ class DonHangModel {
                 $stmtQuy = $db->prepare("UPDATE quy_cuu_tro SET trangthaiquy = ? WHERE madonhang = ? AND trangthaiquy = ?");
                 $stmtQuy->execute([TrangThai::QUY_DA_TRICH, $maDonHang, TrangThai::QUY_CHO_TRICH]);
 
-                // c. Nếu COD thì thanh_toan -> Thành công
-                $stmtTT = $db->prepare("UPDATE thanh_toan SET trangthaitt = ?, thoigiantt = NOW() WHERE madonhang = ? AND trangthaitt = ?");
+                // c. Nếu phương thức là Tiền mặt (COD) thì thanh_toan -> Thành công khi giao xong
+                $stmtTT = $db->prepare("UPDATE thanh_toan SET trangthaitt = ?, thoigiantt = NOW() 
+                                        WHERE madonhang = ? AND trangthaitt = ? AND (phuongthuctt LIKE '%COD%' OR phuongthuctt LIKE '%nhận hàng%')");
                 $stmtTT->execute([TrangThai::TT_THANH_CONG, $maDonHang, TrangThai::TT_CHO_THANH_TOAN]);
 
                 // d. Cộng điểm tích lũy đúng 1 lần (1 điểm / 10.000đ của tongthanhtoan)

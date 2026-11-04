@@ -24,7 +24,7 @@ class SanPhamModel {
         return trim($str, '-');
     }
 
-    public static function getAllForView() {
+    public static function getAllForView($onlyActive = true) {
         $db = Database::getConnection();
         if (!$db) return [];
 
@@ -45,7 +45,8 @@ class SanPhamModel {
                 ];
             }
 
-            // 2. Lấy sản phẩm kèm danh mục
+            // 2. Lấy sản phẩm kèm danh mục (cho phép lọc chỉ Đang bán hoặc tất cả)
+            $whereClause = $onlyActive ? "WHERE sp.trangthai = 'Đang bán'" : "";
             $sql = "SELECT 
                         sp.masp,
                         sp.tensp,
@@ -57,6 +58,7 @@ class SanPhamModel {
                         dm.tendanhmuc
                     FROM san_pham sp
                     LEFT JOIN danh_muc dm ON sp.madanhmuc = dm.madanhmuc
+                    {$whereClause}
                     ORDER BY sp.masp ASC";
             $rows = $db->query($sql)->fetchAll();
 
@@ -78,7 +80,11 @@ class SanPhamModel {
                 }
 
                 $totalStock = array_reduce($spVariants, function($carry, $item) { return $carry + $item['soluongton']; }, 0);
-                $statusText = ($r['trangthai'] === 'Đang bán' && $totalStock > 0) ? 'Còn hàng' : 'Hết hàng';
+                if ($r['trangthai'] === 'Ngừng bán') {
+                    $statusText = 'Ngừng bán';
+                } else {
+                    $statusText = ($totalStock > 0) ? 'Còn hàng' : 'Hết hàng';
+                }
 
                 $results[] = [
                     'id' => $spId,
@@ -97,6 +103,7 @@ class SanPhamModel {
                     'image' => $r['hinhanhchinh'] ?: 'assets/images/products/sp_kibo_cahoi.png',
                     'desc' => $r['motachitiet'] ?: '',
                     'status' => $statusText,
+                    'trangthai' => $r['trangthai'],
                     'is_sale' => $hasSale
                 ];
             }
@@ -108,7 +115,7 @@ class SanPhamModel {
     }
 
     public static function getFeaturedProducts($limit = 3) {
-        $all = self::getAllForView();
+        $all = self::getAllForView(true);
         return array_slice($all, 0, $limit);
     }
 
@@ -244,11 +251,21 @@ class SanPhamModel {
         if (!$db) return ['success' => false, 'error' => 'Chưa kết nối CSDL'];
 
         try {
+            // Chặn tạo trùng tên danh mục
+            $chkName = $db->prepare("SELECT madanhmuc FROM danh_muc WHERE LOWER(TRIM(tendanhmuc)) = LOWER(?)");
+            $chkName->execute([$tenDanhMuc]);
+            if ($chkName->fetchColumn()) {
+                return ['success' => false, 'error' => "Danh mục '{$tenDanhMuc}' đã tồn tại trong hệ thống."];
+            }
+
             $maDM = IdGen::next($db, 'danh_muc', 'madanhmuc', 'DM', 2);
 
             $sql = "INSERT INTO danh_muc (madanhmuc, tendanhmuc, mota, trangthai) VALUES (?, ?, ?, 'Hoạt động')";
             $stmt = $db->prepare($sql);
             $stmt->execute([$maDM, $tenDanhMuc, $moTa ?: 'Danh mục ' . $tenDanhMuc]);
+
+            require_once __DIR__ . '/NhatKyModel.php';
+            NhatKyModel::ghi('Thêm danh mục', 'danh_muc', $maDM, "Tên danh mục: {$tenDanhMuc}");
 
             return [
                 'success' => true,
@@ -275,12 +292,12 @@ class SanPhamModel {
         return [];
     }
 
-    public static function getAllProductsWithVariants() {
-        return self::getAllForView();
+    public static function getAllProductsWithVariants($onlyActive = false) {
+        return self::getAllForView($onlyActive);
     }
 
     public static function getProductById($maSP) {
-        $all = self::getAllForView();
+        $all = self::getAllForView(false);
         foreach ($all as $p) {
             if ($p['id'] === $maSP) {
                 return $p;
@@ -293,15 +310,39 @@ class SanPhamModel {
         $db = Database::getConnection();
         if (!$db) return ['success' => false, 'error' => 'Chưa kết nối CSDL'];
 
+        $tenSP = trim($data['tensp'] ?? '');
+        if (empty($tenSP)) {
+            return ['success' => false, 'error' => 'Tên sản phẩm không được để trống.'];
+        }
+
+        if (!isset($data['giaban']) || !is_numeric($data['giaban']) || (float)$data['giaban'] <= 0) {
+            return ['success' => false, 'error' => 'Giá bán phải là số hợp lệ và lớn hơn 0đ.'];
+        }
+        $giaBan = (float)$data['giaban'];
+
+        $maDM = trim($data['madanhmuc'] ?? 'DM01');
+        if (empty($maDM)) {
+            return ['success' => false, 'error' => 'Vui lòng chọn danh mục cho sản phẩm.'];
+        }
+
+        $chkDM = $db->prepare("SELECT madanhmuc FROM danh_muc WHERE madanhmuc = ?");
+        $chkDM->execute([$maDM]);
+        if (!$chkDM->fetchColumn()) {
+            return ['success' => false, 'error' => "Danh mục '{$maDM}' không tồn tại trong hệ thống."];
+        }
+
+        $tonKho = isset($data['soluongton']) ? (int)$data['soluongton'] : 50;
+        if ($tonKho < 0) {
+            return ['success' => false, 'error' => 'Số lượng tồn kho không được âm.'];
+        }
+
         try {
             $db->beginTransaction();
 
             $maSP = IdGen::next($db, 'san_pham', 'masp', 'SP', 3);
-            $maDM = $data['madanhmuc'] ?? 'DM01';
-            $tenSP = trim($data['tensp'] ?? 'Sản phẩm mới');
             $thuongHieu = trim($data['thuonghieu'] ?? 'KIBO Original');
             $mota = trim($data['motachitiet'] ?? 'Sản phẩm dinh dưỡng và chăm sóc thú cưng cao cấp.');
-            $hinhAnh = $data['hinhanhchinh'] ?: 'assets/images/products/sp_kibo_cahoi.png';
+            $hinhAnh = trim($data['hinhanhchinh'] ?? '') ?: 'assets/images/products/sp_kibo_cahoi.png';
             $trangThai = 'Đang bán';
 
             $sqlSP = "INSERT INTO san_pham (masp, madanhmuc, tensp, thuonghieu, motachitiet, hinhanhchinh, trangthai)
@@ -311,9 +352,7 @@ class SanPhamModel {
 
             // Sinh mã biến thể
             $maBT = IdGen::next($db, 'bien_the', 'mabienthe', 'BT', 3);
-            $tenBT = trim($data['tenbienthe'] ?: 'Túi tiêu chuẩn');
-            $giaBan = max(1000, (float)($data['giaban'] ?? 150000));
-            $tonKho = max(0, (int)($data['soluongton'] ?? 50));
+            $tenBT = trim($data['tenbienthe'] ?? '') ?: 'Túi tiêu chuẩn';
 
             $sqlBT = "INSERT INTO bien_the (mabienthe, masp, tenbienthe, giaban, soluongton, hinhanhbienthe)
                       VALUES (?, ?, ?, ?, ?, ?)";
@@ -321,6 +360,10 @@ class SanPhamModel {
             $stmtBT->execute([$maBT, $maSP, $tenBT, $giaBan, $tonKho, $hinhAnh]);
 
             $db->commit();
+
+            require_once __DIR__ . '/NhatKyModel.php';
+            NhatKyModel::ghi('Thêm sản phẩm mới', 'san_pham', $maSP, "Tên: {$tenSP}, Giá: " . number_format($giaBan, 0, ',', '.') . "đ, Tồn: {$tonKho}");
+
             return [
                 'success' => true,
                 'masp' => $maSP,
@@ -333,6 +376,117 @@ class SanPhamModel {
             if ($db->inTransaction()) {
                 $db->rollBack();
             }
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    public static function suaSanPham($maSP, $data) {
+        $db = Database::getConnection();
+        if (!$db) return ['success' => false, 'error' => 'Chưa kết nối CSDL'];
+
+        $maSP = trim((string)$maSP);
+        $tenSP = trim($data['tensp'] ?? '');
+        if (empty($tenSP)) {
+            return ['success' => false, 'error' => 'Tên sản phẩm không được để trống.'];
+        }
+        if (isset($data['giaban']) && ((float)$data['giaban'] <= 0 || !is_numeric($data['giaban']))) {
+            return ['success' => false, 'error' => 'Giá bán phải là số hợp lệ và lớn hơn 0đ.'];
+        }
+
+        try {
+            $db->beginTransaction();
+
+            $chkSP = $db->prepare("SELECT masp FROM san_pham WHERE masp = ?");
+            $chkSP->execute([$maSP]);
+            if (!$chkSP->fetchColumn()) {
+                throw new Exception("Sản phẩm '{$maSP}' không tồn tại.");
+            }
+
+            $maDM = trim($data['madanhmuc'] ?? '');
+            if (!empty($maDM)) {
+                $chkDM = $db->prepare("SELECT madanhmuc FROM danh_muc WHERE madanhmuc = ?");
+                $chkDM->execute([$maDM]);
+                if (!$chkDM->fetchColumn()) {
+                    throw new Exception("Danh mục '{$maDM}' không tồn tại.");
+                }
+            }
+
+            $thuongHieu = trim($data['thuonghieu'] ?? 'KIBO Original');
+            $mota = trim($data['motachitiet'] ?? '');
+            $hinhAnh = trim($data['hinhanhchinh'] ?? '');
+
+            $sqlSP = "UPDATE san_pham SET tensp = ?, thuonghieu = ?, motachitiet = ?" . 
+                     (!empty($maDM) ? ", madanhmuc = ?" : "") . 
+                     (!empty($hinhAnh) ? ", hinhanhchinh = ?" : "") . 
+                     " WHERE masp = ?";
+            $paramsSP = [$tenSP, $thuongHieu, $mota];
+            if (!empty($maDM)) $paramsSP[] = $maDM;
+            if (!empty($hinhAnh)) $paramsSP[] = $hinhAnh;
+            $paramsSP[] = $maSP;
+
+            $stmtSP = $db->prepare($sqlSP);
+            $stmtSP->execute($paramsSP);
+
+            // Cập nhật giá bán hoặc tồn kho của biến thể chính
+            if (isset($data['giaban']) || isset($data['soluongton'])) {
+                $updates = [];
+                $paramsBT = [];
+                if (isset($data['giaban'])) {
+                    $updates[] = "giaban = ?";
+                    $paramsBT[] = (float)$data['giaban'];
+                }
+                if (isset($data['soluongton'])) {
+                    $updates[] = "soluongton = ?";
+                    $paramsBT[] = max(0, (int)$data['soluongton']);
+                }
+                $sqlBT = "UPDATE bien_the SET " . implode(', ', $updates) . 
+                         " WHERE masp = ? AND mabienthe = (SELECT mabienthe FROM bien_the WHERE masp = ? ORDER BY mabienthe ASC LIMIT 1)";
+                $paramsBT[] = $maSP;
+                $paramsBT[] = $maSP;
+                $stmtBT = $db->prepare($sqlBT);
+                $stmtBT->execute($paramsBT);
+            }
+
+            $db->commit();
+            require_once __DIR__ . '/NhatKyModel.php';
+            NhatKyModel::ghi('Cập nhật sản phẩm', 'san_pham', $maSP, "Tên: {$tenSP}");
+            return ['success' => true, 'message' => "Cập nhật sản phẩm {$maSP} thành công."];
+        } catch (Exception $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    public static function doiTrangThaiSanPham($maSP, $trangThai = null) {
+        $db = Database::getConnection();
+        if (!$db) return ['success' => false, 'error' => 'Chưa kết nối CSDL'];
+
+        try {
+            $chk = $db->prepare("SELECT trangthai FROM san_pham WHERE masp = ?");
+            $chk->execute([$maSP]);
+            $current = $chk->fetchColumn();
+            if ($current === false) {
+                return ['success' => false, 'error' => "Sản phẩm '{$maSP}' không tồn tại."];
+            }
+
+            if ($trangThai !== null) {
+                $newStatus = ($trangThai === 'Ngừng bán') ? 'Ngừng kinh doanh' : $trangThai;
+            } else {
+                $newStatus = ($current === 'Đang bán') ? 'Ngừng kinh doanh' : 'Đang bán';
+            }
+
+            if (!in_array($newStatus, ['Đang bán', 'Tạm hết hàng', 'Ngừng kinh doanh', 'Ẩn'])) {
+                $newStatus = 'Đang bán';
+            }
+
+            $stmt = $db->prepare("UPDATE san_pham SET trangthai = ? WHERE masp = ?");
+            $stmt->execute([$newStatus, $maSP]);
+
+            require_once __DIR__ . '/NhatKyModel.php';
+            NhatKyModel::ghi('Đổi trạng thái sản phẩm', 'san_pham', $maSP, "Trạng thái mới: {$newStatus}");
+
+            return ['success' => true, 'trangthai' => $newStatus, 'message' => "Đã chuyển trạng thái sản phẩm {$maSP} sang '{$newStatus}'."];
+        } catch (Exception $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
