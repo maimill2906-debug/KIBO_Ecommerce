@@ -1,6 +1,14 @@
+# Environment variables (chứa mật khẩu bảo mật)
 .env
+SourceCode/.env
 .env.test
-.DS_Store
-Thumbs.db
+SourceCode/.env.test
+
+# Archives & Temporary files
 *.zip
 *.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+scratch/
