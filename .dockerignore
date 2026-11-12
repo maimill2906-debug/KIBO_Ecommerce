@@ -1,0 +1,7 @@
+.git
+.env
+SourceCode/.env
+*.zip
+*.docx
+*.py
+scratch/
