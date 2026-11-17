@@ -219,6 +219,12 @@
           Đăng nhập ngay <?= kibo_icon('arrow', 18) ?>
         </button>
       </form>
+      <style>
+        @keyframes kiboSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      </style>
     </section>
   </div>
 
@@ -687,8 +693,9 @@
 
       const submitBtn = document.getElementById('authSubmitBtn');
       const originalText = submitBtn.innerHTML;
+      let loginRedirecting = false;
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '⏳ Vui lòng chờ...';
+      submitBtn.innerHTML = '<span style="display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,0.35);border-top-color:#ffffff;border-radius:50%;animation:kiboSpin 0.7s linear infinite;vertical-align:middle;margin-right:8px;"></span>Đang xử lý...';
 
       try {
         const isReg = (currentAuthTab === 'register');
@@ -793,14 +800,19 @@
               sessionStorage.setItem('kibo_toast_success', welcomeMsg);
             } catch (e) {}
 
+            loginRedirecting = true;
+            submitBtn.disabled = true;
+            const isAdminLogin = !!(res.user && res.user.VaiTro === 'Admin');
+            submitBtn.innerHTML = '<span style="display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,0.35);border-top-color:#ffffff;border-radius:50%;animation:kiboSpin 0.7s linear infinite;vertical-align:middle;margin-right:8px;"></span>' + (isAdminLogin ? 'Đang vào trang quản trị...' : 'Đang chuyển trang...');
+
             setTimeout(() => {
-              if (res.user && res.user.VaiTro === 'Admin') {
+              if (isAdminLogin) {
                 window.location.href = 'index.php?action=admin';
               } else {
                 closeAuthModal();
                 window.location.reload();
               }
-            }, 900);
+            }, 250);
           } else {
             showAuthError(res.message || 'Email hoặc mật khẩu không chính xác.');
           }
@@ -808,10 +820,12 @@
       } catch (err) {
         showAuthError('Không thể kết nối đến máy chủ. Vui lòng thử lại!');
       } finally {
-        submitBtn.disabled = false;
-        const isLogin = (currentAuthTab === 'login');
-        submitBtn.className = isLogin ? 'btn primary confirm' : 'btn primary green-button';
-        submitBtn.innerHTML = (isLogin ? 'Đăng nhập ngay ' : 'Tạo tài khoản ') + '<?= kibo_icon('arrow', 18) ?>';
+        if (!loginRedirecting) {
+          submitBtn.disabled = false;
+          const isLogin = (currentAuthTab === 'login');
+          submitBtn.className = isLogin ? 'btn primary confirm' : 'btn primary green-button';
+          submitBtn.innerHTML = (isLogin ? 'Đăng nhập ngay ' : 'Tạo tài khoản ') + '<?= kibo_icon('arrow', 18) ?>';
+        }
       }
     }
     function showAuthError(msg) {
