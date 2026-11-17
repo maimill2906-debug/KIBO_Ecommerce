@@ -15,6 +15,9 @@ class MailHelper {
         $pass = (string)(getenv('SMTP_PASS') ?: ($_ENV['SMTP_PASS'] ?? ''));
         $fromName = trim((string)(getenv('SMTP_FROM_NAME') ?: ($_ENV['SMTP_FROM_NAME'] ?? "KIBO Pet's Home")));
         $fromEmail = trim((string)(getenv('SMTP_FROM_EMAIL') ?: ($_ENV['SMTP_FROM_EMAIL'] ?? $user)));
+        $webhookUrl = trim((string)(getenv('MAIL_WEBHOOK_URL') ?: ($_ENV['MAIL_WEBHOOK_URL'] ?? '')));
+        $webhookSecret = trim((string)(getenv('MAIL_WEBHOOK_SECRET') ?: ($_ENV['MAIL_WEBHOOK_SECRET'] ?? '')));
+        $brevoKey = trim((string)(getenv('BREVO_API_KEY') ?: ($_ENV['BREVO_API_KEY'] ?? '')));
 
         return [
             'host' => $host,
@@ -23,11 +26,17 @@ class MailHelper {
             'pass' => $pass,
             'from_name' => $fromName !== '' ? $fromName : "KIBO Pet's Home",
             'from_email' => $fromEmail !== '' ? $fromEmail : $user,
+            'webhook_url' => $webhookUrl,
+            'webhook_secret' => $webhookSecret,
+            'brevo_key' => $brevoKey,
         ];
     }
 
     public static function isConfigured(): bool {
         $cfg = self::getConfig();
+        if ($cfg['webhook_url'] !== '' || $cfg['brevo_key'] !== '') {
+            return true;
+        }
         return $cfg['host'] !== '' && $cfg['user'] !== '' && $cfg['pass'] !== '';
     }
 
@@ -52,11 +61,88 @@ class MailHelper {
         return true;
     }
 
+    private static function postJsonHttps(string $url, array $payload, array $extraHeaders = []): array {
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            $headers = array_merge(['Content-Type: application/json'], $extraHeaders);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            $resp = curl_exec($ch);
+            $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $err = curl_error($ch);
+            curl_close($ch);
+            return [$code, (string)$resp, $err];
+        }
+        $headerStr = "Content-Type: application/json\r\n" . implode("\r\n", $extraHeaders);
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => $headerStr,
+                'content' => $json,
+                'timeout' => 15,
+                'ignore_errors' => true,
+            ]
+        ]);
+        $resp = @file_get_contents($url, false, $ctx);
+        $code = 0;
+        if (!empty($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m)) {
+            $code = (int)$m[1];
+        }
+        return [$code, (string)$resp, $resp === false ? 'HTTP request failed' : ''];
+    }
+
     public static function send(string $toEmail, string $toName, string $subject, string $htmlBody): array {
         if (!filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
             return ['success' => false, 'message' => 'Địa chỉ email người nhận không hợp lệ.'];
         }
         $cfg = self::getConfig();
+
+        // Ưu tiên gửi qua HTTPS Webhook (Google Apps Script) để chạy được trên Render Free (vốn chặn cổng SMTP 587/465)
+        if ($cfg['webhook_url'] !== '') {
+            [$code, $resp, $err] = self::postJsonHttps($cfg['webhook_url'], [
+                'secret' => $cfg['webhook_secret'],
+                'to' => $toEmail,
+                'name' => $toName,
+                'subject' => $subject,
+                'html' => $htmlBody,
+                'fromName' => $cfg['from_name'],
+            ]);
+            if ($code >= 200 && $code < 300) {
+                $decoded = json_decode($resp, true);
+                if (!is_array($decoded) || !empty($decoded['success'])) {
+                    return ['success' => true, 'message' => 'Đã gửi email thành công.'];
+                }
+                return ['success' => false, 'message' => $decoded['message'] ?? 'Lỗi gửi email qua Webhook.'];
+            }
+            error_log("Mail webhook error HTTP={$code} ERR={$err} RESP=" . substr($resp, 0, 200));
+            return ['success' => false, 'message' => 'Không thể gửi email qua máy chủ HTTPS.'];
+        }
+
+        // Hỗ trợ Brevo HTTP API (cổng 443)
+        if ($cfg['brevo_key'] !== '') {
+            $senderEmail = $cfg['from_email'] ?: $cfg['user'];
+            [$code, $resp, $err] = self::postJsonHttps(
+                'https://api.brevo.com/v3/smtp/email',
+                [
+                    'sender' => ['name' => $cfg['from_name'], 'email' => $senderEmail],
+                    'to' => [['email' => $toEmail, 'name' => $toName ?: $toEmail]],
+                    'subject' => $subject,
+                    'htmlContent' => $htmlBody,
+                ],
+                ['api-key: ' . $cfg['brevo_key'], 'accept: application/json']
+            );
+            if ($code >= 200 && $code < 300) {
+                return ['success' => true, 'message' => 'Đã gửi email thành công.'];
+            }
+            error_log("Brevo API error HTTP={$code} ERR={$err} RESP=" . substr($resp, 0, 200));
+            return ['success' => false, 'message' => 'Không thể gửi email qua Brevo API.'];
+        }
+
         if ($cfg['host'] === '' || $cfg['user'] === '' || $cfg['pass'] === '') {
             return ['success' => false, 'not_configured' => true, 'message' => 'Chưa cấu hình SMTP trong .env'];
         }

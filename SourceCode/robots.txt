@@ -1,8 +1,2 @@
 User-agent: *
-Allow: /
-Disallow: /config/
-Disallow: /models/
-Disallow: /controllers/
-Disallow: /tests/
-
-Sitemap: http://localhost/kibo/sitemap.xml
+Disallow: /

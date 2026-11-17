@@ -20,7 +20,7 @@ $currentUser = $_SESSION['user'] ?? null;
   <title><?= htmlspecialchars($pageTitle) ?></title>
   <meta name="description" content="KIBO Pet's Home - Nền tảng thương mại điện tử thức ăn &amp; phụ kiện thú cưng chính hãng, trích tự động 5% doanh thu mỗi đơn hàng vào Quỹ cứu trợ động vật.">
   <meta name="keywords" content="KIBO, thức ăn thú cưng, thức ăn chó mèo, quỹ cứu trợ động vật 5%, pet shop uy tín">
-  <meta name="robots" content="index, follow">
+  <meta name="robots" content="noindex, nofollow">
   <meta property="og:title" content="<?= htmlspecialchars($pageTitle) ?>">
   <meta property="og:description" content="Mua sắm thức ăn &amp; phụ kiện thú cưng chính hãng tại KIBO. Trích 5% mỗi đơn hàng đóng góp vào Quỹ cứu trợ chó mèo cơ nhỡ.">
   <meta property="og:type" content="website">
