@@ -599,7 +599,7 @@ $freeNgoaiTinh= number_format((int)($biz['ship']['mien_phi_khac'] ?? 500000), 0,
           <h2><b>Mục 03.</b> Quyền của Chủ thể dữ liệu (Theo Luật số 91/2025/QH15 &amp; Nghị định 356/2025/NĐ-CP)</h2>
           <ul class="kibo-doc-list">
             <li>Khách hàng có toàn quyền truy cập, xem và chỉnh sửa Họ tên, Số điện thoại, Địa chỉ giao hàng, hoặc thay đổi mật khẩu bất cứ lúc nào tại trang <a href="index.php?action=account" style="color: var(--green-dark); font-weight: 700; text-decoration: underline;">Tài khoản của tôi</a>.</li>
-            <li>Trường hợp muốn rút lại sự đồng ý, hạn chế xử lý hoặc yêu cầu xóa dữ liệu cá nhân khỏi hệ thống, quý khách vui lòng liên hệ Bộ phận Bảo vệ Dữ liệu Cá nhân (DPO) của KIBO qua Hotline <strong><?= htmlspecialchars(kibo_business('hotline') ?? '0772 906 756') ?></strong> hoặc email <strong><?= htmlspecialchars(kibo_business('email') ?? 'support@kibo.vn') ?></strong> để được thực hiện trong vòng 72 giờ theo quy định tại Nghị định 356/2025/NĐ-CP.</li>
+            <li>Trường hợp muốn rút lại sự đồng ý, hạn chế xử lý hoặc yêu cầu xóa dữ liệu cá nhân khỏi hệ thống, quý khách vui lòng liên hệ Bộ phận Bảo vệ Dữ liệu Cá nhân (DPO) của KIBO qua Hotline <strong><?= htmlspecialchars(kibo_business('hotline') ?? '0772 906 756') ?></strong> hoặc email <strong><?= htmlspecialchars(kibo_business('email') ?? 'kibopetshome.support@gmail.com') ?></strong> để được thực hiện trong vòng 72 giờ theo quy định tại Nghị định 356/2025/NĐ-CP.</li>
           </ul>
         </section>
       <?php endif; ?>

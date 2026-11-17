@@ -18,6 +18,8 @@ $custName = '';
 $custEmail = '';
 $custPhone = '';
 $custAddress = '';
+$custProvince = '';
+$custWard = '';
 $custMaKH = '';
 
 if (!empty($currentUser)) {
@@ -28,11 +30,15 @@ if (!empty($currentUser)) {
         $custEmail = !empty($freshCust['Email']) ? $freshCust['Email'] : ($currentUser['TenDangNhap'] ?? '');
         $custPhone = !empty($freshCust['SoDienThoaiChinh']) ? $freshCust['SoDienThoaiChinh'] : ($currentUser['SoDienThoai'] ?? '');
         $custAddress = !empty($freshCust['diachichitiet']) ? $freshCust['diachichitiet'] : ($currentUser['DiaChi'] ?? '');
+        $custProvince = !empty($freshCust['tinhthanh']) ? $freshCust['tinhthanh'] : ($currentUser['TinhThanh'] ?? '');
+        $custWard = !empty($freshCust['phuongxa']) ? $freshCust['phuongxa'] : ($currentUser['PhuongXa'] ?? '');
         $custMaKH = $freshCust['MaKH'] ?? ($currentUser['MaKH'] ?? '');
 
         $_SESSION['user']['HoTen'] = $custName;
         $_SESSION['user']['SoDienThoai'] = $custPhone;
         $_SESSION['user']['DiaChi'] = $custAddress;
+        $_SESSION['user']['TinhThanh'] = $custProvince;
+        $_SESSION['user']['PhuongXa'] = $custWard;
         $_SESSION['user']['MaKH'] = $custMaKH;
         $currentUser = $_SESSION['user'];
     } else {
@@ -40,6 +46,8 @@ if (!empty($currentUser)) {
         $custEmail = $currentUser['TenDangNhap'] ?? '';
         $custPhone = $currentUser['SoDienThoai'] ?? '';
         $custAddress = $currentUser['DiaChi'] ?? '';
+        $custProvince = $currentUser['TinhThanh'] ?? '';
+        $custWard = $currentUser['PhuongXa'] ?? '';
         $custMaKH = $currentUser['MaKH'] ?? '';
     }
 }
@@ -148,88 +156,17 @@ $preselectedVoucher = trim($_GET['voucher'] ?? '');
               <input type="text" id="custAddressInput" class="checkout-input" placeholder="Địa chỉ giao hàng (Số nhà, tên đường...)" value="<?= htmlspecialchars($custAddress) ?>" required>
             </div>
 
-            <!-- Tỉnh/Thành, Khu vực/Quận/Huyện, Phường/Xã/Đặc khu (Cập nhật 34 Tỉnh/Thành theo Nghị quyết 202/2025/QH15) -->
-            <div class="delivery-select-grid">
+            <!-- Tỉnh/Thành phố & Phường/Xã/Đặc khu (Dữ liệu 34 Tỉnh/Thành & 3.321 Phường/Xã từ Supabase) -->
+            <div class="delivery-select-grid" style="grid-template-columns: 1fr 1fr;">
               <div>
                 <select id="provinceSelect" class="delivery-select" onchange="handleProvinceChange(this.value)" title="34 Tỉnh/Thành phố theo Nghị quyết 202/2025/QH15" required>
-                  <option value="HCM" selected>TP. Hồ Chí Minh</option>
-                  <option value="HN">TP. Hà Nội</option>
-                  <option value="DN">TP. Đà Nẵng</option>
-                  <option value="HP">TP. Hải Phòng</option>
-                  <option value="CT">TP. Cần Thơ</option>
-                  <option value="HUE">TP. Huế</option>
-                  <option value="AG">Tỉnh An Giang</option>
-                  <option value="BN">Tỉnh Bắc Ninh</option>
-                  <option value="CM">Tỉnh Cà Mau</option>
-                  <option value="CB">Tỉnh Cao Bằng</option>
-                  <option value="DL">Tỉnh Đắk Lắk</option>
-                  <option value="DB">Tỉnh Điện Biên</option>
-                  <option value="DNA">Tỉnh Đồng Nai</option>
-                  <option value="DT">Tỉnh Đồng Tháp</option>
-                  <option value="GL">Tỉnh Gia Lai</option>
-                  <option value="HT">Tỉnh Hà Tĩnh</option>
-                  <option value="HY">Tỉnh Hưng Yên</option>
-                  <option value="KH">Tỉnh Khánh Hòa</option>
-                  <option value="LC">Tỉnh Lai Châu</option>
-                  <option value="LD">Tỉnh Lâm Đồng</option>
-                  <option value="LS">Tỉnh Lạng Sơn</option>
-                  <option value="LCA">Tỉnh Lào Cai</option>
-                  <option value="NA">Tỉnh Nghệ An</option>
-                  <option value="NB">Tỉnh Ninh Bình</option>
-                  <option value="PT">Tỉnh Phú Thọ</option>
-                  <option value="QNG">Tỉnh Quảng Ngãi</option>
-                  <option value="QN">Tỉnh Quảng Ninh</option>
-                  <option value="QT">Tỉnh Quảng Trị</option>
-                  <option value="SL">Tỉnh Sơn La</option>
-                  <option value="TN">Tỉnh Tây Ninh</option>
-                  <option value="TNG">Tỉnh Thái Nguyên</option>
-                  <option value="TH">Tỉnh Thanh Hóa</option>
-                  <option value="TQ">Tỉnh Tuyên Quang</option>
-                  <option value="VL">Tỉnh Vĩnh Long</option>
+                  <option value="">-- Đang tải Tỉnh / Thành phố... --</option>
                 </select>
               </div>
 
               <div>
-                <select id="districtSelect" class="delivery-select" onchange="handleDistrictChange(this.value); recalcCartSummary();" required>
-                  <option value="TP. Thủ Đức" selected>TP. Thủ Đức</option>
-                  <option value="Quận 1">Quận 1</option>
-                  <option value="Quận 3">Quận 3</option>
-                  <option value="Quận 4">Quận 4</option>
-                  <option value="Quận 5">Quận 5</option>
-                  <option value="Quận 6">Quận 6</option>
-                  <option value="Quận 7">Quận 7</option>
-                  <option value="Quận 8">Quận 8</option>
-                  <option value="Quận 10">Quận 10</option>
-                  <option value="Quận 11">Quận 11</option>
-                  <option value="Quận 12">Quận 12</option>
-                  <option value="Quận Bình Thạnh">Quận Bình Thạnh</option>
-                  <option value="Quận Phú Nhuận">Quận Phú Nhuận</option>
-                  <option value="Quận Gò Vấp">Quận Gò Vấp</option>
-                  <option value="Quận Tân Bình">Quận Tân Bình</option>
-                  <option value="Quận Tân Phú">Quận Tân Phú</option>
-                  <option value="Quận Bình Tân">Quận Bình Tân</option>
-                  <option value="Huyện Củ Chi">Huyện Củ Chi (Ngoại thành)</option>
-                  <option value="Huyện Hóc Môn">Huyện Hóc Môn (Ngoại thành)</option>
-                  <option value="Huyện Bình Chánh">Huyện Bình Chánh (Ngoại thành)</option>
-                  <option value="Huyện Nhà Bè">Huyện Nhà Bè (Ngoại thành)</option>
-                  <option value="Huyện Cần Giờ">Huyện Cần Giờ (Ngoại thành)</option>
-                  <option value="Khu vực Bình Dương (Mở rộng)">Khu vực Bình Dương (Sáp nhập)</option>
-                  <option value="Khu vực Bà Rịa - Vũng Tàu (Mở rộng)">Khu vực Bà Rịa - Vũng Tàu (Sáp nhập)</option>
-                </select>
-              </div>
-
-              <div>
-                <select id="wardSelect" class="delivery-select" required>
-                  <option value="Phường Tăng Nhơn Phú" selected>Phường Tăng Nhơn Phú (Mới)</option>
-                  <option value="Phường Thủ Đức">Phường Thủ Đức (Mới)</option>
-                  <option value="Phường Hiệp Bình">Phường Hiệp Bình (Mới)</option>
-                  <option value="Phường Tam Bình">Phường Tam Bình (Mới)</option>
-                  <option value="Phường An Khánh">Phường An Khánh (Mới)</option>
-                  <option value="Phường Cát Lái">Phường Cát Lái (Mới)</option>
-                  <option value="Phường Long Trường">Phường Long Trường (Mới)</option>
-                  <option value="Phường Phước Long">Phường Phước Long (Mới)</option>
-                  <option value="Phường Tăng Nhơn Phú B">Phường Tăng Nhơn Phú B</option>
-                  <option value="Phường Hiệp Phú">Phường Hiệp Phú</option>
+                <select id="wardSelect" class="delivery-select" onchange="recalcCartSummary();" required>
+                  <option value="">-- Chọn Phường / Xã / Đặc khu --</option>
                 </select>
               </div>
             </div>
@@ -256,7 +193,7 @@ $preselectedVoucher = trim($_GET['voucher'] ?? '');
                 <label style="display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1.5px solid #d4ccc3; border-radius: 8px; cursor: pointer; background: #ffffff;">
                   <input type="radio" name="payment_choice" value="COD" checked onchange="togglePaymentQR(false)" style="margin-top: 4px; accent-color: var(--green);">
                   <div>
-                    <strong style="display: block; font-size: 15.5px; color: var(--brown);">Thanh toán tiền mặt khi nhận hàng (COD)</strong>
+                    <strong style="display: block; font-size: 15.5px; color: var(--brown);">Thanh toán khi nhận hàng (COD)</strong>
                     <small style="display: block; margin-top: 3px; color: var(--muted); font-size: 13.5px;">Kiểm tra hàng tận tay và thanh toán trực tiếp cho bưu tá shipper.</small>
                   </div>
                 </label>
@@ -264,19 +201,22 @@ $preselectedVoucher = trim($_GET['voucher'] ?? '');
                 <label style="display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1.5px solid #d4ccc3; border-radius: 8px; cursor: pointer; background: #ffffff;">
                   <input type="radio" name="payment_choice" value="Online" onchange="togglePaymentQR(true)" style="margin-top: 4px; accent-color: var(--green);">
                   <div>
-                    <strong style="display: block; font-size: 15.5px; color: var(--brown);">Thanh toán Online (Chuyển khoản VietQR tức thì)</strong>
-                    <small style="display: block; margin-top: 3px; color: var(--muted); font-size: 13.5px;">Quét mã QR thanh toán nhanh qua bất kỳ app ngân hàng nào.</small>
+                    <strong style="display: block; font-size: 15.5px; color: var(--brown);">Thanh toán qua VietQR</strong>
+                    <small style="display: block; margin-top: 3px; color: var(--muted); font-size: 13.5px;">Quét mã QR thanh toán nhanh qua bất kỳ app ngân hàng nào (mã QR tự tạo ở bước kế tiếp).</small>
                   </div>
                 </label>
               </div>
 
-              <!-- KHUNG MÃ VIETQR -->
-              <div id="vietqrBox" style="display: none; margin-top: 16px; padding: 20px; background: #faf8f5; border: 1.5px dashed #c9bdb4; border-radius: 8px; text-align: center;">
-                <p style="font-weight: 700; color: var(--brown); margin: 0 0 10px; font-size: 15.5px;">Quét mã VietQR để thanh toán</p>
-                <img id="vietqrImg" src="https://api.vietqr.io/image/<?= urlencode($vietqrConfig['bank_bin']) ?>-<?= urlencode($vietqrConfig['account_no']) ?>-<?= urlencode($vietqrConfig['template']) ?>.jpg?amount=1075000&addInfo=KIBO%20DONHANG" alt="Mã VietQR KIBO" style="max-width: 200px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.09);">
-                <small style="display: block; margin-top: 10px; color: var(--brown); font-weight: 700; font-size: 14px;">STK: <?= htmlspecialchars($vietqrConfig['account_no']) ?> - <?= htmlspecialchars($vietqrConfig['bank_name']) ?></small>
-                <small style="display: block; color: var(--muted); font-size: 13px;">Chủ tài khoản: <?= htmlspecialchars($vietqrConfig['account_name']) ?></small>
+              <!-- GHI CHÚ KHI CHỌN VIETQR (KHÔNG HIỆN QR TRÙNG Ở BƯỚC NGOÀI) -->
+              <div id="vietqrBox" style="display: none; margin-top: 14px; padding: 14px 16px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; font-size: 13.5px; color: #334155;">
+                💳 Hệ thống sẽ mở <strong>Cổng thanh toán VietQR</strong> kèm số tiền &amp; mã đơn hàng chính xác ngay sau khi bạn bấm <strong>Xác nhận đặt hàng</strong>.
               </div>
+
+              <?php if (!empty($currentUser) && (($currentUser['VaiTro'] ?? '') === 'Admin')): ?>
+              <div style="margin-top: 16px; padding: 12px 16px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 6px; color: #b91c1c; font-size: 13.5px; font-weight: 500; line-height: 1.5;">
+                Tài khoản Quản trị viên chỉ dùng để quản lý hệ thống, không hỗ trợ đặt hàng. Vui lòng chuyển sang tài khoản Khách hàng để tiếp tục.
+              </div>
+              <?php endif; ?>
 
               <button type="button" id="btnConfirmOrder" class="btn primary confirm btn-checkout-full" onclick="handleFinalCheckout()" style="margin-top: 22px;">
                 Xác nhận đặt hàng <?= kibo_icon('arrow', 18) ?>
@@ -310,11 +250,11 @@ $preselectedVoucher = trim($_GET['voucher'] ?? '');
           <small id="voucherMsg" style="display: none; margin-top: -12px; margin-bottom: 14px; font-size: 13px; font-weight: 600;"></small>
 
           <?php if (!empty($availableVouchers)): ?>
-            <div style="margin: -6px 0 18px; padding: 12px 14px; background: #fbf9f6; border: 1px dashed #d6c7b8; border-radius: 8px;">
+            <div id="voucherPromoBox" style="margin: -6px 0 18px; padding: 12px 14px; background: #fbf9f6; border: 1px dashed #d6c7b8; border-radius: 8px;">
               <div style="font-size: 12.5px; font-weight: 700; color: #2c1a0e; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
-                <span>🎁 Chương trình Ưu đãi &amp; Voucher đang kích hoạt:</span>
+                <span>CHƯƠNG TRÌNH ƯU ĐÃI DÀNH CHO BẠN</span>
               </div>
-              <div style="display: grid; gap: 8px;">
+              <div id="voucherPromoList" style="display: grid; gap: 8px;">
                 <?php foreach ($availableVouchers as $vItem): 
                   $vCode = $vItem['MaVoucher'];
                   $vName = $vItem['TenVoucher'];
@@ -330,7 +270,7 @@ $preselectedVoucher = trim($_GET['voucher'] ?? '');
                         <strong style="font-size: 13.5px; color: #2c1a0e;"><?= htmlspecialchars($vName) ?></strong>
                       </div>
                       <small style="display: block; color: #6b5f54; font-size: 12.5px; margin-top: 3px;">
-                        Đơn tối thiểu: <?= number_format($vMin, 0, ',', '.') ?>₫ · Còn <?= (int)$vItem['SoLuongConLai'] ?> lượt
+                        Đơn tối thiểu: <?= number_format($vMin, 0, ',', '.') ?>₫
                       </small>
                     </div>
                     <?php if ($isUsed): ?>
@@ -390,6 +330,74 @@ $preselectedVoucher = trim($_GET['voucher'] ?? '');
   </div>
 </main>
 
+<!-- CỔNG THANH TOÁN VIETQR TRỰC TUYẾN (CHỜ XÁC NHẬN THANH TOÁN) -->
+<div id="vietqrGatewayModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 999999; place-items: center; padding: 16px;">
+  <div style="background: #ffffff; width: min(520px, 95vw); border-radius: 6px; border: 1px solid #c8c8c8; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2); font-family: Arial, sans-serif; overflow: hidden;">
+    <div style="background: #f5f5f5; color: #222; padding: 16px 22px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between;">
+      <div>
+        <div style="font-size: 11.5px; color: #666; text-transform: uppercase; letter-spacing: 0.4px;">Cổng thanh toán KIBO</div>
+        <h3 style="margin: 2px 0 0; font-size: 17px; font-weight: 700; color: #222;">Thanh toán chuyển khoản VietQR</h3>
+      </div>
+      <div id="gwCountdown" style="background: #fff; border: 1px solid #d4d4d4; color: #222; padding: 5px 10px; border-radius: 4px; font-weight: 700; font-size: 13.5px;">15:00</div>
+    </div>
+
+    <div style="padding: 20px 24px; text-align: center;">
+      <div id="gwStatusBanner" style="background: #fafafa; color: #333; border: 1px solid #e0e0e0; border-radius: 4px; padding: 10px 14px; font-size: 13.5px; font-weight: 600; margin-bottom: 16px;">
+        Đang chờ bạn quét mã QR và chuyển khoản đúng số tiền...
+      </div>
+
+      <img id="gwQrImg" src="" alt="Mã VietQR thanh toán" style="width: 220px; height: auto; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 14px;">
+
+      <div style="background: #fafafa; border: 1px solid #e5e5e5; border-radius: 4px; padding: 12px 16px; text-align: left; font-size: 13.5px; line-height: 1.7; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: #666;">Ngân hàng:</span>
+          <strong id="gwBankName" style="color: #222;">MSB</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: #666;">Số tài khoản:</span>
+          <strong id="gwAccountNo" style="color: #222;">--</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: #666;">Số tiền:</span>
+          <strong id="gwAmount" style="color: #222; font-size: 15px;">0₫</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: #666;">Nội dung CK (bắt buộc):</span>
+          <strong id="gwContent" style="color: #222;">KIBO ...</strong>
+        </div>
+      </div>
+
+      <div id="gwBottomStatus" style="display: none; margin-bottom: 12px; padding: 10px 14px; background: #f5f5f5; border: 1px solid #333; border-radius: 4px; color: #222; font-size: 14px; font-weight: 700;">
+        Thanh toán thành công! Đang chuyển hướng...
+      </div>
+
+      <div>
+        <button type="button" id="gwCancelBtn" onclick="cancelOnlinePayment()" style="width: 100%; padding: 10px 16px; background: #f5f5f5; color: #333; border: 1px solid #ccc; border-radius: 4px; font-weight: 600; font-size: 14px; cursor: pointer;">
+          Hủy giao dịch
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL XÁC NHẬN HỦY GIAO DỊCH (GIỮA MÀN HÌNH) -->
+<div id="gwCancelConfirmModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 1000001; place-items: center; padding: 20px;">
+  <div style="background: #ffffff; width: min(400px, 92vw); border-radius: 6px; border: 1px solid #d1d5db; box-shadow: 0 12px 32px rgba(0,0,0,0.22); padding: 22px 24px; font-family: Arial, sans-serif; text-align: center;">
+    <h4 style="margin: 0 0 8px; font-size: 16px; font-weight: 700; color: #111827;">Xác nhận hủy giao dịch</h4>
+    <p id="gwCancelConfirmText" style="margin: 0 0 18px; font-size: 13.5px; color: #4b5563; line-height: 1.5;">
+      Bạn muốn hủy giao dịch thanh toán cho đơn này?
+    </p>
+    <div style="display: flex; gap: 10px; justify-content: center;">
+      <button type="button" onclick="closeCancelConfirmModal()" style="flex: 1; padding: 9px 14px; background: #ffffff; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13.5px; font-weight: 600; cursor: pointer;">
+        Quay lại
+      </button>
+      <button type="button" onclick="confirmCancelOnlinePayment()" style="flex: 1; padding: 9px 14px; background: #c94336; color: #ffffff; border: none; border-radius: 4px; font-size: 13.5px; font-weight: 700; cursor: pointer;">
+        Xác nhận hủy
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL THÔNG BÁO ĐẶT HÀNG THÀNH CÔNG (DẠNG BASIC) -->
 <div id="orderSuccessModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 999999; place-items: center; padding: 20px;">
   <div style="background: #ffffff; width: min(720px, 95vw); border-radius: 6px; border: 1px solid #c8c8c8; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2); font-family: Arial, sans-serif; overflow: hidden;">
@@ -413,7 +421,7 @@ $preselectedVoucher = trim($_GET['voucher'] ?? '');
           <tbody>
             <tr>
               <td style="padding: 8px 0; color: #666;">Trạng thái đơn hàng:</td>
-              <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #222;">Chờ xác nhận</td>
+              <td id="successOrderStatus" style="padding: 8px 0; text-align: right; font-weight: 600; color: #222;">Chờ xác nhận</td>
             </tr>
             <tr style="border-top: 1px dashed #e0e0e0;">
               <td style="padding: 8px 0; color: #666;">Trích Quỹ cứu trợ (5%):</td>
@@ -425,11 +433,11 @@ $preselectedVoucher = trim($_GET['voucher'] ?? '');
 
       <?php if (!$currentUser): ?>
       <div style="margin: 0 0 20px; padding: 12px 16px; background: #fff8ee; border: 1.5px dashed #d4a373; border-radius: 6px; font-size: 14.5px; color: #854d0e; line-height: 1.6;">
-        💡 <strong>Lưu ý cho khách chưa đăng ký tài khoản:</strong> Quý khách vui lòng chụp màn hình hoặc lưu lại <strong>Mã đơn hàng</strong> ở trên để tra cứu tiến trình giao hàng bất cứ lúc nào tại mục <strong>"Tra cứu đơn"</strong>.
+        💡 <strong>Lưu ý cho khách chưa đăng ký tài khoản:</strong> Thông tin và mã đơn hàng đã được gửi về Email của bạn. Bạn có thể tra cứu tiến trình giao hàng bất cứ lúc nào tại mục <strong>"Tra cứu đơn"</strong>.
       </div>
       <?php else: ?>
       <div style="margin: 0 0 20px; padding: 12px 16px; background: #f0fdf4; border: 1.5px dashed #86efac; border-radius: 6px; font-size: 14.5px; color: #166534; line-height: 1.6;">
-        📦 Đơn hàng đã được tự động liên kết vào mục <strong>"Tài khoản &gt; Lịch sử đơn hàng"</strong> của bạn.
+        Giờ đây, bạn có thể theo dõi và tra cứu đơn hàng bất cứ lúc nào tại mục <strong>"Tài khoản &gt; Lịch sử đơn hàng"</strong> (hoặc kiểm tra qua Email xác nhận).
       </div>
       <?php endif; ?>
 
@@ -528,6 +536,18 @@ function validateCheckoutInputs() {
     document.getElementById('custAddressInput').focus();
     return false;
   }
+  const provinceEl = document.getElementById('provinceSelect');
+  if (provinceEl && !provinceEl.value) {
+    showCustomerToast('Vui lòng chọn Tỉnh / Thành phố giao hàng.', 'error');
+    provinceEl.focus();
+    return false;
+  }
+  const wardEl = document.getElementById('wardSelect');
+  if (wardEl && !wardEl.value) {
+    showCustomerToast('Vui lòng chọn Phường / Xã / Đặc khu giao hàng.', 'error');
+    wardEl.focus();
+    return false;
+  }
   const consentCb = document.getElementById('checkoutConsentCheckbox');
   if (consentCb && !consentCb.checked) {
     showCustomerToast('Vui lòng tích chọn đồng ý Chính sách bảo mật dữ liệu cá nhân & Điều khoản giao dịch trước khi tiếp tục.', 'error');
@@ -551,166 +571,102 @@ function togglePaymentQR(show) {
   if (qrBox) qrBox.style.display = show ? 'block' : 'none';
 }
 
-// Danh mục Khu vực & Phường/Xã/Đặc khu cho 34 Tỉnh/Thành phố theo Nghị quyết 202/2025/QH15 (12/06/2025)
-const PROVINCE_DISTRICTS_MAP = {
-  HN: ['Quận Hoàn Kiếm', 'Quận Ba Đình', 'Quận Cầu Giấy', 'Quận Đống Đa', 'Quận Hai Bà Trưng', 'Quận Thanh Xuân', 'Quận Tây Hồ', 'Quận Long Biên', 'Quận Hoàng Mai', 'Quận Hà Đông', 'Quận Nam Từ Liêm', 'Quận Bắc Từ Liêm', 'Khu vực Sơn Tây / Đông Anh / Gia Lâm'],
-  DN: ['Khu vực Hải Châu', 'Khu vực Thanh Khê', 'Khu vực Sơn Trà', 'Khu vực Ngũ Hành Sơn', 'Khu vực Liên Chiểu', 'Khu vực Tam Kỳ (Quảng Nam sáp nhập)', 'Khu vực Hội An (Quảng Nam sáp nhập)', 'Đặc khu Hoàng Sa'],
-  HP: ['Khu vực Hồng Bàng', 'Khu vực Ngô Quyền', 'Khu vực Lê Chân', 'Khu vực Hải An', 'Khu vực Thủy Nguyên', 'Khu vực Hải Dương (Sáp nhập)', 'Khu vực Chí Linh (Sáp nhập)', 'Đặc khu Bạch Long Vĩ / Cát Hải'],
-  CT: ['Khu vực Ninh Kiều', 'Khu vực Bình Thủy', 'Khu vực Cái Răng', 'Khu vực Sóc Trăng (Sáp nhập)', 'Khu vực Vị Thanh - Hậu Giang (Sáp nhập)'],
-  HUE: ['Quận Thuận Hóa', 'Quận Phú Xuân', 'Khu vực Hương Thủy', 'Khu vực Hương Trà', 'Khu vực Phong Điền'],
-  AG: ['Khu vực Long Xuyên', 'Khu vực Châu Đốc', 'Khu vực Rạch Giá (Kiên Giang sáp nhập)', 'Khu vực Hà Tiên (Kiên Giang sáp nhập)', 'Đặc khu Phú Quốc'],
-  BN: ['Khu vực TP. Bắc Ninh', 'Khu vực Từ Sơn', 'Khu vực Bắc Giang (Sáp nhập)', 'Khu vực Việt Yên (Sáp nhập)'],
-  CM: ['Khu vực TP. Cà Mau', 'Khu vực Bạc Liêu (Sáp nhập)', 'Khu vực Năm Căn / Sông Đốc'],
-  CB: ['Khu vực TP. Cao Bằng', 'Khu vực Trùng Khánh / Quảng Hòa'],
-  DL: ['Khu vực Buôn Ma Thuột', 'Khu vực Tuy Hòa (Phú Yên sáp nhập)', 'Khu vực Sông Cầu / Đông Hòa'],
-  DB: ['Khu vực TP. Điện Biên Phủ', 'Khu vực Mường Lay / Điện Biên'],
-  DNA: ['Khu vực Biên Hòa', 'Khu vực Long Khánh', 'Khu vực Long Thành / Nhơn Trạch', 'Khu vực Đồng Xoài (Bình Phước sáp nhập)', 'Khu vực Bình Long / Phước Long'],
-  DT: ['Khu vực Cao Lãnh', 'Khu vực Sa Đéc', 'Khu vực Mỹ Tho (Tiền Giang sáp nhập)', 'Khu vực Gò Công (Tiền Giang sáp nhập)'],
-  GL: ['Khu vực Pleiku', 'Khu vực Quy Nhơn (Bình Định sáp nhập)', 'Khu vực An Nhơn / Hoài Nhơn'],
-  HT: ['Khu vực TP. Hà Tĩnh', 'Khu vực Hồng Lĩnh / Kỳ Anh'],
-  HY: ['Khu vực TP. Hưng Yên', 'Khu vực Mỹ Hào / Văn Giang', 'Khu vực Thái Bình (Sáp nhập)'],
-  KH: ['Khu vực Nha Trang', 'Khu vực Cam Ranh', 'Khu vực Ninh Hòa', 'Khu vực Phan Rang - Tháp Chàm (Ninh Thuận sáp nhập)', 'Đặc khu Trường Sa'],
-  LC: ['Khu vực TP. Lai Châu', 'Khu vực Tam Đường / Phong Thổ'],
-  LD: ['Khu vực Đà Lạt', 'Khu vực Bảo Lộc', 'Khu vực Phan Thiết (Bình Thuận sáp nhập)', 'Khu vực Gia Nghĩa (Đắk Nông sáp nhập)', 'Đặc khu Phú Quý'],
-  LS: ['Khu vực TP. Lạng Sơn', 'Khu vực Cao Lộc / Hữu Lũng'],
-  LCA: ['Khu vực TP. Lào Cai / Sa Pa', 'Khu vực Yên Bái (Sáp nhập)', 'Khu vực Nghĩa Lộ'],
-  NA: ['Khu vực TP. Vinh', 'Khu vực Cửa Lò / Hoàng Mai / Thái Hòa'],
-  NB: ['Khu vực Hoa Lư', 'Khu vực Tam Điệp', 'Khu vực Nam Định (Sáp nhập)', 'Khu vực Phủ Lý - Hà Nam (Sáp nhập)'],
-  PT: ['Khu vực Việt Trì', 'Khu vực Vĩnh Yên / Phúc Yên (Vĩnh Phúc sáp nhập)', 'Khu vực Hòa Bình (Sáp nhập)'],
-  QNG: ['Khu vực TP. Quảng Ngãi', 'Khu vực Kon Tum (Sáp nhập)', 'Đặc khu Lý Sơn'],
-  QN: ['Khu vực Hạ Long', 'Khu vực Cẩm Phả', 'Khu vực Uông Bí', 'Khu vực Móng Cái', 'Đặc khu Vân Đồn / Cô Tô'],
-  QT: ['Khu vực Đông Hà', 'Khu vực Đồng Hới (Quảng Bình sáp nhập)', 'Đặc khu Cồn Cỏ'],
-  SL: ['Khu vực TP. Sơn La', 'Khu vực Mộc Châu'],
-  TN: ['Khu vực TP. Tây Ninh / Hòa Thành', 'Khu vực Tân An (Long An sáp nhập)', 'Khu vực Đức Hòa / Bến Lức'],
-  TNG: ['Khu vực TP. Thái Nguyên / Phổ Yên', 'Khu vực Sông Công', 'Khu vực Bắc Kạn (Sáp nhập)'],
-  TH: ['Khu vực TP. Thanh Hóa', 'Khu vực Sầm Sơn / Bỉm Sơn / Nghi Sơn'],
-  TQ: ['Khu vực TP. Tuyên Quang', 'Khu vực Hà Giang (Sáp nhập)'],
-  VL: ['Khu vực TP. Vĩnh Long', 'Khu vực Bến Tre (Sáp nhập)', 'Khu vực Trà Vinh (Sáp nhập)']
-};
+// Danh mục 34 Tỉnh/Thành & 3.321 Phường/Xã/Đặc khu tải trực tiếp từ Supabase (vietnamese-provinces-database)
+const WARDS_CACHE = {};
 
-function handleProvinceChange(val) {
-  const districtSelect = document.getElementById('districtSelect');
+const SAVED_CHECKOUT_PROVINCE = <?= json_encode($custProvince, JSON_UNESCAPED_UNICODE) ?>;
+const SAVED_CHECKOUT_WARD = <?= json_encode($custWard, JSON_UNESCAPED_UNICODE) ?>;
+
+async function loadProvincesFromDB() {
+  const provinceSelect = document.getElementById('provinceSelect');
   const wardSelect = document.getElementById('wardSelect');
-  if (val === 'HCM') {
-    districtSelect.innerHTML = `
-      <option value="TP. Thủ Đức" selected>TP. Thủ Đức</option>
-      <option value="Quận 1">Quận 1</option>
-      <option value="Quận 3">Quận 3</option>
-      <option value="Quận 4">Quận 4</option>
-      <option value="Quận 5">Quận 5</option>
-      <option value="Quận 6">Quận 6</option>
-      <option value="Quận 7">Quận 7</option>
-      <option value="Quận 8">Quận 8</option>
-      <option value="Quận 10">Quận 10</option>
-      <option value="Quận 11">Quận 11</option>
-      <option value="Quận 12">Quận 12</option>
-      <option value="Quận Bình Thạnh">Quận Bình Thạnh</option>
-      <option value="Quận Phú Nhuận">Quận Phú Nhuận</option>
-      <option value="Quận Gò Vấp">Quận Gò Vấp</option>
-      <option value="Quận Tân Bình">Quận Tân Bình</option>
-      <option value="Quận Tân Phú">Quận Tân Phú</option>
-      <option value="Quận Bình Tân">Quận Bình Tân</option>
-      <option value="Huyện Củ Chi">Huyện Củ Chi (Ngoại thành)</option>
-      <option value="Huyện Hóc Môn">Huyện Hóc Môn (Ngoại thành)</option>
-      <option value="Huyện Bình Chánh">Huyện Bình Chánh (Ngoại thành)</option>
-      <option value="Huyện Nhà Bè">Huyện Nhà Bè (Ngoại thành)</option>
-      <option value="Huyện Cần Giờ">Huyện Cần Giờ (Ngoại thành)</option>
-      <option value="Khu vực Bình Dương (Mở rộng)">Khu vực Bình Dương (Sáp nhập)</option>
-      <option value="Khu vực Bà Rịa - Vũng Tàu (Mở rộng)">Khu vực Bà Rịa - Vũng Tàu (Sáp nhập)</option>
-    `;
-    handleDistrictChange('TP. Thủ Đức');
-  } else if (PROVINCE_DISTRICTS_MAP[val]) {
-    const dList = PROVINCE_DISTRICTS_MAP[val];
-    districtSelect.innerHTML = dList.map((d, idx) => `<option value="${d}" ${idx === 0 ? 'selected' : ''}>${d}</option>`).join('');
-    handleDistrictChange(dList[0]);
-  } else {
-    const provText = document.getElementById('provinceSelect')?.selectedOptions[0]?.text || 'Tỉnh';
-    districtSelect.innerHTML = `
-      <option value="Khu vực Trung tâm ${provText}" selected>Khu vực Trung tâm ${provText}</option>
-      <option value="Khu vực Phường / Xã lân cận">Khu vực Phường / Xã lân cận</option>
-    `;
-    wardSelect.innerHTML = `
-      <option value="Phường Trung Tâm" selected>Phường Trung Tâm</option>
-      <option value="Phường 1">Phường 1</option>
-      <option value="Xã / Đặc khu">Xã / Đặc khu</option>
-    `;
+  if (!provinceSelect) return;
+  try {
+    const res = await fetch('index.php?action=get_provinces');
+    const data = await res.json();
+    if (data.success && Array.isArray(data.provinces) && data.provinces.length > 0) {
+      provinceSelect.innerHTML = '<option value="" selected>-- Chọn Tỉnh / Thành phố --</option>' +
+        data.provinces.map(p =>
+          `<option value="${escapeCartHtml(p.code)}">${escapeCartHtml(p.full_name)}</option>`
+        ).join('');
+      if (SAVED_CHECKOUT_PROVINCE) {
+        const targetProv = SAVED_CHECKOUT_PROVINCE.trim().toLowerCase();
+        const matchedProv = data.provinces.find(p =>
+          (p.full_name || '').trim().toLowerCase() === targetProv ||
+          (p.name || '').trim().toLowerCase() === targetProv
+        );
+        if (matchedProv) {
+          provinceSelect.value = matchedProv.code;
+          await handleProvinceChange(matchedProv.code, SAVED_CHECKOUT_WARD);
+          return;
+        }
+      }
+      if (wardSelect) {
+        wardSelect.innerHTML = '<option value="" selected>-- Chọn Phường / Xã / Đặc khu --</option>';
+      }
+      renderAllViews();
+    } else {
+      provinceSelect.innerHTML = '<option value="" selected>-- Không thể tải Tỉnh / Thành phố --</option>';
+    }
+  } catch (err) {
+    provinceSelect.innerHTML = '<option value="" selected>-- Lỗi tải Tỉnh / Thành phố --</option>';
+  }
+}
+
+async function handleProvinceChange(provinceCode, preselectWard = '') {
+  const wardSelect = document.getElementById('wardSelect');
+  if (!wardSelect) return;
+  if (!provinceCode) {
+    wardSelect.innerHTML = '<option value="">-- Chọn Phường / Xã / Đặc khu --</option>';
+    renderAllViews();
+    return;
+  }
+
+  if (WARDS_CACHE[provinceCode]) {
+    renderWardsOptions(WARDS_CACHE[provinceCode], preselectWard);
+    renderAllViews();
+    return;
+  }
+
+  wardSelect.innerHTML = '<option value="">-- Đang tải Phường / Xã... --</option>';
+  try {
+    const res = await fetch('index.php?action=get_wards&province_code=' + encodeURIComponent(provinceCode));
+    const data = await res.json();
+    if (data.success && Array.isArray(data.wards) && data.wards.length > 0) {
+      WARDS_CACHE[provinceCode] = data.wards;
+      renderWardsOptions(data.wards, preselectWard);
+    } else {
+      wardSelect.innerHTML = '<option value="">-- Không có dữ liệu Phường / Xã --</option>';
+    }
+  } catch (err) {
+    wardSelect.innerHTML = '<option value="">-- Lỗi tải Phường / Xã --</option>';
   }
   renderAllViews();
+}
+
+function renderWardsOptions(wards, preselectWard = '') {
+  const wardSelect = document.getElementById('wardSelect');
+  if (!wardSelect) return;
+  wardSelect.innerHTML = '<option value="" selected>-- Chọn Phường / Xã / Đặc khu --</option>' +
+    wards.map(w =>
+      `<option value="${escapeCartHtml(w.full_name)}">${escapeCartHtml(w.full_name)}</option>`
+    ).join('');
+  if (preselectWard) {
+    const targetWard = preselectWard.trim().toLowerCase();
+    const matchedWard = wards.find(w => (w.full_name || '').trim().toLowerCase() === targetWard);
+    if (matchedWard) {
+      wardSelect.value = matchedWard.full_name;
+    }
+  }
 }
 
 function recalcCartSummary() {
   renderAllViews();
 }
 
-function handleDistrictChange(val) {
-  const wardSelect = document.getElementById('wardSelect');
-  if (val.includes('Thủ Đức')) {
-    wardSelect.innerHTML = `
-      <option value="Phường Tăng Nhơn Phú" selected>Phường Tăng Nhơn Phú (Mới)</option>
-      <option value="Phường Thủ Đức">Phường Thủ Đức (Mới)</option>
-      <option value="Phường Hiệp Bình">Phường Hiệp Bình (Mới)</option>
-      <option value="Phường Tam Bình">Phường Tam Bình (Mới)</option>
-      <option value="Phường An Khánh">Phường An Khánh (Mới)</option>
-      <option value="Phường Cát Lái">Phường Cát Lái (Mới)</option>
-      <option value="Phường Long Trường">Phường Long Trường (Mới)</option>
-      <option value="Phường Phước Long">Phường Phước Long (Mới)</option>
-      <option value="Phường Tăng Nhơn Phú B">Phường Tăng Nhơn Phú B</option>
-      <option value="Phường Hiệp Phú">Phường Hiệp Phú</option>
-    `;
-  } else if (val.includes('Quận 1') && !val.includes('Quận 10') && !val.includes('Quận 11') && !val.includes('Quận 12')) {
-    wardSelect.innerHTML = `
-      <option value="Phường Sài Gòn" selected>Phường Sài Gòn (Mới)</option>
-      <option value="Phường Bến Thành">Phường Bến Thành (Mới)</option>
-      <option value="Phường Tân Định">Phường Tân Định (Mới)</option>
-      <option value="Phường Cầu Ông Lãnh">Phường Cầu Ông Lãnh (Mới)</option>
-      <option value="Phường Bến Nghé">Phường Bến Nghé</option>
-      <option value="Phường Đa Kao">Phường Đa Kao</option>
-    `;
-  } else if (val.includes('Quận 3')) {
-    wardSelect.innerHTML = `
-      <option value="Phường Bàn Cờ" selected>Phường Bàn Cờ (Mới)</option>
-      <option value="Phường Xuân Hòa">Phường Xuân Hòa (Mới)</option>
-      <option value="Phường Nhiêu Lộc">Phường Nhiêu Lộc (Mới)</option>
-      <option value="Phường Võ Thị Sáu">Phường Võ Thị Sáu</option>
-    `;
-  } else if (val.includes('Quận 4')) {
-    wardSelect.innerHTML = `
-      <option value="Phường Khánh Hội" selected>Phường Khánh Hội (Mới)</option>
-      <option value="Phường Xóm Chiếu">Phường Xóm Chiếu (Mới)</option>
-      <option value="Phường Vĩnh Hội">Phường Vĩnh Hội (Mới)</option>
-    `;
-  } else if (val.includes('Bình Dương')) {
-    wardSelect.innerHTML = `
-      <option value="Phường Thủ Dầu Một" selected>Phường Thủ Dầu Một (Mới)</option>
-      <option value="Phường Dĩ An">Phường Dĩ An (Mới)</option>
-      <option value="Phường Thuận An">Phường Thuận An (Mới)</option>
-      <option value="Phường Bình Dương">Phường Bình Dương (Mới)</option>
-    `;
-  } else if (val.includes('Bà Rịa') || val.includes('Vũng Tàu')) {
-    wardSelect.innerHTML = `
-      <option value="Phường Vũng Tàu" selected>Phường Vũng Tàu (Mới)</option>
-      <option value="Phường Bà Rịa">Phường Bà Rịa (Mới)</option>
-      <option value="Phường Phú Mỹ">Phường Phú Mỹ (Mới)</option>
-      <option value="Đặc khu Côn Đảo">Đặc khu Côn Đảo</option>
-    `;
-  } else if (val.includes('Huyện')) {
-    wardSelect.innerHTML = `
-      <option value="Xã Trung Tâm" selected>Xã Trung Tâm (Mới)</option>
-      <option value="Xã Tân Hiệp">Xã Tân Hiệp</option>
-      <option value="Xã Bà Điểm">Xã Bà Điểm</option>
-      <option value="Xã Vĩnh Lộc">Xã Vĩnh Lộc</option>
-      <option value="Xã Bình Hưng">Xã Bình Hưng</option>
-    `;
-  } else {
-    wardSelect.innerHTML = `
-      <option value="Phường Trung Tâm" selected>Phường Trung Tâm</option>
-      <option value="Phường 1">Phường 1</option>
-      <option value="Phường 2">Phường 2</option>
-      <option value="Xã / Đặc khu trực thuộc">Xã / Đặc khu trực thuộc</option>
-    `;
-  }
-  renderAllViews();
-}
+document.addEventListener('DOMContentLoaded', () => {
+  loadProvincesFromDB();
+});
 
 function selectQuickVoucher(code) {
   const inp = document.getElementById('voucherCodeInput');
@@ -732,12 +688,13 @@ async function applyVoucher() {
 
   const cart = getCart();
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const phone = (document.getElementById('custPhoneInput')?.value || '').trim();
 
   try {
     const resp = await fetch('index.php?action=check_voucher', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: code, subtotal: subtotal })
+      body: JSON.stringify({ code: code, subtotal: subtotal, phone: phone })
     });
     const res = await resp.json();
     if (res.valid) {
@@ -875,12 +832,14 @@ function renderAllViews() {
 
   const provEl = document.getElementById('provinceSelect');
   const distEl = document.getElementById('districtSelect');
-  const selProv = provEl ? (provEl.selectedOptions[0]?.text || provEl.value) : 'TP. Hồ Chí Minh';
-  const selDist = distEl ? (distEl.value || distEl.selectedOptions[0]?.text) : 'TP. Thủ Đức';
+  const wardEl = document.getElementById('wardSelect');
+  const selProv = (provEl && provEl.value) ? (provEl.selectedOptions[0]?.text || '') : '';
+  const selDist = distEl ? (distEl.value || distEl.selectedOptions[0]?.text || '') : '';
+  const selWard = (wardEl && wardEl.value) ? (wardEl.selectedOptions[0]?.text || wardEl.value) : '';
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const isHCM = (selProv.includes('Hồ Chí Minh') || selProv.includes('HCM'));
-  const isNoiThanh = isHCM && (noiThanh.some(d => selDist === d));
+  const isNoiThanh = isHCM && (selDist ? noiThanh.some(d => selDist === d) : selWard.startsWith('Phường'));
   const freeThreshold = isNoiThanh ? shipConf.mien_phi_noi_thanh : shipConf.mien_phi_khac;
   const shipping = (subtotal === 0 || subtotal >= freeThreshold) ? 0 : shipConf.phi_co_ban;
 
@@ -961,11 +920,16 @@ async function handleFinalCheckout() {
   const fullAddress = [address, ward, district, city].filter(Boolean).join(', ') || 'TP. Hồ Chí Minh';
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const isHCM = (city.includes('Hồ Chí Minh') || city.includes('HCM'));
-  const isNoiThanh = isHCM && noiThanh.some(d => district === d || district.includes(d) || d.includes(district));
+  const isNoiThanh = isHCM && (district ? noiThanh.some(d => district === d || district.includes(d) || d.includes(district)) : ward.startsWith('Phường'));
   const freeThreshold = isNoiThanh ? (shipConf.mien_phi_noi_thanh || 200000) : (shipConf.mien_phi_khac || 500000);
   const shipping = (subtotal === 0 || subtotal >= freeThreshold) ? 0 : (shipConf.phi_co_ban || 20000);
   const grandTotal = Math.max(0, subtotal + shipping - currentVoucherDiscount);
   const orderCode = 'KB-' + Math.floor(1000 + Math.random() * 9000);
+
+  if (<?= json_encode(!empty($currentUser) && (($currentUser['VaiTro'] ?? '') === 'Admin')) ?>) {
+    showCustomerToast('Tài khoản Quản trị viên không hỗ trợ đặt hàng. Vui lòng dùng tài khoản Khách hàng.', 'error');
+    return;
+  }
 
   const paymentRadio = document.querySelector('input[name="payment_choice"]:checked');
   const paymentMethod = paymentRadio && paymentRadio.value === 'Online' ? 'Chuyển khoản VietQR' : 'Thanh toán khi nhận hàng (COD)';
@@ -1028,19 +992,14 @@ async function handleFinalCheckout() {
     const finalCode = res.order_code;
     const finalFund = res.fund_amount;
 
-    // Dọn giỏ hàng sau khi đặt thành công
-    saveCart([]);
-    renderAllViews();
-
-    // Hiển thị hộp thoại Modal xác nhận đặt hàng chuyên nghiệp
-    const successModal = document.getElementById('orderSuccessModal');
-    if (successModal) {
-      document.getElementById('successOrderCode').textContent = '#' + finalCode;
-      document.getElementById('successFundAmount').textContent = formatVND(finalFund);
-      document.getElementById('successTrackingBtn').href = `index.php?action=tracking&order=${finalCode}`;
-      successModal.style.display = 'grid';
+    if (res.is_online) {
+      // Nếu thanh toán Online (VietQR): Giữ nguyên giỏ hàng cho tới khi thanh toán thành công!
+      openVietQRGatewayModal(finalCode, res.tongthanhtoan || grandTotal, finalFund, res.vietqr_url);
     } else {
-      window.location.href = `index.php?action=tracking&order=${finalCode}`;
+      // Thanh toán COD: Xác nhận đơn ngay và dọn giỏ hàng
+      saveCart([]);
+      renderAllViews();
+      showOrderSuccessModal(finalCode, finalFund, 'Chờ xác nhận (Thanh toán COD)');
     }
   } catch (err) {
     showCustomerToast('Lỗi kết nối khi gửi đơn hàng: ' + err.message, 'error');
@@ -1090,9 +1049,68 @@ function initCustomerAutoFill() {
   } catch (e) {}
 }
 
+async function refreshAvailableVouchers() {
+  const box = document.getElementById('voucherPromoBox');
+  const listEl = document.getElementById('voucherPromoList');
+  if (!box || !listEl) return;
+  const phone = (document.getElementById('custPhoneInput')?.value || '').trim();
+  try {
+    const r = await fetch('index.php?action=get_available_vouchers&phone=' + encodeURIComponent(phone));
+    const d = await r.json();
+    if (!d || !d.success) return;
+    const list = Array.isArray(d.vouchers) ? d.vouchers : [];
+    if (list.length === 0) {
+      box.style.display = 'none';
+      // Nếu đang áp dụng mã mà SĐT vừa nhập đã hết lượt, xóa mã đang áp dụng
+      if (appliedVoucherCode) {
+        currentVoucherDiscount = 0;
+        appliedVoucherCode = null;
+        const msgEl = document.getElementById('voucherMsg');
+        if (msgEl) msgEl.style.display = 'none';
+        renderAllViews();
+      }
+      return;
+    }
+    box.style.display = 'block';
+    listEl.innerHTML = list.map(v => {
+      const code = String(v.MaVoucher || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const name = String(v.TenVoucher || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const minV = Number(v.DonHangToiThieu || 0);
+      return `
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: #ffffff; border: 1px solid #ebd9c8; border-radius: 6px;">
+          <div style="min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="background: #c94336; color: #fff; font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.5px;">${code}</span>
+              <strong style="font-size: 13.5px; color: #2c1a0e;">${name}</strong>
+            </div>
+            <small style="display: block; color: #6b5f54; font-size: 12.5px; margin-top: 3px;">Đơn tối thiểu: ${formatVND(minV)}</small>
+          </div>
+          <button type="button" onclick="selectQuickVoucher('${code.replace(/'/g, "\\'")}')" style="padding: 6px 12px; background: #2c1a0e; color: #fff; border: none; border-radius: 4px; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap;">Áp dụng</button>
+        </div>`;
+    }).join('');
+    if (appliedVoucherCode && !list.some(v => String(v.MaVoucher).toUpperCase() === String(appliedVoucherCode).toUpperCase())) {
+      currentVoucherDiscount = 0;
+      appliedVoucherCode = null;
+      const msgEl = document.getElementById('voucherMsg');
+      if (msgEl) msgEl.style.display = 'none';
+      renderAllViews();
+    }
+  } catch (e) {}
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   renderAllViews();
   initCustomerAutoFill();
+  refreshAvailableVouchers();
+  const phoneInp = document.getElementById('custPhoneInput');
+  if (phoneInp) {
+    let phoneTimer = null;
+    phoneInp.addEventListener('input', () => {
+      clearTimeout(phoneTimer);
+      phoneTimer = setTimeout(refreshAvailableVouchers, 350);
+    });
+    phoneInp.addEventListener('change', refreshAvailableVouchers);
+  }
   const preV = document.getElementById('voucherCodeInput');
   if (preV && preV.value.trim() !== '') {
     applyVoucher();
@@ -1107,6 +1125,152 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 });
+let gwPollTimer = null;
+let gwCountdownTimer = null;
+let gwActiveOrderCode = null;
+let gwActiveFundAmount = 0;
+
+function showOrderSuccessModal(orderCode, fundAmount, statusLabel) {
+  const successModal = document.getElementById('orderSuccessModal');
+  if (successModal) {
+    document.getElementById('successOrderCode').textContent = '#' + orderCode;
+    document.getElementById('successFundAmount').textContent = formatVND(fundAmount || 0);
+    const stEl = document.getElementById('successOrderStatus');
+    if (stEl && statusLabel) stEl.textContent = statusLabel;
+    document.getElementById('successTrackingBtn').href = `index.php?action=tracking&order=${orderCode}`;
+    successModal.style.display = 'grid';
+  } else {
+    window.location.href = `index.php?action=tracking&order=${orderCode}`;
+  }
+}
+
+function stopGatewayTimers() {
+  if (gwPollTimer) { clearInterval(gwPollTimer); gwPollTimer = null; }
+  if (gwCountdownTimer) { clearInterval(gwCountdownTimer); gwCountdownTimer = null; }
+}
+
+function openVietQRGatewayModal(orderCode, amount, fundAmount, qrUrl) {
+  stopGatewayTimers();
+  gwActiveOrderCode = orderCode;
+  gwActiveFundAmount = fundAmount || 0;
+
+  const modal = document.getElementById('vietqrGatewayModal');
+  const qrImg = document.getElementById('gwQrImg');
+  const banner = document.getElementById('gwStatusBanner');
+  const bottomStatus = document.getElementById('gwBottomStatus');
+  const cancelBtn = document.getElementById('gwCancelBtn');
+  if (bottomStatus) bottomStatus.style.display = 'none';
+  if (cancelBtn) cancelBtn.style.display = 'block';
+
+  if (qrImg && qrUrl) qrImg.src = qrUrl;
+  if (document.getElementById('gwBankName') && window.KIBO_VIETQR) {
+    document.getElementById('gwBankName').textContent = window.KIBO_VIETQR.bank_name || 'MSB';
+    document.getElementById('gwAccountNo').textContent = window.KIBO_VIETQR.account_no || '';
+  }
+  if (document.getElementById('gwAmount')) document.getElementById('gwAmount').textContent = formatVND(amount);
+  if (document.getElementById('gwContent')) document.getElementById('gwContent').textContent = 'KIBO ' + orderCode;
+  if (banner) {
+    banner.style.background = '#fafafa';
+    banner.style.color = '#333';
+    banner.style.borderColor = '#e0e0e0';
+    banner.textContent = 'Đang chờ bạn quét mã QR và chuyển khoản đúng số tiền...';
+  }
+
+  let secondsLeft = 15 * 60;
+  const cdEl = document.getElementById('gwCountdown');
+  if (cdEl) cdEl.textContent = '15:00';
+  gwCountdownTimer = setInterval(() => {
+    secondsLeft--;
+    if (cdEl) {
+      const m = String(Math.floor(Math.max(0, secondsLeft) / 60)).padStart(2, '0');
+      const s = String(Math.max(0, secondsLeft) % 60).padStart(2, '0');
+      cdEl.textContent = `${m}:${s}`;
+    }
+    if (secondsLeft <= 0) {
+      stopGatewayTimers();
+      if (banner) {
+        banner.style.background = '#f5f5f5';
+        banner.style.color = '#222';
+        banner.textContent = 'Hết thời gian thanh toán. Vui lòng đặt lại đơn hàng.';
+      }
+    }
+  }, 1000);
+
+  // Tự động kiểm tra trạng thái Webhook mỗi 2.5 giây
+  gwPollTimer = setInterval(async () => {
+    try {
+      const r = await fetch('index.php?action=check_payment_status&order=' + encodeURIComponent(orderCode));
+      const d = await r.json();
+      if (d && d.paid) {
+        handlePaymentCompleted(d.mavandon);
+      }
+    } catch (e) {}
+  }, 2500);
+
+  if (modal) modal.style.display = 'grid';
+}
+
+function handlePaymentCompleted(maVanDon) {
+  stopGatewayTimers();
+  // Chỉ dọn giỏ hàng sau khi tiền đã về thành công
+  saveCart([]);
+  renderAllViews();
+  const banner = document.getElementById('gwStatusBanner');
+  const bottomStatus = document.getElementById('gwBottomStatus');
+  const cancelBtn = document.getElementById('gwCancelBtn');
+  if (banner) {
+    banner.style.background = '#f5f5f5';
+    banner.style.color = '#222';
+    banner.style.borderColor = '#ccc';
+    banner.textContent = 'Đã nhận được thanh toán.';
+  }
+  if (bottomStatus) {
+    bottomStatus.style.display = 'block';
+    bottomStatus.textContent = 'Thanh toán thành công! Đang chuyển hướng...';
+  }
+  if (cancelBtn) cancelBtn.style.display = 'none';
+
+  setTimeout(() => {
+    const modal = document.getElementById('vietqrGatewayModal');
+    if (modal) modal.style.display = 'none';
+    const label = maVanDon
+      ? `Đã thanh toán & Chờ đóng gói (Mã vận đơn: ${maVanDon})`
+      : 'Đã thanh toán & Chờ đóng gói';
+    showOrderSuccessModal(gwActiveOrderCode, gwActiveFundAmount, label);
+  }, 2200);
+}
+
+function cancelOnlinePayment() {
+  if (!gwActiveOrderCode) return;
+  const txt = document.getElementById('gwCancelConfirmText');
+  if (txt) txt.textContent = 'Bạn muốn hủy giao dịch thanh toán cho đơn #' + gwActiveOrderCode + '?';
+  const confirmModal = document.getElementById('gwCancelConfirmModal');
+  if (confirmModal) confirmModal.style.display = 'grid';
+}
+
+function closeCancelConfirmModal() {
+  const confirmModal = document.getElementById('gwCancelConfirmModal');
+  if (confirmModal) confirmModal.style.display = 'none';
+}
+
+async function confirmCancelOnlinePayment() {
+  closeCancelConfirmModal();
+  if (!gwActiveOrderCode) return;
+  stopGatewayTimers();
+  try {
+    await fetch('index.php?action=cancel_order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        madonhang: gwActiveOrderCode,
+        csrf_token: window.KIBO_CSRF_TOKEN || ''
+      })
+    });
+  } catch (e) {}
+  const modal = document.getElementById('vietqrGatewayModal');
+  if (modal) modal.style.display = 'none';
+  showCustomerToast('Đã hủy giao dịch.', 'info');
+}
 </script>
 
 <?php require __DIR__ . '/footer.php'; ?>

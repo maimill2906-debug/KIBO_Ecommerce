@@ -42,6 +42,5 @@ return [
     ],
 
     'hotline' => '0772 906 756',
-    'email' => 'support@kibo.vn',
-    'dia_chi' => 'Lô E2a-7, Đường D1, Đ. D1, Long Thạnh Mỹ, Thành Phố Thủ Đức, TP. Hồ Chí Minh'
+    'email' => 'kibopetshome.support@gmail.com'
 ];

@@ -227,8 +227,22 @@ $discountPercent = ($product['oldPrice'] > $product['price']) ? round((1 - $prod
 <script>
 let pdpQuantity = 1;
 
+function getCurrentPdpStock() {
+  const varSel = document.getElementById('pdpVariantSelect');
+  if (varSel) {
+    if (varSel.tagName === 'SELECT') {
+      const opt = varSel.selectedOptions[0];
+      if (opt && opt.dataset.stock !== undefined) return parseInt(opt.dataset.stock, 10) || 0;
+    } else if (varSel.dataset.stock !== undefined) {
+      return parseInt(varSel.dataset.stock, 10) || 0;
+    }
+  }
+  return <?= (int)($product['stock'] ?? 10) ?>;
+}
+
 function changePdpQty(delta) {
-  pdpQuantity = Math.max(1, pdpQuantity + delta);
+  const maxStock = Math.max(1, getCurrentPdpStock());
+  pdpQuantity = Math.min(maxStock, Math.max(1, pdpQuantity + delta));
   document.getElementById('pdpQty').value = pdpQuantity;
 }
 
@@ -283,12 +297,13 @@ function handleVariantChange(sel) {
 
 function handlePdpBuy() {
   const qtyInput = document.getElementById('pdpQty');
-  const qty = parseInt(qtyInput ? qtyInput.value : pdpQuantity) || 1;
+  const rawQty = qtyInput ? qtyInput.value : pdpQuantity;
+  const qty = parseInt(rawQty, 10);
   const varSel = document.getElementById('pdpVariantSelect');
   let varId = '<?= $product['variant_id'] ?? 'BT001' ?>';
   let varName = '<?= addslashes($product['specs']) ?>';
   let varPrice = <?= (float)$product['price'] ?>;
-  let varStock = 10;
+  let varStock = <?= (int)($product['stock'] ?? 10) ?>;
 
   if (varSel) {
     if (varSel.tagName === 'SELECT') {
@@ -311,6 +326,18 @@ function handlePdpBuy() {
     if (typeof showKiboToast === 'function') showKiboToast('Phân loại sản phẩm này hiện đã hết hàng!');
     return;
   }
+  if (!Number.isInteger(qty) || qty <= 0) {
+    pdpQuantity = 1;
+    if (qtyInput) qtyInput.value = 1;
+    if (typeof showKiboToast === 'function') showKiboToast('Số lượng sản phẩm phải lớn hơn hoặc bằng 1!');
+    return;
+  }
+  if (qty > varStock) {
+    pdpQuantity = varStock;
+    if (qtyInput) qtyInput.value = varStock;
+    if (typeof showKiboToast === 'function') showKiboToast('Số lượng vượt quá tồn kho (chỉ còn ' + varStock + ' sản phẩm)!');
+    return;
+  }
 
   const btn = document.getElementById('btnPdpAddToCart');
   if (btn) {
@@ -331,6 +358,7 @@ function handlePdpBuy() {
     price: varPrice,
     variant: varName,
     quantity: qty,
+    maxStock: varStock,
     art: '<?= $product['art'] ?? 'royal' ?>',
     color: '<?= $product['color'] ?? '#c94336' ?>',
     image: '<?= addslashes($product['image'] ?? '') ?>'

@@ -103,12 +103,20 @@ class ThanhToanModel {
                            dh.tennguoinhan, dh.sodienthoainhan, dh.trangthaidonhang, dh.ngaydathang,
                            CASE 
                                WHEN dh.trangthaidonhang = 'Giao thành công' AND tt.trangthaitt <> 'Thành công' THEN 'Cần thu tiền ngay'
-                               WHEN tt.phuongthuctt = 'VietQR' AND dh.ngaydathang < NOW() - INTERVAL '24 hours' THEN 'Quá hạn chuyển khoản'
+                               WHEN (tt.phuongthuctt ILIKE '%VietQR%' OR tt.phuongthuctt ILIKE '%Online%' OR tt.phuongthuctt ILIKE '%PayOS%') AND dh.ngaydathang < NOW() - INTERVAL '24 hours' THEN 'Quá hạn chuyển khoản'
                                ELSE 'Chờ đối soát'
                            END as lydodoisoat
                     FROM thanh_toan tt
                     LEFT JOIN don_hang dh ON tt.madonhang = dh.madonhang
                     WHERE tt.trangthaitt = 'Chờ thanh toán'
+                      AND COALESCE(dh.trangthaidonhang, '') <> 'Đã hủy'
+                      AND (
+                          dh.trangthaidonhang = 'Giao thành công'
+                          OR (
+                              (tt.phuongthuctt ILIKE '%VietQR%' OR tt.phuongthuctt ILIKE '%Online%' OR tt.phuongthuctt ILIKE '%PayOS%')
+                              AND dh.ngaydathang < NOW() - INTERVAL '24 hours'
+                          )
+                      )
                     ORDER BY dh.ngaydathang ASC";
             return $db->query($sql)->fetchAll();
         } catch (Exception $e) {

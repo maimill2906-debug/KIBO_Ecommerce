@@ -24,12 +24,24 @@ class VoucherModel {
         return min((float)$tongTienHang, (float)$discount);
     }
 
+    private static function ensureCongKhaiColumn($db) {
+        static $checked = false;
+        if ($checked) return;
+        $checked = true;
+        try {
+            $db->exec("ALTER TABLE voucher ADD COLUMN IF NOT EXISTS congkhai BOOLEAN DEFAULT true");
+        } catch (Throwable $e) {
+            // Bỏ qua nếu không có quyền DDL
+        }
+    }
+
     public static function getAllAdmin() {
         $db = Database::getConnection();
         if (!$db) return [];
+        self::ensureCongKhaiColumn($db);
         try {
             $sql = "SELECT mavoucher, tenvoucher, loaigiamgia, giatrigiam, donhangtoithieu, giamtoida,
-                           ngaybatdau, ngayketthuc, soluongconlai, kichhoat
+                           ngaybatdau, ngayketthuc, soluongconlai, kichhoat, COALESCE(congkhai, true) as congkhai
                     FROM voucher 
                     ORDER BY ngaybatdau DESC";
             return $db->query($sql)->fetchAll();
@@ -42,13 +54,16 @@ class VoucherModel {
     public static function getAll() {
         $db = Database::getConnection();
         if (!$db) return [];
+        self::ensureCongKhaiColumn($db);
         try {
             $sql = "SELECT mavoucher as \"MaVoucher\", tenvoucher as \"TenVoucher\", 
                            loaigiamgia as \"LoaiGiamGia\", giatrigiam as \"GiaTriGiam\", 
                            donhangtoithieu as \"DonHangToiThieu\", giamtoida as \"GiamToiDa\",
-                           soluongconlai as \"SoLuongConLai\", kichhoat as \"KichHoat\"
+                           soluongconlai as \"SoLuongConLai\", kichhoat as \"KichHoat\",
+                           COALESCE(congkhai, true) as \"CongKhai\"
                     FROM voucher 
                     WHERE kichhoat = true 
+                      AND COALESCE(congkhai, true) = true
                       AND soluongconlai > 0 
                       AND (ngaybatdau IS NULL OR ngaybatdau <= NOW()) 
                       AND (ngayketthuc IS NULL OR ngayketthuc >= NOW())
@@ -60,9 +75,13 @@ class VoucherModel {
         }
     }
 
-    public static function getAvailableForCustomer($maKH = '') {
+    public static function getAvailableForCustomer($maKH = '', $phone = '') {
         $all = self::getAll();
-        if (empty($maKH) || empty($all)) {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            @session_start();
+        }
+        $currEmail = trim((string)($_SESSION['user']['TenDangNhap'] ?? ($_SESSION['user']['Email'] ?? '')));
+        if ((empty($maKH) && empty($currEmail)) || empty($all)) {
             foreach ($all as &$v) {
                 $v['DaSuDung'] = false;
             }
@@ -70,21 +89,34 @@ class VoucherModel {
         }
         $db = Database::getConnection();
         if (!$db) return $all;
+        $filtered = [];
         try {
-            $stmt = $db->prepare("SELECT UPPER(mavoucher) FROM don_hang WHERE makh = ? AND mavoucher IS NOT NULL AND trangthaidonhang <> 'Đã hủy'");
-            $stmt->execute([$maKH]);
-            $usedCodes = array_flip($stmt->fetchAll(PDO::FETCH_COLUMN));
-            foreach ($all as &$v) {
-                $codeUpper = strtoupper($v['MaVoucher'] ?? '');
-                $v['DaSuDung'] = isset($usedCodes[$codeUpper]);
+            foreach ($all as $v) {
+                $maxPerCust = max(1, (int)($v['MoiKhachToiDa'] ?? 1));
+                $used = 0;
+                if (!empty($maKH)) {
+                    $st1 = $db->prepare("SELECT COUNT(*) FROM don_hang WHERE makh = ? AND UPPER(mavoucher) = UPPER(?) AND trangthaidonhang <> 'Đã hủy'");
+                    $st1->execute([$maKH, $v['MaVoucher']]);
+                    $used = max($used, (int)$st1->fetchColumn());
+                }
+                if (!empty($currEmail) && filter_var($currEmail, FILTER_VALIDATE_EMAIL)) {
+                    $st2 = $db->prepare("SELECT COUNT(*) FROM don_hang dh JOIN khach_hang kh ON dh.makh = kh.makh WHERE LOWER(kh.email) = LOWER(?) AND UPPER(dh.mavoucher) = UPPER(?) AND dh.trangthaidonhang <> 'Đã hủy'");
+                    $st2->execute([$currEmail, $v['MaVoucher']]);
+                    $used = max($used, (int)$st2->fetchColumn());
+                }
+                if ($used < $maxPerCust) {
+                    $v['DaSuDung'] = false;
+                    $filtered[] = $v;
+                }
             }
+            return $filtered;
         } catch (Exception $e) {
             error_log("Lỗi getAvailableForCustomer: " . $e->getMessage());
         }
         return $all;
     }
 
-    public static function validateVoucher($code, $subtotal) {
+    public static function validateVoucher($code, $subtotal, $phone = '') {
         $code = strtoupper(trim($code));
         if (empty($code)) {
             return ['valid' => false, 'message' => 'Vui lòng nhập mã giảm giá.'];
@@ -126,12 +158,23 @@ class VoucherModel {
                     @session_start();
                 }
                 $currMaKH = $_SESSION['user']['MaKH'] ?? '';
+                $currEmail = trim((string)($_SESSION['user']['TenDangNhap'] ?? ($_SESSION['user']['Email'] ?? '')));
+                $maxPerCust = !empty($v['moikhachtoida']) ? (int)$v['moikhachtoida'] : 1;
+                if (empty($currMaKH)) {
+                    return ['valid' => false, 'message' => 'Vui lòng đăng nhập bằng tài khoản Email để sử dụng mã giảm giá.'];
+                }
                 if (!empty($currMaKH)) {
-                    $maxPerCust = !empty($v['moikhachtoida']) ? (int)$v['moikhachtoida'] : 1;
                     $chkUsed = $db->prepare("SELECT COUNT(*) FROM don_hang WHERE makh = ? AND UPPER(mavoucher) = UPPER(?) AND trangthaidonhang <> 'Đã hủy'");
                     $chkUsed->execute([$currMaKH, $v['mavoucher']]);
                     if ((int)$chkUsed->fetchColumn() >= $maxPerCust) {
                         return ['valid' => false, 'message' => "Tài khoản của bạn đã sử dụng hết lượt cho mã '{$v['mavoucher']}'."];
+                    }
+                }
+                if (!empty($currEmail) && filter_var($currEmail, FILTER_VALIDATE_EMAIL)) {
+                    $chkEmail = $db->prepare("SELECT COUNT(*) FROM don_hang dh JOIN khach_hang kh ON dh.makh = kh.makh WHERE LOWER(kh.email) = LOWER(?) AND UPPER(dh.mavoucher) = UPPER(?) AND dh.trangthaidonhang <> 'Đã hủy'");
+                    $chkEmail->execute([$currEmail, $v['mavoucher']]);
+                    if ((int)$chkEmail->fetchColumn() >= $maxPerCust) {
+                        return ['valid' => false, 'message' => "Email này đã sử dụng hết lượt cho mã '{$v['mavoucher']}'."];
                     }
                 }
             }
@@ -177,6 +220,7 @@ class VoucherModel {
         $qty = max(0, (int)($data['soluongconlai'] ?? ($data['soluongphathanh'] ?? 0)));
         $start = !empty($data['ngaybatdau']) ? date('Y-m-d H:i:s', strtotime($data['ngaybatdau'])) : date('Y-m-d 00:00:00');
         $end = !empty($data['ngayketthuc']) ? date('Y-m-d H:i:s', strtotime($data['ngayketthuc'])) : date('Y-m-d 23:59:59', strtotime('+30 days'));
+        $isPublic = !isset($data['congkhai']) || ($data['congkhai'] === true || $data['congkhai'] === 1 || $data['congkhai'] === '1' || $data['congkhai'] === 'true');
 
         if (!preg_match('/^[A-Z0-9]{3,10}$/', $code)) {
             return ['success' => false, 'message' => 'Mã voucher phải gồm 3-10 ký tự chữ in hoa hoặc số (không dấu, không khoảng trắng).'];
@@ -195,22 +239,23 @@ class VoucherModel {
         }
 
         try {
+            self::ensureCongKhaiColumn($db);
             $chk = $db->prepare("SELECT mavoucher FROM voucher WHERE UPPER(mavoucher) = UPPER(?)");
             $chk->execute([$code]);
             $exists = $chk->fetch();
 
             if ($exists) {
                 $sql = "UPDATE voucher 
-                        SET tenvoucher = ?, loaigiamgia = ?, giatrigiam = ?, donhangtoithieu = ?, giamtoida = ?, ngaybatdau = ?, ngayketthuc = ?, soluongconlai = ?
+                        SET tenvoucher = ?, loaigiamgia = ?, giatrigiam = ?, donhangtoithieu = ?, giamtoida = ?, ngaybatdau = ?, ngayketthuc = ?, soluongconlai = ?, congkhai = ?
                         WHERE UPPER(mavoucher) = UPPER(?)";
                 $stmt = $db->prepare($sql);
-                $stmt->execute([$name, $type, $val, $min, $maxDisc, $start, $end, $qty, $code]);
+                $stmt->execute([$name, $type, $val, $min, $maxDisc, $start, $end, $qty, $isPublic ? 'true' : 'false', $code]);
                 return ['success' => true, 'message' => "Cập nhật mã '{$code}' thành công."];
             } else {
-                $sql = "INSERT INTO voucher (mavoucher, tenvoucher, loaigiamgia, giatrigiam, donhangtoithieu, giamtoida, ngaybatdau, ngayketthuc, soluongconlai, kichhoat)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, true)";
+                $sql = "INSERT INTO voucher (mavoucher, tenvoucher, loaigiamgia, giatrigiam, donhangtoithieu, giamtoida, ngaybatdau, ngayketthuc, soluongconlai, kichhoat, congkhai)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?)";
                 $stmt = $db->prepare($sql);
-                $stmt->execute([$code, $name, $type, $val, $min, $maxDisc, $start, $end, $qty]);
+                $stmt->execute([$code, $name, $type, $val, $min, $maxDisc, $start, $end, $qty, $isPublic ? 'true' : 'false']);
                 return ['success' => true, 'message' => "Tạo mới mã '{$code}' thành công."];
             }
         } catch (Exception $e) {

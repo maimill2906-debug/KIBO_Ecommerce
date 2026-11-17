@@ -28,9 +28,9 @@ $shelterImage = 'https://images.unsplash.com/photo-1718885433034-908d5bca08cf?au
       <p>5% giá trị mỗi đơn hàng thành công được tự động trích trực tiếp vào quỹ hỗ trợ các trạm động vật.</p>
       
       <div class="fund-counter" aria-live="polite">
-        <small>TỔNG QUỸ ĐÃ TÍCH LŨY THỰC TẾ</small>
+        <small>TỔNG QUỸ ĐÃ TÍCH LŨY</small>
         <strong id="liveFundCounter"><?= number_format($fundInfo['TongTichLuy'], 0, ',', '.') ?> <sup>đ</sup></strong>
-        <span><i></i> Số liệu xác thực từ CSDL KIBO (Đã giải ngân: <?= number_format($fundInfo['TongGiaiNgan'], 0, ',', '.') ?>đ · Đang chờ trích: <?= number_format($fundInfo['DangChoTrich'], 0, ',', '.') ?>đ)</span>
+        <span><i></i> Đã giải ngân: <?= number_format($fundInfo['TongGiaiNgan'], 0, ',', '.') ?>đ · Đang chờ trích: <?= number_format($fundInfo['DangChoTrich'], 0, ',', '.') ?>đ</span>
       </div>
     </div>
   </section>
@@ -107,70 +107,70 @@ $shelterImage = 'https://images.unsplash.com/photo-1718885433034-908d5bca08cf?au
     <div style="background: #ffffff; width: min(650px, 95vw); border-radius: 8px; border: 1px solid #d0d7de; box-shadow: 0 10px 40px rgba(0,0,0,0.3); overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
       
       <!-- Modal Header -->
-      <div style="background: #2c1a0e; color: #ffffff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;">
+      <div style="background: #ffffff; color: #1e293b; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <h3 style="margin: 0; font-size: 16.5px; font-weight: bold; color: #ffffff;">Ủy nhiệm chi Quỹ Cứu Trợ KIBO</h3>
-          <span style="background: #16a34a; color: #fff; font-size: 12.5px; padding: 3px 9px; border-radius: 4px; font-weight: bold;">Đã giải ngân</span>
+          <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #111827;">Chứng từ giải ngân Quỹ KIBO</h3>
+          <span style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; font-size: 12px; padding: 2px 8px; border-radius: 4px; font-weight: 600;">Đã giải ngân</span>
         </div>
-        <button type="button" onclick="closeStatementModal()" style="background: none; border: none; font-size: 24px; color: #f5f5f5; cursor: pointer; line-height: 1; padding: 0 4px;">&times;</button>
+        <button type="button" onclick="closeStatementModal()" style="background: none; border: none; font-size: 22px; color: #64748b; cursor: pointer; line-height: 1; padding: 0 4px;">&times;</button>
       </div>
 
       <!-- Modal Body (Giấy ủy nhiệm chi / Chứng từ) -->
-      <div style="padding: 24px; background: #fafafa; font-size: 13.5px; color: #333;">
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+      <div style="padding: 20px; background: #f8fafc; font-size: 13.5px; color: #334155;">
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px;">
           
-          <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #2c1a0e; padding-bottom: 12px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 14px;">
             <div>
-              <div style="font-weight: 800; font-size: 15px; color: #2c1a0e; text-transform: uppercase;">KIBO PET'S HOME</div>
-              <div style="font-size: 12px; color: #64748b;">Quỹ Cứu Trợ Động Vật 5% - Minh Bạch Thực Tế</div>
+              <div style="font-weight: 700; font-size: 15px; color: #111827; text-transform: uppercase;">KIBO PET'S HOME</div>
+              <div style="font-size: 12px; color: #64748b;">Quỹ Cứu Trợ Động Vật 5%</div>
             </div>
             <div style="text-align: right;">
-              <div style="font-size: 12px; color: #64748b;">MÃ CHỨNG TỪ</div>
-              <div style="font-size: 16px; font-weight: bold; color: #b91c1c;">#<?= htmlspecialchars($latestDisbursement['MaChungTu']) ?></div>
+              <div style="font-size: 11.5px; color: #64748b;">MÃ CHỨNG TỪ</div>
+              <div style="font-size: 15px; font-weight: 700; color: #111827;">#<?= htmlspecialchars($latestDisbursement['MaChungTu']) ?></div>
             </div>
           </div>
 
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13.5px;">
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13.5px;">
             <tr style="border-bottom: 1px dashed #e2e8f0;">
-              <td style="padding: 9px 0; color: #64748b; width: 38%;">Trạm nhận giải ngân:</td>
-              <td style="padding: 9px 0; font-weight: bold; color: #1e293b;"><?= htmlspecialchars($latestDisbursement['TenTram']) ?></td>
+              <td style="padding: 8px 0; color: #64748b; width: 38%;">Trạm nhận giải ngân:</td>
+              <td style="padding: 8px 0; font-weight: 600; color: #111827;"><?= htmlspecialchars($latestDisbursement['TenTram']) ?></td>
             </tr>
             <tr style="border-bottom: 1px dashed #e2e8f0;">
-              <td style="padding: 9px 0; color: #64748b;">Người đại diện:</td>
-              <td style="padding: 9px 0; color: #1e293b;"><?= htmlspecialchars($partnerShelter['NguoiDaiDien'] ?? 'Bác sĩ phụ trách trạm') ?></td>
+              <td style="padding: 8px 0; color: #64748b;">Người đại diện:</td>
+              <td style="padding: 8px 0; color: #1e293b;"><?= htmlspecialchars($partnerShelter['NguoiDaiDien'] ?? 'Bác sĩ phụ trách trạm') ?></td>
             </tr>
             <tr style="border-bottom: 1px dashed #e2e8f0;">
-              <td style="padding: 9px 0; color: #64748b;">Ngày giải ngân:</td>
-              <td style="padding: 9px 0; font-weight: 600; color: #1e293b;"><?= date('d/m/Y', strtotime($latestDisbursement['NgayChuyenKhoan'])) ?></td>
+              <td style="padding: 8px 0; color: #64748b;">Ngày giải ngân:</td>
+              <td style="padding: 8px 0; font-weight: 600; color: #111827;"><?= date('d/m/Y', strtotime($latestDisbursement['NgayChuyenKhoan'])) ?></td>
             </tr>
             <tr style="border-bottom: 1px dashed #e2e8f0;">
-              <td style="padding: 9px 0; color: #64748b;">Số tiền giải ngân:</td>
-              <td style="padding: 9px 0; font-weight: 800; font-size: 17px; color: #1565c0;">
+              <td style="padding: 8px 0; color: #64748b;">Số tiền giải ngân:</td>
+              <td style="padding: 8px 0; font-weight: 700; font-size: 16px; color: #111827;">
                 <?= number_format($latestDisbursement['SoTienGiaiNgan'], 0, ',', '.') ?> VNĐ
               </td>
             </tr>
             <tr style="border-bottom: 1px dashed #e2e8f0;">
-              <td style="padding: 9px 0; color: #64748b;">Mục đích sử dụng:</td>
-              <td style="padding: 9px 0; color: #334155; line-height: 1.5;">
+              <td style="padding: 8px 0; color: #64748b;">Mục đích sử dụng:</td>
+              <td style="padding: 8px 0; color: #334155; line-height: 1.5;">
                 <?= htmlspecialchars($latestDisbursement['MucDichSuDung'] ?? 'Chi phí thức ăn và cứu trợ y tế cho động vật cơ nhỡ.') ?>
               </td>
             </tr>
             <tr>
-              <td style="padding: 9px 0; color: #64748b;">Trạng thái đối soát:</td>
-              <td style="padding: 9px 0; color: #16a34a; font-weight: bold;">
-                <?= kibo_icon('check', 14) ?> Đã chuyển khoản & đối soát thành công qua Ngân hàng
+              <td style="padding: 8px 0; color: #64748b;">Trạng thái:</td>
+              <td style="padding: 8px 0; color: #1e293b; font-weight: 600;">
+                Đã chuyển khoản &amp; khớp sao kê ngân hàng
               </td>
             </tr>
           </table>
 
-          <div style="display: flex; justify-content: space-between; margin-top: 24px; padding-top: 14px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b;">
+          <div style="display: flex; justify-content: space-between; margin-top: 20px; padding-top: 14px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b;">
             <div style="width: 45%;">
-              <div style="font-weight: bold; color: #334155; margin-bottom: 40px;">KẾ TOÁN TRƯỞNG QUỸ</div>
-              <div style="color: #16a34a; font-weight: bold;">[ĐÃ KÝ ĐIỆN TỬ]</div>
+              <div style="font-weight: 600; color: #334155; margin-bottom: 32px;">KẾ TOÁN QUỸ</div>
+              <div style="color: #475569;">Đã xác nhận chi</div>
             </div>
             <div style="width: 45%;">
-              <div style="font-weight: bold; color: #334155; margin-bottom: 40px;">ĐẠI DIỆN TRẠM CỨU HỘ</div>
-              <div style="color: #16a34a; font-weight: bold;">[ĐÃ XÁC NHẬN NHẬN TIỀN]</div>
+              <div style="font-weight: 600; color: #334155; margin-bottom: 32px;">ĐẠI DIỆN TRẠM CỨU HỘ</div>
+              <div style="color: #475569;">Đã xác nhận nhận tiền</div>
             </div>
           </div>
 
@@ -181,8 +181,8 @@ $shelterImage = 'https://images.unsplash.com/photo-1718885433034-908d5bca08cf?au
       <div style="padding: 12px 20px; background: #ffffff; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
         <button type="button" onclick="closeStatementModal()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Đóng</button>
         <?php if (!empty($latestDisbursement['FileHoaDonChungTu'])): ?>
-          <a href="<?= htmlspecialchars($latestDisbursement['FileHoaDonChungTu']) ?>" target="_blank" download style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border: none; background: #2c1a0e; color: #ffffff; border-radius: 4px; font-weight: 600; font-size: 13.5px; text-decoration: none; cursor: pointer;">
-            Tải PDF chứng từ gốc
+          <a href="<?= htmlspecialchars($latestDisbursement['FileHoaDonChungTu']) ?>" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border: none; background: #1e293b; color: #ffffff; border-radius: 4px; font-weight: 600; font-size: 13.5px; text-decoration: none; cursor: pointer;">
+            Xem / Tải chứng từ gốc
           </a>
         <?php endif; ?>
       </div>

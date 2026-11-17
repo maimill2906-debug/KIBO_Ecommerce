@@ -95,43 +95,27 @@ class TaiKhoanModel {
         }
 
         try {
-            // Hỗ trợ đăng nhập bằng Email HOẶC Số điện thoại
-            $cleanPhone = preg_replace('/[^\d]/', '', $identifier);
-            $isPhone = (strlen($cleanPhone) >= 9 && strlen($cleanPhone) <= 11 && !str_contains($identifier, '@'));
-
-            if ($isPhone) {
-                $sql = "SELECT tk.matk, tk.tendangnhap, tk.matkhau, tk.vaitro, tk.trangthai, kh.hoten, kh.makh,
-                               s.sodienthoai,
-                               (SELECT diachichitiet FROM dia_chi_kh WHERE makh = kh.makh LIMIT 1) as diachi
-                        FROM sdt_kh s
-                        JOIN khach_hang kh ON s.makh = kh.makh
-                        JOIN tai_khoan tk ON kh.matk = tk.matk
-                        WHERE s.sodienthoai = ? LIMIT 1";
-                $stmt = $db->prepare($sql);
-                $stmt->execute([$cleanPhone]);
-                $acc = $stmt->fetch();
-            } else {
-                $sql = "SELECT tk.matk, tk.tendangnhap, tk.matkhau, tk.vaitro, tk.trangthai, kh.hoten, kh.makh,
-                               (SELECT sodienthoai FROM sdt_kh WHERE makh = kh.makh LIMIT 1) as sodienthoai,
-                               (SELECT diachichitiet FROM dia_chi_kh WHERE makh = kh.makh LIMIT 1) as diachi
-                        FROM tai_khoan tk
-                        LEFT JOIN khach_hang kh ON tk.matk = kh.matk
-                        WHERE LOWER(tk.tendangnhap) = LOWER(?) LIMIT 1";
-                $stmt = $db->prepare($sql);
-                $stmt->execute([$identifier]);
-                $acc = $stmt->fetch();
-            }
+            // Đăng nhập duy nhất bằng Email (1 Email = 1 tài khoản)
+            $sql = "SELECT tk.matk, tk.tendangnhap, tk.matkhau, tk.vaitro, tk.trangthai, kh.hoten, kh.makh,
+                           (SELECT sodienthoai FROM sdt_kh WHERE makh = kh.makh LIMIT 1) as sodienthoai,
+                           (SELECT diachichitiet FROM dia_chi_kh WHERE makh = kh.makh LIMIT 1) as diachi
+                    FROM tai_khoan tk
+                    LEFT JOIN khach_hang kh ON tk.matk = kh.matk
+                    WHERE LOWER(tk.tendangnhap) = LOWER(?) LIMIT 1";
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$identifier]);
+            $acc = $stmt->fetch();
 
             if (!$acc) {
                 self::ghiNhanDangNhapThatBai($ip, $identifier);
-                return ['success' => false, 'user' => null, 'error' => 'Email/Số điện thoại hoặc mật khẩu không chính xác.'];
+                return ['success' => false, 'user' => null, 'error' => 'Email hoặc mật khẩu không chính xác.'];
             }
 
             // Kiểm tra mật khẩu bằng Bcrypt chuẩn
             $isPasswordCorrect = password_verify($password, $acc['matkhau']);
             if (!$isPasswordCorrect) {
                 self::ghiNhanDangNhapThatBai($ip, $identifier);
-                return ['success' => false, 'user' => null, 'error' => 'Email/Số điện thoại hoặc mật khẩu không chính xác.'];
+                return ['success' => false, 'user' => null, 'error' => 'Email hoặc mật khẩu không chính xác.'];
             }
 
             // Kiểm tra trạng thái tài khoản bị khóa
@@ -205,6 +189,10 @@ class TaiKhoanModel {
         if (str_ends_with(strtolower($email), '@kibo.local')) {
             return ['success' => false, 'message' => 'Tên miền email này được bảo lưu cho hệ thống.'];
         }
+        $emailDomain = substr(strrchr($email, '@'), 1) ?: '';
+        if ($emailDomain !== '' && function_exists('checkdnsrr') && !@checkdnsrr($emailDomain, 'MX') && !@checkdnsrr($emailDomain, 'A')) {
+            return ['success' => false, 'message' => 'Tên miền email không tồn tại (không thể nhận thư). Vui lòng kiểm tra lại!'];
+        }
 
         // 3. Kiểm tra Mật khẩu đủ 8 ký tự
         if (empty($password) || mb_strlen($password) < 8) {
@@ -224,22 +212,11 @@ class TaiKhoanModel {
         if (!$db) return ['success' => false, 'message' => 'Lỗi kết nối cơ sở dữ liệu'];
 
         try {
-            // Kiểm tra trùng email
+            // Kiểm tra trùng email (1 Email = 1 tài khoản)
             $check = $db->prepare("SELECT matk FROM tai_khoan WHERE LOWER(tendangnhap) = LOWER(?)");
             $check->execute([$email]);
             if ($check->fetch()) {
                 return ['success' => false, 'message' => 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc chọn email khác!'];
-            }
-
-            // Kiểm tra trùng số điện thoại
-            if (!empty($phone)) {
-                $checkPhone = $db->prepare("SELECT s.makh FROM sdt_kh s 
-                                            JOIN khach_hang kh ON s.makh = kh.makh 
-                                            WHERE s.sodienthoai = ? AND kh.matk IS NOT NULL");
-                $checkPhone->execute([$phone]);
-                if ($checkPhone->fetch()) {
-                    return ['success' => false, 'message' => 'Số điện thoại này đã được sử dụng bởi một tài khoản khác.'];
-                }
             }
 
             $db->beginTransaction();
@@ -393,6 +370,14 @@ class TaiKhoanModel {
                 'expires' => time() + 300 // 5 phút
             ];
 
+            require_once __DIR__ . '/MailHelper.php';
+            if (MailHelper::isConfigured() && filter_var($acc['tendangnhap'] ?? '', FILTER_VALIDATE_EMAIL)) {
+                $mailRes = MailHelper::sendOtpEmail($acc['tendangnhap'], $acc['hoten'] ?? '', $otp, 'reset');
+                if (empty($mailRes['success'])) {
+                    return ['success' => false, 'message' => $mailRes['message'] ?? 'Không thể gửi email OTP lúc này.'];
+                }
+            }
+
             require_once __DIR__ . '/NhatKyModel.php';
             NhatKyModel::ghi('Yêu cầu OTP quên mật khẩu', 'tai_khoan', $acc['matk'], "Gửi mã OTP khôi phục mật khẩu cho {$acc['tendangnhap']}");
 
@@ -403,6 +388,63 @@ class TaiKhoanModel {
         } catch (Exception $e) {
             return ['success' => false, 'message' => 'Lỗi hệ thống khi tạo mã OTP.'];
         }
+    }
+
+    public static function guiMaOtpDangKy($data) {
+        $hoten = trim((string)($data['name'] ?? ($data['hoten'] ?? '')));
+        $email = trim((string)($data['email'] ?? ''));
+        $password = (string)($data['password'] ?? '');
+
+        if (mb_strlen($hoten) < 2) {
+            return ['success' => false, 'message' => 'Vui lòng nhập họ và tên đầy đủ (tối thiểu 2 ký tự).'];
+        }
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'message' => 'Email không đúng định dạng (Ví dụ: name@example.com).'];
+        }
+        $emailDomain = substr(strrchr($email, '@'), 1) ?: '';
+        if ($emailDomain !== '' && function_exists('checkdnsrr') && !@checkdnsrr($emailDomain, 'MX') && !@checkdnsrr($emailDomain, 'A')) {
+            return ['success' => false, 'message' => 'Tên miền email không tồn tại. Vui lòng dùng email thật!'];
+        }
+        if (strlen($password) < 8) {
+            return ['success' => false, 'message' => 'Mật khẩu phải có độ dài tối thiểu từ 8 ký tự trở lên.'];
+        }
+
+        $db = Database::getConnection();
+        if ($db) {
+            $chk = $db->prepare("SELECT matk FROM tai_khoan WHERE LOWER(tendangnhap) = LOWER(?) LIMIT 1");
+            $chk->execute([$email]);
+            if ($chk->fetch()) {
+                return ['success' => false, 'message' => 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc chọn email khác!'];
+            }
+        }
+
+        require_once __DIR__ . '/MailHelper.php';
+        if (!MailHelper::isConfigured()) {
+            return ['success' => true, 'require_otp' => false, 'message' => 'SMTP chưa cấu hình, bỏ qua bước OTP.'];
+        }
+
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            @session_start();
+        }
+        $otp = (string)random_int(100000, 999999);
+        $_SESSION['kibo_register_otp'] = [
+            'email' => strtolower($email),
+            'otp_hash' => password_hash($otp, PASSWORD_DEFAULT),
+            'expires' => time() + 300,
+            'attempts' => 0
+        ];
+
+        $mailRes = MailHelper::sendOtpEmail($email, $hoten, $otp, 'register');
+        if (empty($mailRes['success'])) {
+            unset($_SESSION['kibo_register_otp']);
+            return ['success' => false, 'message' => $mailRes['message'] ?? 'Không thể gửi mã OTP tới email này.'];
+        }
+
+        return [
+            'success' => true,
+            'require_otp' => true,
+            'message' => "Mã xác thực 6 số đã được gửi tới {$email} (hiệu lực 5 phút). Vui lòng kiểm tra hộp thư!"
+        ];
     }
 
     public static function datLaiMatKhauBangOtp($identifier, $otp, $newPassword) {

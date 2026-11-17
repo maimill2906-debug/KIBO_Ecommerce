@@ -65,4 +65,10 @@ function requireAdmin() {
         echo json_encode(['success' => false, 'message' => 'Truy cập bị từ chối: Yêu cầu quyền quản trị viên (Admin).'], JSON_UNESCAPED_UNICODE);
         exit;
     }
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && !verifyCsrfToken()) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['success' => false, 'message' => 'Phiên làm việc không hợp lệ (CSRF). Vui lòng tải lại trang.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 }

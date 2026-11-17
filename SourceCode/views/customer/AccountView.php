@@ -32,7 +32,14 @@ $maKH = $cust['MaKH'] ?? ($currentUser['MaKH'] ?? '');
 $hoten = $cust['HoTen'] ?? ($currentUser['HoTen'] ?? 'Khách hàng KIBO');
 $email = $cust['Email'] ?? ($currentUser['TenDangNhap'] ?? '');
 $phone = $cust['SoDienThoaiChinh'] ?? ($currentUser['SoDienThoai'] ?? 'Chưa cập nhật');
-$diachi = $cust['diachichitiet'] ?? ($currentUser['DiaChi'] ?? 'Chưa cập nhật');
+$diachi = $cust['diachichitiet'] ?? ($currentUser['DiaChi'] ?? '');
+$phuongXa = $cust['phuongxa'] ?? ($currentUser['PhuongXa'] ?? '');
+$tinhThanh = $cust['tinhthanh'] ?? ($currentUser['TinhThanh'] ?? '');
+$diachiParts = array_filter([$diachi, $phuongXa, $tinhThanh], function($v) {
+    $t = trim((string)$v);
+    return $t !== '' && $t !== 'Chưa cập nhật';
+});
+$diachiDisplay = !empty($diachiParts) ? implode(', ', $diachiParts) : 'Chưa cập nhật';
 $ngaysinhRaw = $cust['NgaySinh'] ?? ($currentUser['NgaySinh'] ?? '');
 $ngaysinhDisplay = !empty($ngaysinhRaw) ? date('d/m/Y', strtotime($ngaysinhRaw)) : 'Chưa cập nhật';
 $diem = $cust['DiemTichLuy'] ?? 0;
@@ -64,7 +71,7 @@ foreach ($allReturns as $r) {
         <h1 style="font-size: 24px; font-weight: bold; color: #2c1a0e; margin: 0 0 6px;">Tài khoản của tôi</h1>
         <p style="margin: 0; color: #666; font-size: 14px;">Quản lý thông tin cá nhân và theo dõi đơn hàng của bạn tại KIBO</p>
       </div>
-      <a href="index.php?action=logout" style="padding: 8px 18px; border: 1px solid #767676; background: #efefef; color: #111; border-radius: 4px; font-size: 13.5px; text-decoration: none; font-weight: 500;">
+      <a href="index.php?action=logout" onclick="try{localStorage.removeItem('kibo_cart_items_v2');localStorage.removeItem('kibo_cart_owner');localStorage.removeItem('kibo_customer_info');}catch(e){}" style="padding: 8px 18px; border: 1px solid #767676; background: #efefef; color: #111; border-radius: 4px; font-size: 13.5px; text-decoration: none; font-weight: 500;">
         Đăng xuất
       </a>
     </div>
@@ -79,9 +86,6 @@ foreach ($allReturns as $r) {
           <div style="display: flex; gap: 6px;">
             <button type="button" onclick="openChangePasswordModal()" style="padding: 4px 10px; border: 1px solid #767676; background: #fff; color: #111; border-radius: 3px; font-size: 12.5px; font-weight: 500; cursor: pointer;">
               🔑 Đổi mật khẩu
-            </button>
-            <button type="button" onclick="openEditProfileModal()" style="padding: 4px 10px; border: 1px solid #767676; background: #fff; color: #111; border-radius: 3px; font-size: 12.5px; font-weight: 500; cursor: pointer;">
-              ✏️ Chỉnh sửa
             </button>
           </div>
         </div>
@@ -110,7 +114,7 @@ foreach ($allReturns as $r) {
               </tr>
               <tr>
                 <td style="color: #777; padding: 4px 0; vertical-align: top;">Địa chỉ:</td>
-                <td id="displayAddress" style="color: #333; padding: 4px 0;"><?= htmlspecialchars($diachi) ?></td>
+                <td id="displayAddress" style="color: #333; padding: 4px 0;"><?= htmlspecialchars($diachiDisplay) ?></td>
               </tr>
               <tr style="border-top: 1px dashed #eee;">
                 <td style="color: #777; padding: 10px 0 4px;">Điểm tích lũy:</td>
@@ -122,7 +126,7 @@ foreach ($allReturns as $r) {
           </table>
 
           <button type="button" onclick="openEditProfileModal()" style="width: 100%; margin-top: 16px; padding: 9px 0; border: 1px solid #767676; background: #efefef; color: #111; border-radius: 4px; font-size: 13.5px; font-weight: 600; cursor: pointer;">
-            Cập nhật thông tin giao hàng
+            Cập nhật thông tin
           </button>
 
           <!-- KHO VOUCHER & ƯU ĐÃI DÀNH CHO THÀNH VIÊN -->
@@ -282,10 +286,28 @@ foreach ($allReturns as $r) {
                style="width: 100%; height: 38px; padding: 0 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; outline: none;">
       </div>
 
-      <div style="margin-bottom: 16px;">
-        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 5px;">Địa chỉ nhận hàng chi tiết</label>
-        <textarea id="editAddress" rows="3" placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
-                  style="width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; outline: none; resize: vertical;"><?= htmlspecialchars($diachi === 'Chưa cập nhật' ? '' : $diachi) ?></textarea>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 5px;">Địa chỉ nhận hàng (Số nhà, tên đường...)</label>
+        <input type="text" id="editAddress" placeholder="Số nhà, tên đường..."
+               value="<?= htmlspecialchars($diachi === 'Chưa cập nhật' ? '' : $diachi) ?>"
+               style="width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; outline: none;">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+        <div>
+          <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 5px;">Tỉnh / Thành phố</label>
+          <select id="editProvinceSelect" onchange="handleEditProvinceChange(this.value)"
+                  style="width: 100%; padding: 10px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box; outline: none; background: #fff;">
+            <option value="">-- Chọn Tỉnh / Thành phố --</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 5px;">Phường / Xã / Đặc khu</label>
+          <select id="editWardSelect"
+                  style="width: 100%; padding: 10px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box; outline: none; background: #fff;">
+            <option value="">-- Chọn Phường / Xã --</option>
+          </select>
+        </div>
       </div>
 
       <!-- Footer -->
@@ -298,11 +320,90 @@ foreach ($allReturns as $r) {
 </div>
 
 <script>
+const SAVED_PROFILE_PROVINCE = <?= json_encode($tinhThanh, JSON_UNESCAPED_UNICODE) ?>;
+const SAVED_PROFILE_WARD = <?= json_encode($phuongXa, JSON_UNESCAPED_UNICODE) ?>;
+let editProvincesLoaded = false;
+const EDIT_WARDS_CACHE = {};
+
+function escapeAccountHtml(str) {
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function loadEditProvinces() {
+  if (editProvincesLoaded) return;
+  const provSel = document.getElementById('editProvinceSelect');
+  if (!provSel) return;
+  provSel.innerHTML = '<option value="">-- Đang tải... --</option>';
+  try {
+    const res = await fetch('index.php?action=get_provinces');
+    const data = await res.json();
+    if (data.success && Array.isArray(data.provinces) && data.provinces.length > 0) {
+      provSel.innerHTML = '<option value="">-- Chọn Tỉnh / Thành phố --</option>' +
+        data.provinces.map(p => `<option value="${escapeAccountHtml(p.code)}">${escapeAccountHtml(p.full_name)}</option>`).join('');
+      editProvincesLoaded = true;
+      if (SAVED_PROFILE_PROVINCE) {
+        const target = SAVED_PROFILE_PROVINCE.trim().toLowerCase();
+        const matched = data.provinces.find(p =>
+          (p.full_name || '').trim().toLowerCase() === target ||
+          (p.name || '').trim().toLowerCase() === target
+        );
+        if (matched) {
+          provSel.value = matched.code;
+          await handleEditProvinceChange(matched.code, SAVED_PROFILE_WARD);
+        }
+      }
+    } else {
+      provSel.innerHTML = '<option value="">-- Không thể tải Tỉnh / Thành --</option>';
+    }
+  } catch (e) {
+    provSel.innerHTML = '<option value="">-- Lỗi tải Tỉnh / Thành --</option>';
+  }
+}
+
+async function handleEditProvinceChange(provinceCode, preselectWard = '') {
+  const wardSel = document.getElementById('editWardSelect');
+  if (!wardSel) return;
+  if (!provinceCode) {
+    wardSel.innerHTML = '<option value="">-- Chọn Phường / Xã --</option>';
+    return;
+  }
+
+  const renderWards = (wards) => {
+    wardSel.innerHTML = '<option value="">-- Chọn Phường / Xã / Đặc khu --</option>' +
+      wards.map(w => `<option value="${escapeAccountHtml(w.full_name)}">${escapeAccountHtml(w.full_name)}</option>`).join('');
+    if (preselectWard) {
+      const target = preselectWard.trim().toLowerCase();
+      const matched = wards.find(w => (w.full_name || '').trim().toLowerCase() === target);
+      if (matched) wardSel.value = matched.full_name;
+    }
+  };
+
+  if (EDIT_WARDS_CACHE[provinceCode]) {
+    renderWards(EDIT_WARDS_CACHE[provinceCode]);
+    return;
+  }
+
+  wardSel.innerHTML = '<option value="">-- Đang tải... --</option>';
+  try {
+    const res = await fetch('index.php?action=get_wards&province_code=' + encodeURIComponent(provinceCode));
+    const data = await res.json();
+    if (data.success && Array.isArray(data.wards) && data.wards.length > 0) {
+      EDIT_WARDS_CACHE[provinceCode] = data.wards;
+      renderWards(data.wards);
+    } else {
+      wardSel.innerHTML = '<option value="">-- Không có dữ liệu --</option>';
+    }
+  } catch (e) {
+    wardSel.innerHTML = '<option value="">-- Lỗi tải Phường / Xã --</option>';
+  }
+}
+
 function openEditProfileModal() {
   const modal = document.getElementById('editProfileModal');
   if (modal) modal.style.display = 'grid';
   const alert = document.getElementById('profileUpdateAlert');
   if (alert) alert.style.display = 'none';
+  loadEditProvinces();
 }
 
 function closeEditProfileModal() {
@@ -316,6 +417,10 @@ async function handleProfileUpdate(e) {
   const phone = document.getElementById('editPhone').value.replace(/\s+/g, '');
   const ngaysinh = document.getElementById('editNgaySinh') ? document.getElementById('editNgaySinh').value.trim() : '';
   const address = document.getElementById('editAddress').value.trim();
+  const provSel = document.getElementById('editProvinceSelect');
+  const tinhthanh = (provSel && provSel.value) ? provSel.options[provSel.selectedIndex].text.trim() : '';
+  const wardSel = document.getElementById('editWardSelect');
+  const phuongxa = wardSel ? wardSel.value.trim() : '';
   const alert = document.getElementById('profileUpdateAlert');
 
   if (!hoten || hoten.length < 2) {
@@ -339,21 +444,24 @@ async function handleProfileUpdate(e) {
     const resp = await fetch('index.php?action=update_profile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hoten, phone, ngaysinh, address })
+      body: JSON.stringify({ hoten, phone, ngaysinh, address, phuongxa, tinhthanh })
     });
     const res = await resp.json();
 
     if (res.success) {
       showAlert('✓ ' + (res.message || 'Cập nhật thành công!'), true);
+      const fullAddressText = [address, phuongxa, tinhthanh].filter(Boolean).join(', ');
       document.getElementById('displayHoTen').textContent = hoten;
       if (document.getElementById('displayPhone')) document.getElementById('displayPhone').textContent = phone || 'Chưa cập nhật';
-      if (document.getElementById('displayAddress')) document.getElementById('displayAddress').textContent = address || 'Chưa cập nhật';
+      if (document.getElementById('displayAddress')) document.getElementById('displayAddress').textContent = fullAddressText || 'Chưa cập nhật';
 
       try {
         localStorage.setItem('kibo_customer_info', JSON.stringify({
           name: hoten,
           phone: phone,
           address: address,
+          ward: phuongxa,
+          province: tinhthanh,
           email: '<?= htmlspecialchars($email) ?>'
         }));
       } catch (e) {}

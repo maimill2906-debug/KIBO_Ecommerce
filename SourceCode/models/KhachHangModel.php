@@ -65,11 +65,13 @@ class KhachHangModel {
         return null;
     }
 
-    public static function updateProfile($maKH, $hoten, $phone, $address, $ngaysinh = null) {
+    public static function updateProfile($maKH, $hoten, $phone, $address, $ngaysinh = null, $phuongXa = null, $tinhThanh = null) {
         $hoten = trim($hoten);
         $phone = preg_replace('/[^\d]/', '', trim($phone));
         $address = trim($address);
         $ngaysinh = ($ngaysinh !== null) ? trim((string)$ngaysinh) : null;
+        $phuongXa = ($phuongXa !== null) ? trim((string)$phuongXa) : null;
+        $tinhThanh = ($tinhThanh !== null) ? trim((string)$tinhThanh) : null;
 
         if (mb_strlen($hoten) < 2) {
             return ['success' => false, 'message' => 'Họ và tên phải có ít nhất 2 ký tự.'];
@@ -144,18 +146,23 @@ class KhachHangModel {
             }
 
             // 3. Cập nhật dia_chi_kh
-            if (!empty($address)) {
+            if (!empty($address) || !empty($phuongXa) || !empty($tinhThanh)) {
                 $checkDC = $db->prepare("SELECT COUNT(*) FROM dia_chi_kh WHERE makh = ?");
                 $checkDC->execute([$maKH]);
                 if ($checkDC->fetchColumn() > 0) {
-                    $stmtDC = $db->prepare("UPDATE dia_chi_kh SET diachichitiet = ? WHERE makh = ?");
-                    $stmtDC->execute([$address, $maKH]);
+                    if ($phuongXa !== null || $tinhThanh !== null) {
+                        $stmtDC = $db->prepare("UPDATE dia_chi_kh SET diachichitiet = ?, phuongxa = ?, tinhthanh = ? WHERE makh = ?");
+                        $stmtDC->execute([$address, (string)$phuongXa, (string)$tinhThanh, $maKH]);
+                    } else {
+                        $stmtDC = $db->prepare("UPDATE dia_chi_kh SET diachichitiet = ? WHERE makh = ?");
+                        $stmtDC->execute([$address, $maKH]);
+                    }
                 } else {
                     $maxDC = $db->query("SELECT MAX(CAST(SUBSTRING(madiachi FROM 3) AS INTEGER)) FROM dia_chi_kh WHERE madiachi ~ '^DC[0-9]+$'")->fetchColumn();
                     $nextDCNum = ($maxDC ? (int)$maxDC : 0) + 1;
                     $maDC = 'DC' . str_pad($nextDCNum, 3, '0', STR_PAD_LEFT);
-                    $stmtDC = $db->prepare("INSERT INTO dia_chi_kh (madiachi, makh, diachichitiet, phuongxa, quanhuyen, tinhthanh, macdinh) VALUES (?, ?, ?, '', '', '', true)");
-                    $stmtDC->execute([$maDC, $maKH, $address]);
+                    $stmtDC = $db->prepare("INSERT INTO dia_chi_kh (madiachi, makh, diachichitiet, phuongxa, quanhuyen, tinhthanh, macdinh) VALUES (?, ?, ?, ?, '', ?, true)");
+                    $stmtDC->execute([$maDC, $maKH, $address, (string)$phuongXa, (string)$tinhThanh]);
                 }
             }
 

@@ -62,7 +62,7 @@ class DonHangModel {
                     }
                 }
             }
-            // Fallback nếu không có quanhuyen riêng mà chỉ có diaChiNhan: dùng regex ranh giới từ nguyên vẹn \b
+            // Fallback nếu không có quanhuyen riêng (mô hình 2 cấp Tỉnh -> Phường/Xã)
             if (!$isNoiThanh && !empty($diaChiNhan)) {
                 foreach ($noiThanhArr as $dist) {
                     $pattern = '/\b' . preg_quote($dist, '/') . '\b/iu';
@@ -70,6 +70,9 @@ class DonHangModel {
                         $isNoiThanh = true;
                         break;
                     }
+                }
+                if (!$isNoiThanh && empty($cleanQuan) && preg_match('/\bPhường\s+/iu', $diaChiNhan)) {
+                    $isNoiThanh = true;
                 }
             }
         }
@@ -96,6 +99,7 @@ class DonHangModel {
                             dh.sodienthoainhan,
                             dh.diachigiaohang,
                             dh.ghichu,
+                            dh.mavandon,
                             qct.sotiendonggop,
                             qct.matracuu,
                             qct.trangthaiquy,
@@ -325,6 +329,7 @@ class DonHangModel {
             // 1. Validate người nhận
             $tenNhan = trim($orderData['tennguoinhan'] ?? ($orderData['customer']['name'] ?? ''));
             $sdtNhan = preg_replace('/[^\d]/', '', trim($orderData['sodienthoainhan'] ?? ($orderData['customer']['phone'] ?? '')));
+            $email = trim($orderData['email'] ?? ($orderData['customer']['email'] ?? ($_SESSION['user']['TenDangNhap'] ?? '')));
             if (mb_strlen($tenNhan) < 2) {
                 throw new BusinessException('Họ và tên người nhận phải có ít nhất 2 ký tự.');
             }
@@ -469,26 +474,25 @@ class DonHangModel {
                 $tienGiam = min($tongTienHang, $tienGiam);
                 $maVoucher = $vRow['mavoucher'];
 
-                // Giới hạn số lần sử dụng cho mỗi khách hàng (cột moikhachtoida, mặc định 1)
+                // Giới hạn số lần sử dụng cho mỗi tài khoản / email / SĐT (cột moikhachtoida, mặc định 1)
                 $maxPerCustomer = !empty($vRow['moikhachtoida']) ? (int)$vRow['moikhachtoida'] : 1;
                 $tempCustomerCheck = $maKHOption ?: (!empty($_SESSION['user']['MaKH']) ? $_SESSION['user']['MaKH'] : null);
+                if (empty($tempCustomerCheck)) {
+                    throw new BusinessException('Vui lòng đăng nhập bằng tài khoản Email để áp dụng mã giảm giá.');
+                }
                 if (!empty($tempCustomerCheck)) {
                     $chkUsed = $db->prepare("SELECT COUNT(*) FROM don_hang WHERE makh = ? AND UPPER(mavoucher) = UPPER(?) AND trangthaidonhang <> ?");
                     $chkUsed->execute([$tempCustomerCheck, $maVoucher, TrangThai::DH_DA_HUY]);
-                    $usedCount = (int)$chkUsed->fetchColumn();
-                    if ($usedCount >= $maxPerCustomer) {
+                    if ((int)$chkUsed->fetchColumn() >= $maxPerCustomer) {
                         throw new BusinessException("Mỗi tài khoản chỉ được áp dụng mã giảm giá '{$maVoucher}' tối đa {$maxPerCustomer} lần.");
                     }
-                } else {
-                    // Kiểm tra theo số điện thoại nhận hàng đối với khách vãng lai
-                    $sdtNhan = !empty($orderData['sodienthoai']) ? trim($orderData['sodienthoai']) : '';
-                    if (!empty($sdtNhan)) {
-                        $chkPhoneUsed = $db->prepare("SELECT COUNT(*) FROM don_hang WHERE sodienthoainhan = ? AND UPPER(mavoucher) = UPPER(?) AND trangthaidonhang <> ?");
-                        $chkPhoneUsed->execute([$sdtNhan, $maVoucher, TrangThai::DH_DA_HUY]);
-                        $usedPhoneCount = (int)$chkPhoneUsed->fetchColumn();
-                        if ($usedPhoneCount >= $maxPerCustomer) {
-                            throw new BusinessException("Mỗi số điện thoại chỉ được áp dụng mã giảm giá '{$maVoucher}' tối đa {$maxPerCustomer} lần.");
-                        }
+                }
+                $emailCheck = trim((string)($email ?: ($_SESSION['user']['TenDangNhap'] ?? '')));
+                if (!empty($emailCheck) && filter_var($emailCheck, FILTER_VALIDATE_EMAIL)) {
+                    $chkEmailUsed = $db->prepare("SELECT COUNT(*) FROM don_hang dh JOIN khach_hang kh ON dh.makh = kh.makh WHERE LOWER(kh.email) = LOWER(?) AND UPPER(dh.mavoucher) = UPPER(?) AND dh.trangthaidonhang <> ?");
+                    $chkEmailUsed->execute([$emailCheck, $maVoucher, TrangThai::DH_DA_HUY]);
+                    if ((int)$chkEmailUsed->fetchColumn() >= $maxPerCustomer) {
+                        throw new BusinessException("Mỗi Email chỉ được áp dụng mã giảm giá '{$maVoucher}' tối đa {$maxPerCustomer} lần.");
                     }
                 }
             }
@@ -597,13 +601,31 @@ class DonHangModel {
             // 14. Commit transaction
             $db->commit();
 
+            // Gửi email xác nhận đơn hàng nếu đã cấu hình SMTP và khách có email hợp lệ
+            if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                try {
+                    require_once __DIR__ . '/MailHelper.php';
+                    if (MailHelper::isConfigured()) {
+                        MailHelper::sendOrderConfirmation($email, $tenNhan, $maDonHang, $tongThanhToan, $tienDongGop, $phuongThuc);
+                    }
+                } catch (Throwable $mailEx) {
+                    error_log("Lỗi gửi mail xác nhận đơn {$maDonHang}: " . $mailEx->getMessage());
+                }
+            }
+
+            require_once __DIR__ . '/CongThanhToan.php';
+            $isOnline = (stripos($phuongThuc, 'VietQR') !== false || stripos($phuongThuc, 'Online') !== false);
+
             return [
                 'success' => true,
                 'orderId' => $maDonHang,
                 'order_code' => $maDonHang,
                 'tongthanhtoan' => $tongThanhToan,
                 'ship' => $phiShip,
-                'fund_amount' => $tienDongGop
+                'fund_amount' => $tienDongGop,
+                'phuongthuctt' => $phuongThuc,
+                'is_online' => $isOnline,
+                'vietqr_url' => $isOnline ? CongThanhToan::taoMaVietQR($maDonHang, $tongThanhToan) : null
             ];
         } catch (BusinessException $e) {
             if ($db->inTransaction()) {
@@ -674,7 +696,7 @@ class DonHangModel {
                 TrangThai::DH_CHO_XAC_NHAN => [TrangThai::DH_CHO_DONG_GOI, TrangThai::DH_DA_HUY],
                 TrangThai::DH_CHO_DONG_GOI => [TrangThai::DH_DA_XUAT_KHO, TrangThai::DH_DA_HUY],
                 TrangThai::DH_DA_XUAT_KHO  => [TrangThai::DH_DANG_GIAO],
-                TrangThai::DH_DANG_GIAO    => [TrangThai::DH_GIAO_THANH_CONG],
+                TrangThai::DH_DANG_GIAO    => [TrangThai::DH_GIAO_THANH_CONG, TrangThai::DH_DA_HUY],
                 TrangThai::DH_GIAO_THANH_CONG => [],
                 TrangThai::DH_DA_HUY       => []
             ];
@@ -683,8 +705,15 @@ class DonHangModel {
                 throw new BusinessException("Không thể chuyển trạng thái đơn hàng từ '{$currentStatus}' sang '{$normalizedStatus}'.");
             }
 
-            // Cập nhật mã vận đơn nếu có truyền vào
+            // Cập nhật mã vận đơn nếu có truyền vào, hoặc tự động cấp khi sang Chờ đóng gói / Đã xuất kho
             $maVanDon = trim((string)$maVanDon);
+            if (empty($maVanDon) && empty($order['mavandon']) && in_array($normalizedStatus, [TrangThai::DH_CHO_DONG_GOI, TrangThai::DH_DA_XUAT_KHO, TrangThai::DH_DANG_GIAO], true)) {
+                require_once __DIR__ . '/DonViVanChuyen.php';
+                $vdRes = DonViVanChuyen::taoVanDon($maDonHang, 'GHN');
+                if (!empty($vdRes['mavandon'])) {
+                    $maVanDon = $vdRes['mavandon'];
+                }
+            }
             if (!empty($maVanDon)) {
                 $stmtMV = $db->prepare("UPDATE don_hang SET mavandon = ? WHERE madonhang = ?");
                 $stmtMV->execute([$maVanDon, $maDonHang]);
@@ -808,5 +837,121 @@ class DonHangModel {
             }
         }
         return [];
+    }
+
+    /**
+     * Lấy trạng thái thanh toán & đơn hàng phục vụ polling Cổng thanh toán
+     */
+    public static function getPaymentAndOrderStatus($maDonHang) {
+        $db = Database::getConnection();
+        if (!$db) return ['success' => false, 'paid' => false];
+        try {
+            $stmt = $db->prepare("SELECT dh.madonhang, dh.trangthaidonhang, dh.mavandon, dh.tongthanhtoan,
+                                         tt.trangthaitt, tt.phuongthuctt, tt.thoigiantt
+                                  FROM don_hang dh
+                                  LEFT JOIN thanh_toan tt ON dh.madonhang = tt.madonhang
+                                  WHERE dh.madonhang = ? LIMIT 1");
+            $stmt->execute([$maDonHang]);
+            $row = $stmt->fetch();
+            if (!$row) {
+                return ['success' => false, 'paid' => false, 'message' => 'Không tìm thấy đơn hàng'];
+            }
+            $paid = ($row['trangthaitt'] === TrangThai::TT_THANH_CONG || $row['trangthaitt'] === 'Thành công');
+            return [
+                'success' => true,
+                'paid' => $paid,
+                'order_code' => $row['madonhang'],
+                'trangthaidonhang' => $row['trangthaidonhang'],
+                'trangthaitt' => $row['trangthaitt'],
+                'mavandon' => $row['mavandon'] ?? null,
+                'tongthanhtoan' => (float)$row['tongthanhtoan']
+            ];
+        } catch (Exception $e) {
+            return ['success' => false, 'paid' => false];
+        }
+    }
+
+    /**
+     * Tự động duyệt & cấp mã vận đơn hàng loạt cho các đơn Chờ xác nhận hợp lệ
+     * (Đơn Online đã thanh toán thành công, hoặc đơn COD)
+     */
+    public static function autoProcessPendingOrders() {
+        $db = Database::getConnection();
+        if (!$db) return ['success' => false, 'processed' => 0, 'message' => 'Lỗi kết nối CSDL'];
+        try {
+            $sql = "SELECT dh.madonhang, tt.phuongthuctt, tt.trangthaitt
+                    FROM don_hang dh
+                    LEFT JOIN thanh_toan tt ON dh.madonhang = tt.madonhang
+                    WHERE dh.trangthaidonhang = ?
+                    ORDER BY dh.ngaydathang ASC";
+            $stmt = $db->prepare($sql);
+            $stmt->execute([TrangThai::DH_CHO_XAC_NHAN]);
+            $rows = $stmt->fetchAll();
+
+            $processed = 0;
+            $skippedOnline = 0;
+            $updatedCodes = [];
+
+            foreach ($rows as $r) {
+                $isOnline = (stripos((string)($r['phuongthuctt'] ?? ''), 'VietQR') !== false || stripos((string)($r['phuongthuctt'] ?? ''), 'Online') !== false);
+                $isPaid = ($r['trangthaitt'] === TrangThai::TT_THANH_CONG || $r['trangthaitt'] === 'Thành công');
+                if ($isOnline && !$isPaid) {
+                    $skippedOnline++;
+                    continue;
+                }
+                $res = self::capNhatTrangThai($r['madonhang'], TrangThai::DH_CHO_DONG_GOI);
+                if (!empty($res['success'])) {
+                    $processed++;
+                    $updatedCodes[] = $r['madonhang'];
+                }
+            }
+
+            return [
+                'success' => true,
+                'processed' => $processed,
+                'skipped_unpaid_online' => $skippedOnline,
+                'orders' => $updatedCodes,
+                'message' => "Đã tự động duyệt & cấp mã vận đơn cho {$processed} đơn hàng" . ($skippedOnline > 0 ? " (bỏ qua {$skippedOnline} đơn Online chưa thanh toán)." : ".")
+            ];
+        } catch (Exception $e) {
+            return ['success' => false, 'processed' => 0, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Bàn giao hàng loạt các đơn Chờ đóng gói -> Đã xuất kho -> Đang giao
+     */
+    public static function batchDispatchReadyOrders() {
+        $db = Database::getConnection();
+        if (!$db) return ['success' => false, 'dispatched' => 0, 'message' => 'Lỗi kết nối CSDL'];
+        try {
+            $stmt = $db->prepare("SELECT madonhang FROM don_hang WHERE trangthaidonhang IN (?, ?) ORDER BY ngaydathang ASC");
+            $stmt->execute([TrangThai::DH_CHO_DONG_GOI, TrangThai::DH_DA_XUAT_KHO]);
+            $rows = $stmt->fetchAll();
+
+            $dispatched = 0;
+            foreach ($rows as $r) {
+                $maDH = $r['madonhang'];
+                $chk = $db->prepare("SELECT trangthaidonhang FROM don_hang WHERE madonhang = ?");
+                $chk->execute([$maDH]);
+                $st = $chk->fetchColumn();
+                if ($st === TrangThai::DH_CHO_DONG_GOI) {
+                    $r1 = self::capNhatTrangThai($maDH, TrangThai::DH_DA_XUAT_KHO);
+                    if (empty($r1['success'])) continue;
+                }
+                $r2 = self::capNhatTrangThai($maDH, TrangThai::DH_DANG_GIAO);
+                if (!empty($r2['success'])) {
+                    $dispatched++;
+                }
+            }
+
+            return [
+                'success' => true,
+                'dispatched' => $dispatched,
+                'message' => "Đã tự động xuất kho & bàn giao ĐVVC cho {$dispatched} đơn hàng."
+            ];
+        } catch (Exception $e) {
+            return ['success' => false, 'dispatched' => 0, 'message' => $e->getMessage()];
+        }
     }
 }

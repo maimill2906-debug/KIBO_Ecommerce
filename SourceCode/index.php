@@ -43,11 +43,6 @@ switch ($action) {
         require __DIR__ . '/views/customer/ProductDetailView.php';
         break;
 
-    case 'news':
-    case 'news_detail':
-        header('Location: index.php?action=products');
-        exit;
-
     case 'rescue':
     case 'fund':
     case 'quycuutro':
@@ -79,10 +74,15 @@ switch ($action) {
         if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
             @session_start();
         }
+        if (($_SESSION['user']['VaiTro'] ?? '') === 'Admin') {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Tài khoản Quản trị viên không hỗ trợ đặt hàng. Vui lòng chuyển sang tài khoản Khách hàng.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         $targetKH = $_SESSION['user']['MaKH'] ?? '';
 
         $result = DonHangModel::taoDonHang($input);
-        if ($result['success']) {
+        if (!empty($result['success']) && empty($result['is_online'])) {
             require_once __DIR__ . '/models/GioHangModel.php';
             if (!empty($targetKH)) {
                 GioHangModel::clearCartInDb($targetKH);
@@ -179,8 +179,62 @@ switch ($action) {
         $input = json_decode($raw, true) ?: $_POST;
         $code = trim($input['code'] ?? ($_GET['code'] ?? ''));
         $subtotal = (float)($input['subtotal'] ?? ($_GET['subtotal'] ?? 0));
-        $res = VoucherModel::validateVoucher($code, $subtotal);
+        $phone = trim($input['phone'] ?? ($_GET['phone'] ?? ''));
+        $res = VoucherModel::validateVoucher($code, $subtotal, $phone);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'get_available_vouchers':
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/VoucherModel.php';
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            @session_start();
+        }
+        $maKH = $_SESSION['user']['MaKH'] ?? '';
+        $phone = trim($_GET['phone'] ?? '');
+        $vouchers = VoucherModel::getAvailableForCustomer($maKH, $phone);
+        echo json_encode(['success' => true, 'vouchers' => $vouchers], JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'get_provinces':
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            require_once __DIR__ . '/config/database.php';
+            $pdo = Database::getConnection();
+            $stmt = $pdo->query("
+                SELECT code, name, full_name, code_name, administrative_unit_short_name
+                FROM provinces
+                ORDER BY CASE WHEN code = '79' THEN 0 WHEN code = '01' THEN 1 ELSE 2 END, name ASC
+            ");
+            $provinces = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'provinces' => $provinces], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            echo json_encode(['success' => false, 'provinces' => [], 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+
+    case 'get_wards':
+        header('Content-Type: application/json; charset=utf-8');
+        $provinceCode = trim($_GET['province_code'] ?? '');
+        if ($provinceCode === '') {
+            echo json_encode(['success' => true, 'wards' => []], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        try {
+            require_once __DIR__ . '/config/database.php';
+            $pdo = Database::getConnection();
+            $stmt = $pdo->prepare("
+                SELECT code, name, full_name, code_name, province_code, administrative_unit_short_name
+                FROM wards
+                WHERE province_code = ?
+                ORDER BY name ASC
+            ");
+            $stmt->execute([$provinceCode]);
+            $wards = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'wards' => $wards], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            echo json_encode(['success' => false, 'wards' => [], 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
         exit;
 
     case 'submit_return':
@@ -193,6 +247,11 @@ switch ($action) {
         require_once __DIR__ . '/models/UploadHelper.php';
         $raw = file_get_contents('php://input');
         $input = json_decode($raw, true) ?: $_POST;
+        if (!verifyCsrfToken($input)) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Phiên làm việc hết hạn (CSRF). Vui lòng tải lại trang.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         $maDH = trim($input['madonhang'] ?? '');
         $lyDo = trim($input['lydo'] ?? '');
         $hinhAnh = trim($input['hinhanh'] ?? '');
@@ -248,6 +307,16 @@ switch ($action) {
         $note = trim($input['ghichu'] ?? ($input['lydotuchoi'] ?? ''));
         $nhapLaiKho = !empty($input['nhaplaikho']) && ($input['nhaplaikho'] === true || $input['nhaplaikho'] === '1' || $input['nhaplaikho'] === 'true' || $input['nhaplaikho'] === 'on');
         $res = DoiTraModel::xuLy($maYC, $actionType, $note, $nhapLaiKho);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'admin_create_shelter':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/TramCuuHoModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $res = TramCuuHoModel::themTram($input);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 
@@ -452,6 +521,130 @@ switch ($action) {
         require __DIR__ . '/views/admin/PrintPackingSlipView.php';
         exit;
 
+    case 'admin_print_batch_orders':
+        requireAdmin();
+        require_once __DIR__ . '/models/DonHangModel.php';
+        require_once __DIR__ . '/models/TrangThai.php';
+        $allOrders = DonHangModel::getAll();
+        $batchOrders = [];
+        foreach ($allOrders as $ao) {
+            if (($ao['status'] ?? '') === TrangThai::DH_CHO_DONG_GOI) {
+                $det = DonHangModel::getOrderDetail($ao['orderId']);
+                if ($det) $batchOrders[] = $det;
+            }
+        }
+        if (empty($batchOrders)) {
+            die("Hiện không có đơn hàng nào ở trạng thái 'Chờ đóng gói' để in hàng loạt.");
+        }
+        $isBatchPrint = true;
+        foreach ($batchOrders as $idx => $order) {
+            if ($idx > 0) echo '<div style="page-break-before: always;"></div>';
+            require __DIR__ . '/views/admin/PrintPackingSlipView.php';
+        }
+        exit;
+
+    case 'admin_auto_process_orders':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/DonHangModel.php';
+        $res = DonHangModel::autoProcessPendingOrders();
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'admin_batch_dispatch_orders':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/DonHangModel.php';
+        $res = DonHangModel::batchDispatchReadyOrders();
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'check_payment_status':
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/DonHangModel.php';
+        $orderId = trim($_GET['order'] ?? ($_GET['madonhang'] ?? ''));
+        if (empty($orderId)) {
+            echo json_encode(['success' => false, 'paid' => false, 'message' => 'Thiếu mã đơn hàng'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $st = DonHangModel::getPaymentAndOrderStatus($orderId);
+        if (!empty($st['success']) && empty($st['paid'])) {
+            $pm = (string)($st['phuongthuctt'] ?? '');
+            if (stripos($pm, 'VietQR') !== false || stripos($pm, 'Online') !== false || stripos($pm, 'PayOS') !== false) {
+                require_once __DIR__ . '/models/CongThanhToan.php';
+                CongThanhToan::dongBoTrangThaiPayOS($orderId);
+                $st = DonHangModel::getPaymentAndOrderStatus($orderId);
+            }
+        }
+        echo json_encode($st, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'payment_webhook':
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/config/database.php';
+        require_once __DIR__ . '/models/CongThanhToan.php';
+        Database::loadEnv();
+        $raw = file_get_contents('php://input');
+        $payload = json_decode($raw, true) ?: $_POST;
+
+        // Cho phép PayOS ping kiểm tra URL webhook khi lưu cấu hình
+        $isTestPing = empty($payload['content']) && empty($payload['madonhang']) && empty($payload['orderId'])
+                   && empty($payload['data']['description']) && empty($payload['data']['orderCode']);
+        if ($isTestPing) {
+            http_response_code(200);
+            echo json_encode(['success' => true, 'message' => 'Webhook ready'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        // Xác thực chữ ký PayOS bằng PAYOS_CHECKSUM_KEY (HMAC-SHA256)
+        $payosChecksum = getenv('PAYOS_CHECKSUM_KEY') ?: ($_ENV['PAYOS_CHECKSUM_KEY'] ?? '');
+        if (!empty($payosChecksum)) {
+            $sig = trim((string)($payload['signature'] ?? ''));
+            $d = (isset($payload['data']) && is_array($payload['data'])) ? $payload['data'] : [];
+            ksort($d);
+            $pairs = [];
+            foreach ($d as $k => $v) {
+                if (is_array($v)) $v = json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                if (in_array($v, [null, 'undefined', 'null'], true)) $v = '';
+                $pairs[] = $k . '=' . $v;
+            }
+            $expectedPayosSig = hash_hmac('sha256', implode('&', $pairs), $payosChecksum);
+            if (empty($d) || empty($sig) || !hash_equals($expectedPayosSig, strtolower($sig))) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'message' => 'Unauthorized PayOS Signature'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+        }
+
+        $res = CongThanhToan::kiemTraGiaoDich($payload);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'shipping_webhook':
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/DonViVanChuyen.php';
+        $expectedKey = getenv('SHIPPING_WEBHOOK_KEY') ?: ($_ENV['SHIPPING_WEBHOOK_KEY'] ?? '');
+        if (!empty($expectedKey)) {
+            $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+            if (stripos($authHeader, $expectedKey) === false) {
+                http_response_code(401);
+                echo json_encode(['success' => false, 'message' => 'Unauthorized Shipping Webhook'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+        }
+        $raw = file_get_contents('php://input');
+        $payload = json_decode($raw, true) ?: $_POST;
+        $maDH = trim($payload['madonhang'] ?? ($payload['order_code'] ?? ''));
+        $status = trim($payload['trangthai'] ?? ($payload['status'] ?? ''));
+        $maVD = trim($payload['mavandon'] ?? ($payload['tracking_code'] ?? ''));
+        if (empty($maDH) || empty($status)) {
+            echo json_encode(['success' => false, 'message' => 'Thiếu madonhang hoặc trangthai'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $res = DonViVanChuyen::capNhatHanhTrinh($maDH, $status, $maVD ?: null);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
     case 'admin_voucher_list':
         requireAdmin();
         header('Content-Type: application/json; charset=utf-8');
@@ -493,6 +686,14 @@ switch ($action) {
         (new AuthController())->login();
         break;
 
+    case 'register_send_otp':
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/TaiKhoanModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        echo json_encode(TaiKhoanModel::guiMaOtpDangKy($input), JSON_UNESCAPED_UNICODE);
+        exit;
+
     case 'register_submit':
         require_once __DIR__ . '/controllers/AuthController.php';
         (new AuthController())->register();
@@ -503,6 +704,11 @@ switch ($action) {
         require_once __DIR__ . '/models/TaiKhoanModel.php';
         $raw = file_get_contents('php://input');
         $input = json_decode($raw, true) ?: $_POST;
+        if (!verifyCsrfToken($input)) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Phiên làm việc hết hạn (CSRF). Vui lòng tải lại trang.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         $identifier = trim($input['identifier'] ?? ($input['email'] ?? ''));
         $res = TaiKhoanModel::guiMaOtpQuenMatKhau($identifier);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
@@ -513,6 +719,11 @@ switch ($action) {
         require_once __DIR__ . '/models/TaiKhoanModel.php';
         $raw = file_get_contents('php://input');
         $input = json_decode($raw, true) ?: $_POST;
+        if (!verifyCsrfToken($input)) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Phiên làm việc hết hạn (CSRF). Vui lòng tải lại trang.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         $identifier = trim($input['identifier'] ?? ($input['email'] ?? ''));
         $otp = trim($input['otp'] ?? '');
         $newPass = $input['new_password'] ?? ($input['password'] ?? '');
@@ -538,18 +749,28 @@ switch ($action) {
         }
         require_once __DIR__ . '/models/KhachHangModel.php';
         $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+        if (!verifyCsrfToken($input)) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['success' => false, 'message' => 'Phiên làm việc hết hạn (CSRF). Vui lòng tải lại trang.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         // Bảo mật: Chỉ lấy MaKH từ session hiện tại
         $maKH = $currentUser['MaKH'] ?? '';
         $hoten = $input['hoten'] ?? '';
         $phone = $input['phone'] ?? '';
         $address = $input['address'] ?? '';
         $ngaysinh = $input['ngaysinh'] ?? null;
+        $phuongxa = $input['phuongxa'] ?? null;
+        $tinhthanh = $input['tinhthanh'] ?? null;
 
-        $res = KhachHangModel::updateProfile($maKH, $hoten, $phone, $address, $ngaysinh);
+        $res = KhachHangModel::updateProfile($maKH, $hoten, $phone, $address, $ngaysinh, $phuongxa, $tinhthanh);
         if ($res['success']) {
             $_SESSION['user']['HoTen'] = $hoten;
             if (!empty($phone)) $_SESSION['user']['SoDienThoai'] = $phone;
-            if (!empty($address)) $_SESSION['user']['DiaChi'] = $address;
+            $_SESSION['user']['DiaChi'] = $address;
+            if ($phuongxa !== null) $_SESSION['user']['PhuongXa'] = trim((string)$phuongxa);
+            if ($tinhthanh !== null) $_SESSION['user']['TinhThanh'] = trim((string)$tinhthanh);
             if (!empty($ngaysinh)) $_SESSION['user']['NgaySinh'] = $ngaysinh;
             if (!empty($res['makh'])) $_SESSION['user']['MaKH'] = $res['makh'];
         }
@@ -569,6 +790,11 @@ switch ($action) {
         require_once __DIR__ . '/models/TaiKhoanModel.php';
         $raw = file_get_contents('php://input');
         $input = json_decode($raw, true) ?: $_POST;
+        if (!verifyCsrfToken($input)) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Phiên làm việc hết hạn (CSRF). Vui lòng tải lại trang.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         $oldPass = $input['old_password'] ?? ($input['matkhaucu'] ?? '');
         $newPass = $input['new_password'] ?? ($input['matkhaumoi'] ?? '');
         $res = TaiKhoanModel::doiMatKhau($_SESSION['user']['MaTK'], $oldPass, $newPass);
@@ -581,8 +807,22 @@ switch ($action) {
         break;
 
     case 'home':
-    default:
         require __DIR__ . '/views/customer/HomeView.php';
+        break;
+
+    default:
+        http_response_code(404);
+        $pageTitle = '404 - Không tìm thấy trang | KIBO PET\'S HOME';
+        $activeMenu = '';
+        require __DIR__ . '/views/customer/header.php';
+        echo '<main class="page" style="padding: 80px 20px; text-align: center; min-height: 55vh; display: flex; flex-direction: column; align-items: center; justify-content: center;">';
+        echo '<div style="max-width: 520px; background: #fff; padding: 36px 28px; border-radius: 10px; border: 1px solid #e5e1dc;">';
+        echo '<h1 style="font-size: 48px; margin: 0 0 8px; color: #2c1a0e;">404</h1>';
+        echo '<h2 style="font-size: 20px; margin: 0 0 10px; color: #3c2f27;">Không tìm thấy trang bạn yêu cầu</h2>';
+        echo '<p style="color: #6b625a; font-size: 14px; margin: 0 0 22px; line-height: 1.5;">Đường dẫn có thể đã thay đổi hoặc không tồn tại trên hệ thống KIBO.</p>';
+        echo '<a href="index.php?action=home" class="btn primary" style="display: inline-block; padding: 10px 22px; text-decoration: none; border-radius: 6px;">Về trang chủ</a>';
+        echo '</div></main>';
+        require __DIR__ . '/views/customer/footer.php';
         break;
 }
 } catch (Throwable $e) {

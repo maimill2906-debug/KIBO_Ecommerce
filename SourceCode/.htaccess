@@ -1,0 +1,11 @@
+# Bảo vệ file cấu hình & thư mục nội bộ KIBO
+Options -Indexes
+
+<FilesMatch "^\.(env|env\.example|git|htaccess)">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(config|models|controllers)/ - [F,L]
+</IfModule>

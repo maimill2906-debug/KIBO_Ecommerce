@@ -51,7 +51,7 @@
             <strong><?= htmlspecialchars(kibo_business('hotline') ?? '0772 906 756') ?></strong>
           </span>
         </p>
-        <p style="margin-top: 14px;">Thứ 2 - Chủ nhật: 8:00 - 21:00<br><?= htmlspecialchars(kibo_business('email') ?? 'support@kibo.vn') ?></p>
+        <p style="margin-top: 14px;">Thứ 2 - Chủ nhật: 8:00 - 21:00<br><?= htmlspecialchars(kibo_business('email') ?? 'kibopetshome.support@gmail.com') ?></p>
       </div>
     </div>
 
@@ -131,7 +131,7 @@
   <div class="modal-backdrop" id="authModalBackdrop" style="display: none;" onclick="if(event.target === this) closeAuthModal()">
     <section class="modal auth-modal">
       <button type="button" class="modal-close btn" onclick="closeAuthModal()" aria-label="Đóng popup"><?= kibo_icon('close', 20) ?></button>
-      <div class="auth-brand">
+      <div class="auth-brand" style="margin-bottom: 16px;">
         <?= kibo_logo_svg('default', 52) ?>
         <h2 id="authModalTitle" style="margin-top: 12px;">Đăng nhập</h2>
       </div>
@@ -150,13 +150,13 @@
         </div>
 
         <label class="field">
-          <span id="authEmailLabel">Email hoặc Số điện thoại *</span>
-          <input type="text" id="authEmail" placeholder="Email hoặc số điện thoại" required>
+          <span id="authEmailLabel">Email *</span>
+          <input type="email" id="authEmail" placeholder="Ví dụ: name@example.com" required>
         </label>
 
         <div id="registerExtraFields" style="display: none;">
           <label class="field" style="margin-top: 10px;">
-            <span>Số điện thoại * (dùng để đăng nhập hoặc giao hàng)</span>
+            <span>Số điện thoại *</span>
             <input type="tel" id="authPhone" placeholder="Ví dụ: 0912345678 (10 số)" pattern="0[0-9]{9}">
           </label>
           <label class="field" style="margin-top: 10px;">
@@ -175,6 +175,18 @@
           </div>
         </label>
 
+        <div id="registerConfirmPasswordWrap" style="display: none; margin-top: 10px;">
+          <label class="field">
+            <span>Xác nhận lại mật khẩu *</span>
+            <div class="password-input">
+              <input type="password" id="authConfirmPassword" placeholder="Nhập lại mật khẩu">
+              <button type="button" class="password-toggle btn" onclick="const c=document.getElementById('authConfirmPassword'); c.type=(c.type==='password'?'text':'password');" aria-label="Hiện/ẩn mật khẩu xác nhận">
+                <?= kibo_icon('eye', 20) ?>
+              </button>
+            </div>
+          </label>
+        </div>
+
         <div id="modalConsentWrap" style="display: none; margin: 10px 0 6px; padding: 10px 12px; background: #fbf9f6; border: 1px solid #e6dfd7; border-radius: 6px; text-align: left;">
           <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #4a3f37; line-height: 1.45; cursor: pointer;">
             <input type="checkbox" id="modalConsentCheckbox" style="width: 18px !important; height: 18px !important; max-width: 18px !important; max-height: 18px !important; min-width: 18px !important; min-height: 18px !important; margin: 2px 0 0 0 !important; padding: 0 !important; accent-color: #3f7a2f !important; flex: 0 0 18px !important; -webkit-appearance: checkbox !important; appearance: auto !important; cursor: pointer;">
@@ -184,10 +196,20 @@
 
         <div class="login-options" id="loginOptions">
           <label class="remember">
-            <input type="checkbox" checked style="width: 16px !important; height: 16px !important; max-width: 16px !important; max-height: 16px !important; min-width: 16px !important; min-height: 16px !important; margin: 0 !important; flex: 0 0 16px !important; -webkit-appearance: checkbox !important; appearance: auto !important;">
+            <input type="checkbox" id="authRememberMe" checked style="width: 16px !important; height: 16px !important; max-width: 16px !important; max-height: 16px !important; min-width: 16px !important; min-height: 16px !important; margin: 0 !important; flex: 0 0 16px !important; -webkit-appearance: checkbox !important; appearance: auto !important;">
             <span>Ghi nhớ tài khoản</span>
           </label>
           <a href="javascript:void(0)" class="forgot" onclick="openForgotPasswordModal()">Quên mật khẩu?</a>
+        </div>
+
+        <div id="registerOtpWrap" style="display: none; margin: 10px 0; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; text-align: left;">
+          <label class="field" style="margin: 0;">
+            <span style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Mã xác thực Email (OTP 6 số) *</span>
+              <a href="javascript:void(0)" onclick="resendRegisterOtp()" style="font-size: 12px; color: #1565c0; font-weight: 600; text-decoration: underline;">Gửi lại mã</a>
+            </span>
+            <input type="text" id="authRegisterOtp" maxlength="6" inputmode="numeric" placeholder="Nhập 6 chữ số từ hộp thư của bạn">
+          </label>
         </div>
 
         <div id="authSuccess" style="display: none; background: #f7f7f7; color: #222; border: 1px solid #dcdcdc; padding: 10px 14px; border-radius: 4px; font-size: 13px; line-height: 1.4; margin-bottom: 12px; text-align: left;"></div>
@@ -244,26 +266,39 @@
             const resp = await fetch('index.php?action=get_cart');
             const data = await resp.json();
             const dbCart = (data && data.cart) ? data.cart : [];
-            const localCart = getCart();
 
-            const map = {};
-            localCart.forEach(it => { map[it.id] = it; });
-            dbCart.forEach(it => {
-              if (map[it.id]) {
-                map[it.id].quantity = Math.max(map[it.id].quantity, it.quantity);
-              } else {
-                map[it.id] = it;
+            let merged;
+            if (currentOwner && currentOwner !== u.makh) {
+              // Đổi sang tài khoản khác: tuyệt đối không gộp giỏ hàng của tài khoản cũ
+              merged = dbCart.filter(it => it && /^BT\d+$/.test(it.id));
+            } else {
+              // Trước đó là khách vãng lai (chưa có owner): gộp giỏ tạm với giỏ DB của tài khoản
+              const localCart = getCart();
+              const map = {};
+              localCart.forEach(it => { map[it.id] = it; });
+              dbCart.forEach(it => {
+                if (map[it.id]) {
+                  map[it.id].quantity = Math.max(map[it.id].quantity, it.quantity);
+                } else {
+                  map[it.id] = it;
+                }
+              });
+              merged = Object.values(map).filter(it => it && /^BT\d+$/.test(it.id));
+              if (localCart.length > 0) {
+                fetch('index.php?action=sync_cart', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ items: merged })
+                }).catch(() => {});
               }
-            });
-            const merged = Object.values(map).filter(it => it && /^BT\d+$/.test(it.id));
+            }
+
             localStorage.setItem(KIBO_CART_KEY, JSON.stringify(merged));
             localStorage.setItem(CART_OWNER_KEY, u.makh);
             updateCartHeader();
-            fetch('index.php?action=sync_cart', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ items: merged })
-            }).catch(() => {});
+            if (typeof renderAllViews === 'function') {
+              renderAllViews();
+            }
           } catch (e) {}
         }
       } else {
@@ -271,10 +306,14 @@
           localStorage.removeItem(KIBO_CART_KEY);
           localStorage.removeItem(CART_OWNER_KEY);
           updateCartHeader();
+          if (typeof renderAllViews === 'function') {
+            renderAllViews();
+          }
         }
       }
     }
     syncCartWithOwner();
+    updateCartHeader(false);
 
     function getCart() {
       try {
@@ -305,19 +344,21 @@
       return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
     }
 
-    function updateCartHeader() {
+    function updateCartHeader(animate = true) {
       const cart = getCart();
       const count = cart.reduce((sum, item) => sum + item.quantity, 0);
       const badge = document.getElementById('headerCartCountText');
       if (badge) {
         badge.textContent = `(${count}) Sản phẩm`;
-        badge.style.transition = 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s ease';
-        badge.style.transform = 'scale(1.3)';
-        badge.style.color = '#2e7d32';
-        setTimeout(() => {
-          badge.style.transform = 'scale(1)';
-          badge.style.color = '';
-        }, 350);
+        if (animate) {
+          badge.style.transition = 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.2s ease';
+          badge.style.transform = 'scale(1.3)';
+          badge.style.color = '#2e7d32';
+          setTimeout(() => {
+            badge.style.transform = 'scale(1)';
+            badge.style.color = '';
+          }, 350);
+        }
       }
     }
 
@@ -340,7 +381,7 @@
     }
 
     function addToCart(item, maybeName, maybePrice, maybeVariant, maybeColor, maybeArt, maybeQty) {
-      let id, name, price, variant, color, art, qty, image;
+      let id, name, price, variant, color, art, qty, image, maxStock = 0;
       if (typeof item === 'object' && item !== null) {
         id = item.id;
         name = item.name;
@@ -348,8 +389,9 @@
         variant = item.variant || 'Tiêu chuẩn';
         color = item.color || '#c94336';
         art = item.art || 'royal';
-        qty = Number(item.quantity || item.qty) || 1;
+        qty = parseInt(item.quantity ?? item.qty ?? 1, 10);
         image = item.image || '';
+        maxStock = parseInt(item.maxStock ?? 0, 10) || 0;
       } else {
         id = item;
         name = maybeName;
@@ -357,17 +399,29 @@
         variant = maybeVariant || 'Tiêu chuẩn';
         color = maybeColor || '#c94336';
         art = maybeArt || 'royal';
-        qty = Number(maybeQty) || 1;
+        qty = parseInt(maybeQty ?? 1, 10);
         image = '';
+      }
+
+      if (!Number.isFinite(qty) || qty <= 0) {
+        showKiboToast('Số lượng sản phẩm phải lớn hơn 0!');
+        return;
       }
 
       const cart = getCart();
       const existing = cart.find(i => i.id === id && i.variant === variant);
+      const effectiveMax = maxStock || (existing && existing.maxStock) || 0;
+      const nextQty = (existing ? existing.quantity : 0) + qty;
+      if (effectiveMax > 0 && nextQty > effectiveMax) {
+        showKiboToast(`Số lượng vượt quá tồn kho hiện có (tối đa ${effectiveMax})!`);
+        return;
+      }
       if (existing) {
-        existing.quantity += qty;
+        existing.quantity = nextQty;
+        if (effectiveMax > 0) existing.maxStock = effectiveMax;
         if (image && !existing.image) existing.image = image;
       } else {
-        cart.push({ id, name, variant, price, quantity: qty, color, art, image });
+        cart.push({ id, name, variant, price, quantity: qty, maxStock: effectiveMax, color, art, image });
       }
       saveCart(cart);
       updateCartHeader();
@@ -398,6 +452,10 @@
       let cart = getCart();
       const item = cart.find(i => i.id === id && i.variant === variant);
       if (item) {
+        if (delta > 0 && item.maxStock > 0 && item.quantity + delta > item.maxStock) {
+          showKiboToast(`Chỉ còn tối đa ${item.maxStock} sản phẩm trong kho!`);
+          return;
+        }
         item.quantity += delta;
         if (item.quantity <= 0) {
           cart = cart.filter(i => !(i.id === id && i.variant === variant));
@@ -487,6 +545,15 @@
     // AUTH MODAL
     let currentAuthTab = 'login';
     function openAuthModal() {
+      const savedEmail = localStorage.getItem('kibo_remember_email') || '';
+      const emailInp = document.getElementById('authEmail');
+      const remCb = document.getElementById('authRememberMe');
+      if (savedEmail && emailInp && !emailInp.value) {
+        emailInp.value = savedEmail;
+      }
+      if (remCb) {
+        remCb.checked = savedEmail ? true : remCb.checked;
+      }
       document.getElementById('authModalBackdrop').style.display = 'grid';
     }
     function closeAuthModal() {
@@ -499,20 +566,57 @@
       document.getElementById('tabRegister').className = 'btn ' + (!isLogin ? 'active' : '');
       document.getElementById('authModalTitle').textContent = isLogin ? 'Đăng nhập' : 'Tạo tài khoản KIBO';
       document.getElementById('registerFields').style.display = isLogin ? 'none' : 'block';
+      const nameInput = document.getElementById('authName');
+      if (nameInput) nameInput.required = !isLogin;
       const regExtra = document.getElementById('registerExtraFields');
-      if (regExtra) regExtra.style.display = isLogin ? 'none' : 'block';
+      if (regExtra) regExtra.style.display = 'none';
+      const confirmWrap = document.getElementById('registerConfirmPasswordWrap');
+      if (confirmWrap) confirmWrap.style.display = isLogin ? 'none' : 'block';
+      const confirmInp = document.getElementById('authConfirmPassword');
+      if (confirmInp) {
+        confirmInp.required = !isLogin;
+        if (isLogin) confirmInp.value = '';
+      }
       const emailLabel = document.getElementById('authEmailLabel');
       const emailInput = document.getElementById('authEmail');
-      if (emailLabel) emailLabel.textContent = isLogin ? 'Email hoặc Số điện thoại *' : 'Địa chỉ Email *';
-      if (emailInput) emailInput.placeholder = isLogin ? 'Email hoặc số điện thoại' : 'Ví dụ: name@example.com';
+      if (emailLabel) emailLabel.textContent = isLogin ? 'Email *' : 'Địa chỉ Email *';
+      if (emailInput) emailInput.placeholder = 'Ví dụ: name@example.com';
       const consentWrap = document.getElementById('modalConsentWrap');
       if (consentWrap) consentWrap.style.display = isLogin ? 'none' : 'block';
       document.getElementById('loginOptions').style.display = isLogin ? 'flex' : 'none';
       document.getElementById('authSubmitBtn').className = isLogin ? 'btn primary confirm' : 'btn primary green-button';
-      document.getElementById('authSubmitBtn').innerHTML = (isLogin ? 'Đăng nhập ngay ' : 'Tạo tài khoản khách hàng ') + '<?= kibo_icon('arrow', 16) ?>';
+      document.getElementById('authSubmitBtn').innerHTML = (isLogin ? 'Đăng nhập ngay ' : 'Tạo tài khoản ') + '<?= kibo_icon('arrow', 16) ?>';
       document.getElementById('authError').style.display = 'none';
       const succ = document.getElementById('authSuccess');
       if (succ) succ.style.display = 'none';
+      const regOtpWrap = document.getElementById('registerOtpWrap');
+      if (regOtpWrap) regOtpWrap.style.display = 'none';
+      const regOtpInp = document.getElementById('authRegisterOtp');
+      if (regOtpInp) regOtpInp.value = '';
+    }
+    async function resendRegisterOtp() {
+      const name = document.getElementById('authName') ? document.getElementById('authName').value.trim() : '';
+      const email = document.getElementById('authEmail').value.trim();
+      const password = document.getElementById('authPassword').value;
+      try {
+        const resp = await fetch('index.php?action=register_send_otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify({ name, email, password })
+        });
+        const res = await resp.json();
+        if (res.success && res.require_otp) {
+          const succ = document.getElementById('authSuccess');
+          if (succ) {
+            succ.innerHTML = '<span style="color: #2e7d32; font-weight: bold; margin-right: 4px;">✓</span> ' + res.message;
+            succ.style.display = 'block';
+          }
+        } else if (!res.success) {
+          showAuthError(res.message || 'Không thể gửi lại mã OTP.');
+        }
+      } catch (err) {
+        showAuthError('Không thể kết nối đến máy chủ.');
+      }
     }
     function togglePasswordVisibility() {
       const pwd = document.getElementById('authPassword');
@@ -548,9 +652,8 @@
           return;
         }
       } else {
-        const cleanLoginId = email.replace(/\s+/g, '');
-        if (!email || (!emailRegex.test(email) && !phoneRegex.test(cleanLoginId))) {
-          showAuthError('Vui lòng nhập đúng định dạng Email hoặc Số điện thoại 10 chữ số.');
+        if (!email || !emailRegex.test(email)) {
+          showAuthError('Vui lòng nhập đúng định dạng Email (Ví dụ: name@example.com).');
           document.getElementById('authEmail').focus();
           return;
         }
@@ -560,6 +663,12 @@
         if (password.length < 8) {
           showAuthError('Mật khẩu phải có độ dài tối thiểu từ 8 ký tự trở lên.');
           document.getElementById('authPassword').focus();
+          return;
+        }
+        const confirmPassword = document.getElementById('authConfirmPassword') ? document.getElementById('authConfirmPassword').value : '';
+        if (password !== confirmPassword) {
+          showAuthError('Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại.');
+          if (document.getElementById('authConfirmPassword')) document.getElementById('authConfirmPassword').focus();
           return;
         }
         const consentCb = document.getElementById('modalConsentCheckbox');
@@ -583,8 +692,44 @@
 
       try {
         const isReg = (currentAuthTab === 'register');
+        const regOtpWrap = document.getElementById('registerOtpWrap');
+        const regOtpInp = document.getElementById('authRegisterOtp');
+        const otpVisible = (regOtpWrap && regOtpWrap.style.display !== 'none');
+
+        if (isReg && !otpVisible) {
+          const otpResp = await fetch('index.php?action=register_send_otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ name, email, password })
+          });
+          const otpRes = await otpResp.json();
+          if (!otpRes.success) {
+            showAuthError(otpRes.message || 'Không thể gửi mã xác thực email.');
+            return;
+          }
+          if (otpRes.require_otp) {
+            regOtpWrap.style.display = 'block';
+            const errEl = document.getElementById('authError');
+            if (errEl) errEl.style.display = 'none';
+            const succ = document.getElementById('authSuccess');
+            if (succ) {
+              succ.innerHTML = '<span style="color: #2e7d32; font-weight: bold; margin-right: 4px;">✓</span> ' + otpRes.message;
+              succ.style.display = 'block';
+            }
+            if (regOtpInp) regOtpInp.focus();
+            return;
+          }
+        }
+
+        const otpVal = (isReg && otpVisible && regOtpInp) ? regOtpInp.value.trim() : '';
+        if (isReg && otpVisible && !/^\d{6}$/.test(otpVal)) {
+          showAuthError('Vui lòng nhập đủ 6 chữ số mã OTP đã gửi về email.');
+          if (regOtpInp) regOtpInp.focus();
+          return;
+        }
+
         const endpoint = isReg ? 'index.php?action=register_submit' : 'index.php?action=login_submit';
-        const payload = isReg ? { name, email, phone, address, password } : { email, password };
+        const payload = isReg ? { name, email, phone, address, password, otp: otpVal } : { email, password };
 
         const resp = await fetch(endpoint, {
           method: 'POST',
@@ -598,6 +743,14 @@
 
         if (isReg) {
           if (res.success) {
+            const errEl = document.getElementById('authError');
+            if (errEl) errEl.style.display = 'none';
+            const remCb = document.getElementById('authRememberMe');
+            if (remCb && remCb.checked) {
+              try { localStorage.setItem('kibo_remember_email', email); } catch (e) {}
+            } else {
+              try { localStorage.removeItem('kibo_remember_email'); } catch (e) {}
+            }
             switchAuthTab('login');
             document.getElementById('authEmail').value = email;
             document.getElementById('authPassword').value = '';
@@ -615,6 +768,14 @@
           }
         } else {
           if (res.success) {
+            const errEl = document.getElementById('authError');
+            if (errEl) errEl.style.display = 'none';
+            const remCb = document.getElementById('authRememberMe');
+            if (remCb && remCb.checked) {
+              try { localStorage.setItem('kibo_remember_email', email); } catch (e) {}
+            } else {
+              try { localStorage.removeItem('kibo_remember_email'); } catch (e) {}
+            }
             const userName = (res.user && (res.user.HoTen || res.user.TenDangNhap)) ? (res.user.HoTen || res.user.TenDangNhap) : '';
             const welcomeMsg = 'Đăng nhập thành công! Xin chào ' + (userName || 'bạn');
 
@@ -650,10 +811,12 @@
         submitBtn.disabled = false;
         const isLogin = (currentAuthTab === 'login');
         submitBtn.className = isLogin ? 'btn primary confirm' : 'btn primary green-button';
-        submitBtn.innerHTML = (isLogin ? 'Đăng nhập ngay ' : 'Tạo tài khoản khách hàng ') + '<?= kibo_icon('arrow', 18) ?>';
+        submitBtn.innerHTML = (isLogin ? 'Đăng nhập ngay ' : 'Tạo tài khoản ') + '<?= kibo_icon('arrow', 18) ?>';
       }
     }
     function showAuthError(msg) {
+      const succ = document.getElementById('authSuccess');
+      if (succ) succ.style.display = 'none';
       const err = document.getElementById('authError');
       err.textContent = msg;
       err.style.display = 'block';

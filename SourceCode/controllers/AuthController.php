@@ -88,10 +88,43 @@ class AuthController {
             }
         }
 
-        $res = TaiKhoanModel::registerUser($data);
-
         $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') || 
                   (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false);
+
+        require_once __DIR__ . '/../models/MailHelper.php';
+        if (MailHelper::isConfigured()) {
+            $otp = trim((string)($data['otp'] ?? ''));
+            $regEmail = strtolower(trim((string)($data['email'] ?? '')));
+            $savedOtp = $_SESSION['kibo_register_otp'] ?? null;
+
+            $otpError = null;
+            if (!$savedOtp || ($savedOtp['email'] ?? '') !== $regEmail) {
+                $otpError = 'Vui lòng bấm gửi mã xác thực OTP về email trước khi tạo tài khoản.';
+            } elseif (time() > (int)($savedOtp['expires'] ?? 0)) {
+                unset($_SESSION['kibo_register_otp']);
+                $otpError = 'Mã OTP đã hết hạn. Vui lòng gửi lại mã mới.';
+            } elseif ((int)($savedOtp['attempts'] ?? 0) >= 5) {
+                unset($_SESSION['kibo_register_otp']);
+                $otpError = 'Bạn đã nhập sai OTP quá 5 lần. Vui lòng yêu cầu mã mới.';
+            } elseif ($otp === '' || !password_verify($otp, (string)($savedOtp['otp_hash'] ?? ''))) {
+                $_SESSION['kibo_register_otp']['attempts'] = (int)($savedOtp['attempts'] ?? 0) + 1;
+                $otpError = 'Mã xác thực OTP không chính xác.';
+            }
+
+            if ($otpError !== null) {
+                if ($isAjax) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode(['success' => false, 'message' => $otpError], JSON_UNESCAPED_UNICODE);
+                    return;
+                }
+                $_SESSION['register_error'] = $otpError;
+                header('Location: index.php?action=register');
+                exit;
+            }
+            unset($_SESSION['kibo_register_otp']);
+        }
+
+        $res = TaiKhoanModel::registerUser($data);
 
         if ($res['success']) {
             require_once __DIR__ . '/../models/VoucherModel.php';

@@ -31,11 +31,25 @@ $currentUser = $_SESSION['user'] ?? null;
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 
   <!-- CSS Chính -->
-  <link rel="stylesheet" href="assets/css/style.css?v=<?= time() ?>">
+  <link rel="stylesheet" href="assets/css/style.css?v=<?= @filemtime(__DIR__ . '/../../assets/css/style.css') ?: '1' ?>">
   <script>
     window.KIBO_BUSINESS = <?= json_encode(require __DIR__ . '/../../config/business.php') ?>;
     window.KIBO_USER = <?= json_encode($currentUser ? ['makh' => $currentUser['MaKH'] ?? null, 'vaitro' => $currentUser['VaiTro'] ?? null] : null) ?>;
     window.KIBO_CSRF_TOKEN = <?= json_encode(function_exists('getCsrfToken') ? getCsrfToken() : ($_SESSION['csrf_token'] ?? '')) ?>;
+    (function() {
+      const origFetch = window.fetch;
+      window.fetch = function(input, init) {
+        init = init || {};
+        const method = String(init.method || 'GET').toUpperCase();
+        const url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+        if (method === 'POST' && window.KIBO_CSRF_TOKEN && (!/^https?:\/\//i.test(url) || url.indexOf(window.location.origin) === 0)) {
+          const headers = new Headers(init.headers || {});
+          if (!headers.has('X-CSRF-Token')) headers.set('X-CSRF-Token', window.KIBO_CSRF_TOKEN);
+          init.headers = headers;
+        }
+        return origFetch.call(this, input, init);
+      };
+    })();
   </script>
 </head>
 <body>
@@ -57,7 +71,7 @@ $currentUser = $_SESSION['user'] ?? null;
             <?= kibo_icon('user', 14) ?> Xin chào, <strong><?= htmlspecialchars($currentUser['HoTen'] ?? $currentUser['TenDangNhap'] ?? 'Thành viên') ?></strong>
           </a>
           <i></i>
-          <a href="index.php?action=logout" style="color: #ffccbc;">[Đăng xuất]</a>
+          <a href="index.php?action=logout" onclick="try{localStorage.removeItem('kibo_cart_items_v2');localStorage.removeItem('kibo_cart_owner');localStorage.removeItem('kibo_customer_info');}catch(e){}" style="color: #ffccbc;">[Đăng xuất]</a>
         <?php else: ?>
           <a href="index.php?action=login" onclick="openAuthModal(); return false;">
             <?= kibo_icon('user', 14) ?> Đăng nhập / Đăng ký
@@ -99,7 +113,7 @@ $currentUser = $_SESSION['user'] ?? null;
       <button type="button" class="cart-btn" onclick="openCartModal()" title="Xem giỏ hàng">
         <?= kibo_icon('cart', 24) ?>
         <span class="cart-copy">
-          <strong id="headerCartCountText">(1) Sản phẩm</strong>
+          <strong id="headerCartCountText">(0) Sản phẩm</strong>
           <small>Giỏ hàng</small>
         </span>
       </button>

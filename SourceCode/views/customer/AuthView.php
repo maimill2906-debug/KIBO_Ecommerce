@@ -56,13 +56,13 @@ $initialMode = (($_GET['action'] ?? '') === 'register' || $registerError) && !$r
         </div>
 
         <label class="field">
-          <span id="pageAuthEmailLabel">Email hoặc Số điện thoại *</span>
-          <input type="text" name="email" id="pageAuthEmail" placeholder="Email hoặc Số điện thoại của bạn" value="<?= htmlspecialchars($registeredEmail) ?>" required>
+          <span id="pageAuthEmailLabel">Email *</span>
+          <input type="email" name="email" id="pageAuthEmail" placeholder="Ví dụ: name@example.com" value="<?= htmlspecialchars($registeredEmail) ?>" required>
         </label>
 
         <div id="pageRegisterFieldsMore" style="display: none;">
           <label class="field" style="margin-top: 14px;">
-            <span>Số điện thoại * (dùng để đăng nhập hoặc giao hàng)</span>
+            <span>Số điện thoại *</span>
             <input type="tel" name="phone" id="pageAuthPhone" placeholder="Ví dụ: 0912345678 (10 số)" pattern="0[0-9]{9}" title="Vui lòng nhập số điện thoại Việt Nam gồm 10 chữ số bắt đầu bằng 0">
           </label>
           <label class="field" style="margin-top: 14px;">
@@ -80,6 +80,18 @@ $initialMode = (($_GET['action'] ?? '') === 'register' || $registerError) && !$r
             </button>
           </span>
         </label>
+
+        <div id="pageRegisterConfirmWrap" style="display: none; margin-top: 14px;">
+          <label class="field password-field">
+            <span>Xác nhận lại mật khẩu *</span>
+            <span class="password-input">
+              <input type="password" name="confirm_password" id="pageAuthConfirmPassword" placeholder="Nhập lại mật khẩu">
+              <button type="button" class="btn password-toggle" onclick="togglePagePassword(this)">
+                <?= kibo_icon('eye', 18) ?>
+              </button>
+            </span>
+          </label>
+        </div>
 
         <div id="pageRegisterConsentWrap" style="display: none; margin-top: 14px; padding: 10px 12px; background: #fbf9f6; border: 1px solid #e6dfd7; border-radius: 6px;">
           <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 12.8px; color: #4a3f37; line-height: 1.45; cursor: pointer;">
@@ -112,6 +124,8 @@ function switchPageAuthTab(mode) {
   const regFields = document.getElementById('pageRegisterFields');
   const regFieldsMore = document.getElementById('pageRegisterFieldsMore');
   const regConsent = document.getElementById('pageRegisterConsentWrap');
+  const regConfirmWrap = document.getElementById('pageRegisterConfirmWrap');
+  const regConfirmInp = document.getElementById('pageAuthConfirmPassword');
   const loginOpts = document.getElementById('pageLoginOptions');
   const modeInput = document.getElementById('pageAuthMode');
   const submitBtn = document.getElementById('pageAuthSubmitBtn');
@@ -125,26 +139,30 @@ function switchPageAuthTab(mode) {
     regFields.style.display = 'none';
     regFieldsMore.style.display = 'none';
     if (regConsent) regConsent.style.display = 'none';
+    if (regConfirmWrap) regConfirmWrap.style.display = 'none';
+    if (regConfirmInp) regConfirmInp.required = false;
     loginOpts.style.display = 'flex';
     modeInput.value = 'login';
     form.action = 'index.php?action=login_submit';
     btnText.textContent = 'Đăng nhập ngay';
     submitBtn.classList.remove('green-button');
-    if (emailLabel) emailLabel.textContent = 'Email hoặc Số điện thoại *';
-    if (emailInput) emailInput.placeholder = 'Email hoặc Số điện thoại của bạn';
+    if (emailLabel) emailLabel.textContent = 'Email *';
+    if (emailInput) emailInput.placeholder = 'Ví dụ: name@example.com';
   } else {
     tabReg.classList.add('active');
     tabLogin.classList.remove('active');
     regFields.style.display = 'block';
-    regFieldsMore.style.display = 'block';
+    regFieldsMore.style.display = 'none';
     if (regConsent) regConsent.style.display = 'block';
+    if (regConfirmWrap) regConfirmWrap.style.display = 'block';
+    if (regConfirmInp) regConfirmInp.required = true;
     loginOpts.style.display = 'none';
     modeInput.value = 'register';
     form.action = 'index.php?action=register_submit';
-    btnText.textContent = 'Tạo tài khoản khách hàng';
+    btnText.textContent = 'Tạo tài khoản';
     submitBtn.classList.add('green-button');
-    if (emailLabel) emailLabel.textContent = 'Địa chỉ email *';
-    if (emailInput) emailInput.placeholder = 'Email của bạn';
+    if (emailLabel) emailLabel.textContent = 'Địa chỉ Email *';
+    if (emailInput) emailInput.placeholder = 'Ví dụ: name@example.com';
   }
 }
 
@@ -207,6 +225,15 @@ document.addEventListener('DOMContentLoaded', () => {
           errBox.textContent = 'Mật khẩu phải có độ dài tối thiểu từ 8 ký tự trở lên.';
           errBox.style.display = 'block';
           document.getElementById('pageAuthPassword').focus();
+          return;
+        }
+
+        const confirmPwdEl = document.getElementById('pageAuthConfirmPassword');
+        if (confirmPwdEl && password !== confirmPwdEl.value) {
+          e.preventDefault();
+          errBox.textContent = 'Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại.';
+          errBox.style.display = 'block';
+          confirmPwdEl.focus();
           return;
         }
 

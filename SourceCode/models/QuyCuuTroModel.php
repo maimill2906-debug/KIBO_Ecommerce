@@ -32,6 +32,12 @@ class QuyCuuTroModel {
                           FROM chung_tu_giai_ngan";
                 $rowGN = $db->query($sqlGN)->fetch();
 
+                // 3b. Quỹ sẵn sàng giải ngân thực tế = các khoản 'Đã trích quỹ' chưa gắn chứng từ
+                $sqlReady = "SELECT COALESCE(SUM(sotiendonggop), 0) 
+                             FROM quy_cuu_tro 
+                             WHERE trangthaiquy = '" . TrangThai::QUY_DA_TRICH . "' AND machungtu IS NULL";
+                $sanSangGiaiNgan = (float)$db->query($sqlReady)->fetchColumn();
+
                 // 4. Số trạm = COUNT với trangthaihoptac = 'Đang hợp tác'
                 $sqlTram = "SELECT COUNT(matram) as so_tram FROM tram_cuu_ho WHERE trangthaihoptac = 'Đang hợp tác'";
                 $rowTram = $db->query($sqlTram)->fetch();
@@ -44,6 +50,7 @@ class QuyCuuTroModel {
                     'DangChoTrich'   => (float)($rowCho['dang_cho_trich'] ?? 0),
                     'SoDonChoTrich'  => (int)($rowCho['so_don_cho'] ?? 0),
                     'TongGiaiNgan'   => (float)($rowGN['tong_giai_ngan'] ?? 0),
+                    'SanSangGiaiNgan'=> $sanSangGiaiNgan,
                     'KyGiaiNgan'     => $kyGN,
                     'SoTramDoiTac'   => (int)($rowTram['so_tram'] ?? 0),
                     'error'          => null

@@ -112,7 +112,24 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="assets/css/style.css?v=<?= time() ?>">
+  <link rel="stylesheet" href="assets/css/style.css?v=<?= @filemtime(__DIR__ . '/../../assets/css/style.css') ?: '1' ?>">
+  <script>
+    window.KIBO_CSRF_TOKEN = <?= json_encode(function_exists('getCsrfToken') ? getCsrfToken() : ($_SESSION['csrf_token'] ?? '')) ?>;
+    (function() {
+      const origFetch = window.fetch;
+      window.fetch = function(input, init) {
+        init = init || {};
+        const method = String(init.method || 'GET').toUpperCase();
+        const url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+        if (method === 'POST' && window.KIBO_CSRF_TOKEN && (!/^https?:\/\//i.test(url) || url.indexOf(window.location.origin) === 0)) {
+          const headers = new Headers(init.headers || {});
+          if (!headers.has('X-CSRF-Token')) headers.set('X-CSRF-Token', window.KIBO_CSRF_TOKEN);
+          init.headers = headers;
+        }
+        return origFetch.call(this, input, init);
+      };
+    })();
+  </script>
 </head>
 <body class="ops-admin">
 
@@ -138,9 +155,18 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
         <select id="adminTimeRange" onchange="handleTimeRangeChange(this.value)">
           <option value="7">7 ngày gần nhất</option>
           <option value="30" selected>30 ngày gần nhất</option>
-          <option value="90">Quý này</option>
+          <option value="90">Quý này (90 ngày)</option>
+          <option value="365">Cả năm nay</option>
+          <option value="custom">Tùy chọn ngày...</option>
         </select>
       </label>
+      <div id="customDateRangeWrap" style="display: none; align-items: center; gap: 6px; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 4px 8px; font-size: 12.5px;">
+        <span style="color: #666;">Từ</span>
+        <input type="date" id="customStartDate" style="border: 1px solid #ccc; border-radius: 4px; padding: 3px 6px; font-size: 12px;">
+        <span style="color: #666;">đến</span>
+        <input type="date" id="customEndDate" style="border: 1px solid #ccc; border-radius: 4px; padding: 3px 6px; font-size: 12px;">
+        <button type="button" onclick="applyCustomDateRange()" class="ops-secondary-button" style="padding: 4px 10px; font-size: 12px; height: auto;">Lọc</button>
+      </div>
 
       <!-- Chuông thông báo -->
       <div class="ops-notification-wrap">
@@ -341,7 +367,12 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
               <h2>Danh sách đơn hàng</h2>
               <p id="ordersCountDesc">5 đơn trong kỳ đã chọn</p>
             </div>
-            <button type="button" class="ops-secondary-button" onclick="exportOrdersCSV()">Xuất danh sách</button>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              <button type="button" class="ops-primary-button" onclick="autoProcessOrders()" title="Tự động duyệt các đơn COD & đơn Online đã thanh toán, đồng thời sinh mã vận đơn GHN hàng loạt" style="padding: 8px 14px; font-size: 13px; background: #166534; color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">⚡ Duyệt &amp; Cấp vận đơn hàng loạt</button>
+              <button type="button" class="ops-secondary-button" onclick="batchDispatchOrders()" title="Xuất kho & bàn giao tất cả đơn Chờ đóng gói cho đơn vị vận chuyển">🚚 Bàn giao ĐVVC hàng loạt</button>
+              <a href="index.php?action=admin_print_batch_orders" target="_blank" class="ops-secondary-button" style="text-decoration: none; display: inline-flex; align-items: center;">🖨️ In phiếu đóng gói hàng loạt</a>
+              <button type="button" class="ops-secondary-button" onclick="exportOrdersCSV()">Xuất danh sách</button>
+            </div>
           </div>
           <div class="ops-table-wrap">
             <table class="ops-table ops-orders-table" id="ordersMainTable">
@@ -424,7 +455,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
            ================================================================ -->
       <div id="tabContent_fund" class="tab-pane" style="display: none;">
         <?php 
-          $choGiaiNgan = max(0, $fundSummary['TongTichLuy'] - $fundSummary['TongGiaiNgan']);
+          $choGiaiNgan = (float)($fundSummary['SanSangGiaiNgan'] ?? max(0, $fundSummary['TongTichLuy'] - $fundSummary['TongGiaiNgan']));
         ?>
         <section class="ops-summary-row fund-summary" style="margin-top: 18px;">
           <div>
@@ -433,7 +464,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
             <p>Từ <?= (int)$fundSummary['SoDonDongGop'] ?> đơn giao thành công</p>
           </div>
           <div>
-            <small>Đã giải ngân thực tế</small>
+            <small>Đã giải ngân</small>
             <strong style="color: #1565c0;"><?= number_format($fundSummary['TongGiaiNgan'], 0, ',', '.') ?>đ</strong>
             <p>Kỳ gần nhất: <?= htmlspecialchars($fundSummary['KyGiaiNgan']) ?></p>
           </div>
@@ -449,11 +480,12 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
           <div class="ops-card-head" style="display: flex; justify-content: space-between; align-items: center;">
             <div>
               <h2>Chứng từ Giải ngân Quỹ</h2>
-              <p>Danh sách các đợt chuyển khoản thực tế cho các Trạm cứu hộ đối tác</p>
+              <p>Danh sách các đợt chuyển khoản cho Trạm cứu hộ</p>
             </div>
-            <button type="button" class="ops-primary-button" onclick="openDisbursementModal()" style="display: flex; align-items: center; gap: 6px;">
-              <?= kibo_icon('plus', 16) ?> Lập chứng từ giải ngân
-            </button>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              <button type="button" class="ops-secondary-button" onclick="openAddShelterModal()">+ Thêm trạm mới</button>
+              <button type="button" class="ops-secondary-button" onclick="openDisbursementModal()">+ Lập chứng từ giải ngân</button>
+            </div>
           </div>
           <div class="ops-table-wrap">
             <table class="ops-table">
@@ -504,9 +536,9 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
           <div class="ops-card-head">
             <div>
               <h2>Chi tiết các khoản trích 5% từ Đơn hàng</h2>
-              <p>Minh bạch 100% dòng tiền từ cơ sở dữ liệu thật</p>
+              <p>Danh sách các khoản trích 5% từ đơn hàng</p>
             </div>
-            <button type="button" class="ops-secondary-button" onclick="showAdminToast('Tải báo cáo', 'Đang kết xuất báo cáo Quỹ Cứu Trợ...')">Tải báo cáo Excel</button>
+            <button type="button" class="ops-secondary-button" onclick="exportFundReportCSV()">Tải báo cáo Excel</button>
           </div>
           <div class="ops-table-wrap">
             <table class="ops-table">
@@ -558,7 +590,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
             <div class="ops-card-head">
               <div>
                 <h2>Xuất báo cáo theo kỳ</h2>
-                <p>Xuất dữ liệu thực tế từ hệ thống ra file định dạng Excel CSV (hỗ trợ tiếng Việt UTF-8 BOM)</p>
+                <p>Xuất dữ liệu báo cáo ra file Excel (CSV)</p>
               </div>
             </div>
             <div class="ops-report-list">
@@ -668,7 +700,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
               <div class="ops-card-head">
                 <div>
                   <h2>Đối soát tài chính &amp; Quỹ cứu trợ 5%</h2>
-                  <p>Số liệu đối soát tự động từ CSDL PostgreSQL</p>
+                  <p>Tổng hợp doanh thu và lịch sử giao dịch</p>
                 </div>
               </div>
               <div style="padding: 18px; display: flex; flex-direction: column; gap: 14px;">
@@ -717,7 +749,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
           <div class="ops-card-head">
             <div>
               <h2>Danh sách yêu cầu đổi trả hàng</h2>
-              <p>Chính sách đổi trả trong vòng 3 ngày theo quy định CSDL KIBO</p>
+              <p>Tiếp nhận và xử lý yêu cầu đổi trả trong vòng 3 ngày</p>
             </div>
             <span style="font-size: 13.5px; color: #666;">Tổng cộng: <strong><?= count($dbReturns) ?></strong> yêu cầu</span>
           </div>
@@ -975,9 +1007,16 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
                     - PT: <strong><?= htmlspecialchars($rec['phuongthuctt']) ?></strong>
                     <span style="color: #c2410c; margin-left: 6px;">[<?= htmlspecialchars($rec['lydodoisoat']) ?>]</span>
                   </div>
-                  <button type="button" onclick="adminConfirmPayment('<?= htmlspecialchars($rec['magiaodich']) ?>')" style="padding: 4px 10px; background: #2e7d32; color: #fff; border: none; border-radius: 3px; font-size: 12px; font-weight: bold; cursor: pointer;">
-                    ✓ Đã nhận tiền
-                  </button>
+                  <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
+                    <button type="button" onclick="adminConfirmPayment('<?= htmlspecialchars($rec['magiaodich']) ?>')" style="padding: 4px 10px; background: #2e7d32; color: #fff; border: none; border-radius: 3px; font-size: 12px; font-weight: bold; cursor: pointer;">
+                      ✓ Đã nhận tiền
+                    </button>
+                    <?php if (($rec['trangthaidonhang'] ?? '') !== 'Giao thành công'): ?>
+                      <button type="button" onclick="adminCancelReconcileOrder('<?= htmlspecialchars($rec['madonhang']) ?>')" style="padding: 4px 10px; background: #ffffff; color: #c94336; border: 1px solid #f5c2c7; border-radius: 3px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                        Hủy đơn
+                      </button>
+                    <?php endif; ?>
+                  </div>
                 </div>
               <?php endforeach; ?>
             </div>
@@ -1083,7 +1122,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       fund: { title: 'Đối soát Quỹ cứu trợ', desc: 'Theo dõi khoản trích 5% và lịch sử giải ngân.' },
       vouchers: { title: 'Quản lý mã giảm giá', desc: 'Tạo mới, kích hoạt hoặc vô hiệu hóa các mã ưu đãi khách hàng.' },
       reports: { title: 'Báo cáo kinh doanh', desc: 'Tổng hợp số liệu theo thời gian và danh mục.' },
-      returns: { title: 'Quản lý yêu cầu đổi trả', desc: 'Tiếp nhận và xử lý yêu cầu đổi trả 3 ngày theo quy định CSDL.' },
+      returns: { title: 'Quản lý yêu cầu đổi trả', desc: 'Tiếp nhận và xử lý yêu cầu đổi trả trong vòng 3 ngày.' },
       customers: { title: 'Quản lý khách hàng', desc: 'Danh sách khách hàng, theo dõi chi tiêu và phân quyền khóa tài khoản.' },
       payments: { title: 'Giao dịch thanh toán & Đối soát', desc: 'Theo dõi dòng tiền thanh toán VietQR / COD và xác nhận nhận tiền.' }
     };
@@ -1332,7 +1371,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
           closeRestockModal();
           showAdminToast('Nhập kho thành công', res.message || `Đã cộng thêm +${qty} món vào kho.`, 'success');
         } else {
-          showAdminToast('Lỗi nhập kho', res.error || 'Không thể cộng tồn kho vào CSDL.', 'error');
+          showAdminToast('Lỗi nhập kho', res.error || 'Không thể cập nhật tồn kho.', 'error');
         }
       } catch (err) {
         showAdminToast('Lỗi kết nối', err.message, 'error');
@@ -1744,6 +1783,8 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       const maxDisc = (maxDiscInp && maxDiscInp.value) ? parseFloat(maxDiscInp.value) : null;
       const qty = parseInt(document.getElementById('newVoucherQty').value) || 100;
       const endDate = document.getElementById('newVoucherEndDate').value || null;
+      const pubEl = document.getElementById('newVoucherPublic');
+      const isPublic = !pubEl || pubEl.value === '1';
 
       const btn = document.getElementById('btnSaveNewVoucher');
       btn.disabled = true;
@@ -1761,7 +1802,8 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
             dontoithieu: minSpend,
             giamtoida: maxDisc,
             soluongphathanh: qty,
-            ngayketthuc: endDate
+            ngayketthuc: endDate,
+            congkhai: isPublic
           })
         });
         const res = await resp.json();
@@ -2005,11 +2047,57 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
     }
 
     // 6. RENDER BẢNG ĐƠN HÀNG
+    function parseOrderDateObj(dStr) {
+      if (!dStr) return null;
+      const datePart = String(dStr).trim().split(' ')[0];
+      const parts = datePart.split('/');
+      if (parts.length < 3) return null;
+      const d = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const y = parseInt(parts[2], 10);
+      if (isNaN(d) || isNaN(m) || isNaN(y)) return null;
+      return new Date(y, m, d);
+    }
+
+    function getOrdersInSelectedRange() {
+      if (selectedRange === 'custom') {
+        const sVal = document.getElementById('customStartDate')?.value;
+        const eVal = document.getElementById('customEndDate')?.value;
+        const sDate = sVal ? new Date(sVal + 'T00:00:00') : null;
+        const eDate = eVal ? new Date(eVal + 'T23:59:59') : null;
+        return ordersData.filter(o => {
+          const od = parseOrderDateObj(o.date);
+          if (!od) return false;
+          if (sDate && od < sDate) return false;
+          if (eDate && od > eDate) return false;
+          return true;
+        });
+      }
+      const days = parseInt(selectedRange, 10) || 30;
+      if (days >= 365) {
+        const curYear = new Date().getFullYear();
+        return ordersData.filter(o => {
+          const od = parseOrderDateObj(o.date);
+          return !od || od.getFullYear() === curYear;
+        });
+      }
+      const cutoff = new Date();
+      cutoff.setHours(0, 0, 0, 0);
+      cutoff.setDate(cutoff.getDate() - days + 1);
+      return ordersData.filter(o => {
+        const od = parseOrderDateObj(o.date);
+        return !od || od >= cutoff;
+      });
+    }
+
     function renderOrders() {
       const q = searchQuery.toLowerCase().trim();
-      const filtered = q ? ordersData.filter(o => 
+      const rangedOrders = getOrdersInSelectedRange();
+      const filtered = q ? rangedOrders.filter(o => 
         (o.id + ' ' + o.customer + ' ' + o.phone + ' ' + o.items).toLowerCase().includes(q)
-      ) : ordersData;
+      ) : rangedOrders;
+      const descEl = document.getElementById('ordersCountDesc');
+      if (descEl) descEl.textContent = `${filtered.length} đơn trong kỳ đã chọn`;
 
       const tbody = document.getElementById('ordersTableBody');
       if (tbody) {
@@ -2037,6 +2125,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
           } else if (order.status === 'Đang giao' || order.status === 'Đang giao hàng') {
             quickBtn = `
               <button type="button" class="ops-row-action" style="background: #1565c0; color: #ffffff; border: none; font-weight: 700; margin-left: 6px;" onclick="updateOrderStatus('${order.id}', 'Giao thành công')">Giao thành công</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #c94336; border: 1px solid #dcdcdc; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hoàn hàng</button>
             `;
           }
 
@@ -2139,6 +2228,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
         } else if (order.status === 'Đang giao' || order.status === 'Đang giao hàng') {
           btns = `
             <button type="button" onclick="updateCurrentOrderModalStatus('Giao thành công')" style="padding: 6px 12px; background: #1565c0; color: #fff; border: none; border-radius: 3px; font-size: 12.5px; font-weight: bold; cursor: pointer;">Giao thành công</button>
+            <button type="button" onclick="updateCurrentOrderModalStatus('Đã hủy')" style="padding: 6px 10px; background: #fff; color: #c94336; border: 1px solid #ccc; border-radius: 3px; font-size: 12.5px; cursor: pointer;">Giao thất bại / Hoàn kho</button>
           `;
         } else {
           btns = `<span style="font-size: 12px; color: #666; font-style: italic;">Đơn hàng đã kết thúc chu trình (${order.status})</span>`;
@@ -2157,18 +2247,11 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
     }
 
     async function updateOrderStatus(orderId, newStatus) {
-      let maVanDon = null;
-      if (newStatus === 'Đã xuất kho') {
-        const inputVD = prompt('Nhập mã vận đơn (Tracking Code) đơn vị vận chuyển (để trống nếu sinh tự động):');
-        if (inputVD !== null && inputVD.trim()) {
-          maVanDon = inputVD.trim();
-        }
-      }
       try {
         const resp = await fetch('index.php?action=admin_update_order_status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ madonhang: orderId, trangthai: newStatus, mavandon: maVanDon })
+          body: JSON.stringify({ madonhang: orderId, trangthai: newStatus })
         });
         const res = await resp.json();
         if (res.success) {
@@ -2181,6 +2264,43 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
           showAdminToast('Cập nhật thành công', `Đơn hàng #${orderId} đã chuyển sang trạng thái: "${newStatus}".`, 'success');
         } else {
           showAdminToast('Bị từ chối', res.message || 'Không thể cập nhật trạng thái đơn hàng.', 'error');
+        }
+      } catch (e) {
+        showAdminToast('Lỗi kết nối', e.message, 'error');
+      }
+    }
+
+    async function adminCancelReconcileOrder(orderId) {
+      if (!confirm(`Xác nhận hủy đơn quá hạn #${orderId} và hoàn lại tồn kho?`)) return;
+      await updateOrderStatus(orderId, 'Đã hủy');
+      setTimeout(() => location.reload(), 700);
+    }
+
+    async function autoProcessOrders() {
+      try {
+        const resp = await fetch('index.php?action=admin_auto_process_orders', { method: 'POST' });
+        const res = await resp.json();
+        if (res && res.success) {
+          showAdminToast('Tự động hóa thành công', res.message || 'Đã duyệt & cấp mã vận đơn hàng loạt.', 'success');
+          if (res.processed > 0) setTimeout(() => location.reload(), 900);
+        } else {
+          showAdminToast('Thông báo', (res && res.message) || 'Không thể xử lý tự động.', 'error');
+        }
+      } catch (e) {
+        showAdminToast('Lỗi kết nối', e.message, 'error');
+      }
+    }
+
+    async function batchDispatchOrders() {
+      if (!confirm('Xác nhận xuất kho & bàn giao tất cả đơn "Chờ đóng gói" cho đơn vị vận chuyển?')) return;
+      try {
+        const resp = await fetch('index.php?action=admin_batch_dispatch_orders', { method: 'POST' });
+        const res = await resp.json();
+        if (res && res.success) {
+          showAdminToast('Bàn giao ĐVVC thành công', res.message || 'Đã bàn giao hàng loạt.', 'success');
+          if (res.dispatched > 0) setTimeout(() => location.reload(), 900);
+        } else {
+          showAdminToast('Thông báo', (res && res.message) || 'Không thể bàn giao hàng loạt.', 'error');
         }
       } catch (e) {
         showAdminToast('Lỗi kết nối', e.message, 'error');
@@ -2267,12 +2387,13 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
     }
 
     function renderOverviewKPIs() {
+      const rangedOrders = getOrdersInSelectedRange();
       let deliveredRev = 0;
       let deliveredCount = 0;
       let newCount = 0;
-      let totalOrders = ordersData.length;
+      let totalOrders = rangedOrders.length;
 
-      ordersData.forEach(o => {
+      rangedOrders.forEach(o => {
         const st = o.status;
         const tot = parseInt(String(o.total).replace(/\D/g, '')) || 0;
         if (st === 'Giao thành công' || st === 'Giao hàng thành công' || st === 'Đã giao') {
@@ -2299,7 +2420,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       if (!chartContainer) return;
 
       const agg = {};
-      ordersData.forEach(o => {
+      getOrdersInSelectedRange().forEach(o => {
         let dStr = o.date;
         if (!dStr) return;
         const parts = dStr.split('/');
@@ -2433,13 +2554,55 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
 
     function handleTimeRangeChange(val) {
       selectedRange = val;
+      const customWrap = document.getElementById('customDateRangeWrap');
+      if (val === 'custom') {
+        if (customWrap) customWrap.style.display = 'flex';
+        const sInp = document.getElementById('customStartDate');
+        const eInp = document.getElementById('customEndDate');
+        const today = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+        if (sInp && !sInp.value) sInp.value = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-01`;
+        if (eInp && !eInp.value) eInp.value = todayStr;
+        applyCustomDateRange();
+        return;
+      }
+      if (customWrap) customWrap.style.display = 'none';
+
+      const labelMap = {
+        '7': '7 ngày gần nhất',
+        '30': '30 ngày gần nhất',
+        '90': 'Quý này (90 ngày)',
+        '365': `Cả năm ${new Date().getFullYear()}`
+      };
+      const rangeLabel = labelMap[val] || `${val} ngày gần nhất`;
       const chartSub = document.getElementById('chartSubtext');
-      if (chartSub) chartSub.textContent = `${val} ngày gần nhất`;
+      if (chartSub) chartSub.textContent = rangeLabel;
       for (let i = 1; i <= 4; i++) {
         const rEl = document.getElementById('reportRange' + i);
-        if (rEl) rEl.textContent = `Dữ liệu ${val} ngày gần nhất`;
+        if (rEl) rEl.textContent = `Dữ liệu ${rangeLabel}`;
       }
-      renderRevenueChart(val);
+      renderOrders();
+      renderOverview();
+    }
+
+    function applyCustomDateRange() {
+      const sVal = document.getElementById('customStartDate')?.value || '';
+      const eVal = document.getElementById('customEndDate')?.value || '';
+      if (sVal && eVal && sVal > eVal) {
+        showAdminToast('Ngày không hợp lệ', 'Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.', 'error');
+        return;
+      }
+      const fmt = s => s ? s.split('-').reverse().join('/') : '...';
+      const rangeLabel = `Từ ${fmt(sVal)} đến ${fmt(eVal)}`;
+      const chartSub = document.getElementById('chartSubtext');
+      if (chartSub) chartSub.textContent = rangeLabel;
+      for (let i = 1; i <= 4; i++) {
+        const rEl = document.getElementById('reportRange' + i);
+        if (rEl) rEl.textContent = `Dữ liệu ${rangeLabel}`;
+      }
+      renderOrders();
+      renderOverview();
     }
 
     function toggleNotifications() {
@@ -2722,7 +2885,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
           showAdminToast('Đã xóa danh mục', res.message, 'success');
           setTimeout(() => location.reload(), 700);
         } else {
-          showAdminToast('Chặn xóa (Ràng buộc CSDL)', res.error || 'Không thể xóa danh mục.', 'error');
+          showAdminToast('Không thể xóa', res.error || 'Không thể xóa danh mục.', 'error');
         }
       } catch (e) {
         showAdminToast('Lỗi kết nối', e.message, 'error');
@@ -3150,6 +3313,14 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
                      style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; background: #fff; box-sizing: border-box; outline: none;">
             </div>
           </div>
+
+          <div>
+            <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Phạm vi hiển thị</label>
+            <select id="newVoucherPublic" style="width: 100%; height: 36px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; background: #fff; box-sizing: border-box; outline: none;">
+              <option value="1" selected>Công khai (Hiện gợi ý trên trang thanh toán)</option>
+              <option value="0">Mã bí mật (Ẩn khỏi trang web — chỉ nhập tay từ phiếu cảm ơn / CSKH)</option>
+            </select>
+          </div>
         </div>
         <div style="padding: 10px 16px; background: #f7f7f7; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 8px;">
           <button type="button" onclick="closeAddVoucherModal()" style="padding: 6px 14px; border: 1px solid #ccc; background: #fff; color: #333; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Hủy bỏ</button>
@@ -3161,11 +3332,63 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
     </div>
   </div>
 
+  <!-- MODAL THÊM TRẠM CỨU HỘ ĐỐI TÁC MỚI -->
+  <div id="addShelterModalBackdrop" onclick="if(event.target === this) closeAddShelterModal()" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 999999; place-items: center; padding: 16px; overflow-y: auto;">
+    <div style="background: #ffffff; width: min(560px, 95vw); border-radius: 6px; border: 1px solid #dcdcdc; box-shadow: 0 4px 20px rgba(0,0,0,0.18); overflow: hidden; font-family: Arial, sans-serif;">
+      <div style="background: #f7f7f7; padding: 14px 18px; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="margin: 0; font-size: 16px; font-weight: bold; color: #2c1a0e;">Thêm Trạm cứu hộ đối tác mới</h3>
+        <button type="button" onclick="closeAddShelterModal()" style="background: none; border: none; font-size: 18px; color: #666; cursor: pointer; line-height: 1; padding: 0 4px;">✕</button>
+      </div>
+      <form id="formAddShelter" onsubmit="adminSubmitAddShelter(event)">
+        <div style="padding: 18px; display: flex; flex-direction: column; gap: 12px; max-height: 75vh; overflow-y: auto;">
+          <div>
+            <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Tên trạm cứu hộ *</label>
+            <input type="text" id="shelterName" required placeholder="VD: Trạm Cứu Hộ Động Vật Bình Thạnh" style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Người đại diện</label>
+              <input type="text" id="shelterRep" placeholder="VD: Nguyễn Văn A" style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+            </div>
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Số điện thoại</label>
+              <input type="text" id="shelterPhone" placeholder="VD: 0901234567" style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px;">
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Khu vực</label>
+              <input type="text" id="shelterArea" value="TP.HCM" placeholder="TP.HCM / Hà Nội..." style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+            </div>
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Địa chỉ trạm</label>
+              <input type="text" id="shelterAddress" placeholder="Số nhà, đường, phường/xã..." style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Số tài khoản nhận quỹ *</label>
+              <input type="text" id="shelterBankAcc" required placeholder="VD: 0123456789" style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+            </div>
+            <div>
+              <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Ngân hàng *</label>
+              <input type="text" id="shelterBankName" required placeholder="VD: MB Bank / Vietcombank" style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+            </div>
+          </div>
+        </div>
+        <div style="padding: 12px 18px; background: #f7f7f7; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" onclick="closeAddShelterModal()" style="padding: 8px 16px; border: 1px solid #ccc; background: #fff; color: #333; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Hủy bỏ</button>
+          <button type="submit" id="btnSubmitAddShelter" style="padding: 8px 20px; border: none; background: #2c1a0e; color: #ffffff; border-radius: 4px; font-weight: bold; font-size: 13.5px; cursor: pointer;">Lưu trạm mới</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- MODAL LẬP CHỨNG TỪ GIẢI NGÂN QUỸ -->
   <div id="disbursementModalBackdrop" onclick="if(event.target === this) closeDisbursementModal()" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 999999; place-items: center; padding: 16px; overflow-y: auto;">
     <div style="background: #ffffff; width: min(680px, 95vw); border-radius: 6px; border: 1px solid #dcdcdc; box-shadow: 0 4px 20px rgba(0,0,0,0.18); overflow: hidden; font-family: Arial, sans-serif;">
       <div style="background: #f7f7f7; padding: 14px 18px; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between;">
-        <h3 style="margin: 0; font-size: 16px; font-weight: bold; color: #1565c0;">Lập chứng từ giải ngân Quỹ Cứu Trợ (Đối soát chuẩn 100%)</h3>
+        <h3 style="margin: 0; font-size: 16px; font-weight: bold; color: #1565c0;">Lập chứng từ giải ngân Quỹ</h3>
         <button type="button" onclick="closeDisbursementModal()" style="background: none; border: none; font-size: 18px; color: #666; cursor: pointer; line-height: 1; padding: 0 4px;">✕</button>
       </div>
       <form id="formDisbursement" onsubmit="adminSubmitDisbursement(event)">
@@ -3227,7 +3450,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
               </table>
             </div>
             <div id="disburseSelectionNote" style="font-size: 12px; color: #2e7d32; margin-top: 4px; font-weight: 500;">
-              Đã chọn 0 khoản | Khớp số tiền: 0đ
+              Đã chọn 0 khoản · Tổng: 0đ
             </div>
           </div>
 
@@ -3236,7 +3459,6 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
               <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Số tiền giải ngân (VNĐ) *</label>
               <input type="number" id="disburseAmount" required min="1000" step="1" readonly
                      style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; font-weight: bold; color: #1565c0; background: #f9f9f9; box-sizing: border-box;">
-              <small style="color: #666; font-size: 11px;">(Tự động tính bằng tổng các khoản đã tích chọn)</small>
             </div>
             <div>
               <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">Ngày chuyển khoản *</label>
@@ -3252,12 +3474,12 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
           </div>
 
           <div>
-            <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">File chứng từ sao kê / chuyển khoản (PDF, JPG, PNG, WEBP) *</label>
+            <label style="display: block; font-weight: bold; font-size: 13px; color: #333; margin-bottom: 5px;">File chứng từ / sao kê (PDF, ảnh) *</label>
             <input type="file" id="disburseFileInput" accept=".pdf,.png,.jpg,.jpeg,.webp"
                    style="width: 100%; padding: 6px 0; font-size: 13px; box-sizing: border-box;">
             <select id="disburseExistingFile" style="width: 100%; height: 34px; margin-top: 6px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; background: #fff; padding: 0 8px;">
-              <option value="">-- Hoặc chọn file chứng từ mẫu hợp lệ sẵn có --</option>
-              <option value="assets/docs/chung_tu_nong_lam_092026.pdf">assets/docs/chung_tu_nong_lam_092026.pdf (Ủy nhiệm chi Nông Lâm)</option>
+              <option value="">-- Hoặc chọn chứng từ mẫu có sẵn --</option>
+              <option value="assets/docs/chung_tu_nong_lam_092026.pdf">Ủy nhiệm chi Nông Lâm (chung_tu_nong_lam_092026.pdf)</option>
             </select>
           </div>
         </div>
@@ -3284,7 +3506,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       
       const note = document.getElementById('disburseSelectionNote');
       if (note) {
-        note.textContent = `Đã chọn ${checks.length} khoản trích quỹ | Tổng khớp chuẩn: ${new Intl.NumberFormat('vi-VN').format(total)}đ`;
+        note.textContent = `Đã chọn ${checks.length} khoản · Tổng: ${new Intl.NumberFormat('vi-VN').format(total)}đ`;
         note.style.color = (total > 0) ? '#2e7d32' : '#d32f2f';
       }
     }
@@ -3293,6 +3515,60 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       const checks = document.querySelectorAll('.disburse-row-check');
       checks.forEach(c => c.checked = master.checked);
       recalculateDisburseTotal();
+    }
+
+    function openAddShelterModal() {
+      const modal = document.getElementById('addShelterModalBackdrop');
+      if (modal) modal.style.display = 'grid';
+    }
+
+    function closeAddShelterModal() {
+      const modal = document.getElementById('addShelterModalBackdrop');
+      if (modal) modal.style.display = 'none';
+      const form = document.getElementById('formAddShelter');
+      if (form) form.reset();
+    }
+
+    async function adminSubmitAddShelter(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmitAddShelter');
+      if (btn) { btn.disabled = true; btn.textContent = 'Đang lưu...'; }
+      try {
+        const resp = await fetch('index.php?action=admin_create_shelter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tentram: document.getElementById('shelterName').value.trim(),
+            nguoidaidien: document.getElementById('shelterRep').value.trim(),
+            sodienthoai: document.getElementById('shelterPhone').value.trim(),
+            khuvuc: document.getElementById('shelterArea').value.trim(),
+            diachi: document.getElementById('shelterAddress').value.trim(),
+            sotaikhoan: document.getElementById('shelterBankAcc').value.trim(),
+            nganhang: document.getElementById('shelterBankName').value.trim()
+          })
+        });
+        const res = await resp.json();
+        if (res && res.success) {
+          if (res.shelter) {
+            const sel = document.getElementById('disburseStation');
+            if (sel) {
+              const opt = document.createElement('option');
+              opt.value = res.shelter.MaTram;
+              opt.textContent = `${res.shelter.TenTram} - STK: ${res.shelter.SoTaiKhoan} (${res.shelter.NganHang})`;
+              sel.appendChild(opt);
+            }
+          }
+          closeAddShelterModal();
+          showAdminToast('Thêm trạm thành công', res.message || 'Đã lưu trạm cứu hộ mới.', 'success');
+          setTimeout(() => location.reload(), 900);
+        } else {
+          showAdminToast('Lỗi', (res && res.message) || 'Không thể thêm trạm cứu hộ.', 'error');
+        }
+      } catch (err) {
+        showAdminToast('Lỗi kết nối', err.message, 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Lưu trạm mới'; }
+      }
     }
 
     function openDisbursementModal() {
@@ -3322,17 +3598,17 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
 
       const checkedBoxes = document.querySelectorAll('.disburse-row-check:checked');
       if (checkedBoxes.length === 0 || parseFloat(sotien) <= 0) {
-        alert('Vui lòng chọn ít nhất một khoản trích quỹ để giải ngân.');
+        showAdminToast('Thiếu thông tin', 'Vui lòng chọn ít nhất một khoản trích quỹ để giải ngân.', 'error');
         return;
       }
 
       if (!matram || !sotien) {
-        alert('Vui lòng điền đầy đủ các thông tin bắt buộc.');
+        showAdminToast('Thiếu thông tin', 'Vui lòng điền đầy đủ các thông tin bắt buộc.', 'error');
         return;
       }
 
       if (!fileInput.files.length && !existingFile) {
-        alert('Vui lòng tải lên file chứng từ sao kê (hoặc chọn file mẫu có sẵn trên hệ thống).');
+        showAdminToast('Thiếu chứng từ', 'Vui lòng tải lên file chứng từ sao kê hoặc chọn chứng từ mẫu có sẵn.', 'error');
         return;
       }
 

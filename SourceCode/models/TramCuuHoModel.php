@@ -51,4 +51,49 @@ class TramCuuHoModel {
         }
         return [];
     }
+
+    public static function themTram($data) {
+        $db = Database::getConnection();
+        if (!$db) {
+            return ['success' => false, 'message' => 'Lỗi kết nối cơ sở dữ liệu.'];
+        }
+
+        $tenTram = trim((string)($data['tentram'] ?? ''));
+        $nguoiDaiDien = trim((string)($data['nguoidaidien'] ?? ''));
+        $sdt = trim((string)($data['sodienthoai'] ?? ''));
+        $khuVuc = trim((string)($data['khuvuc'] ?? 'TP.HCM'));
+        $diaChi = trim((string)($data['diachi'] ?? ''));
+        $soTaiKhoan = trim((string)($data['sotaikhoan'] ?? ''));
+        $nganHang = trim((string)($data['nganhang'] ?? ''));
+
+        if ($tenTram === '' || $soTaiKhoan === '' || $nganHang === '') {
+            return ['success' => false, 'message' => 'Vui lòng nhập đầy đủ Tên trạm, Số tài khoản và Ngân hàng.'];
+        }
+
+        try {
+            $db->beginTransaction();
+            require_once __DIR__ . '/IdGen.php';
+            $maTram = IdGen::next($db, 'tram_cuu_ho', 'matram', 'TRM', 3);
+
+            $stmt = $db->prepare("INSERT INTO tram_cuu_ho (matram, tentram, nguoidaidien, sodienthoai, diachi, khuvuc, trangthaihoptac, sotaikhoan, nganhang)
+                                  VALUES (?, ?, ?, ?, ?, ?, 'Đang hợp tác', ?, ?)");
+            $stmt->execute([$maTram, $tenTram, $nguoiDaiDien, $sdt, $diaChi, $khuVuc, $soTaiKhoan, $nganHang]);
+            $db->commit();
+
+            return [
+                'success' => true,
+                'message' => "Đã thêm trạm cứu hộ \"{$tenTram}\" ({$maTram}) thành công!",
+                'shelter' => [
+                    'MaTram' => $maTram,
+                    'TenTram' => $tenTram,
+                    'SoTaiKhoan' => $soTaiKhoan,
+                    'NganHang' => $nganHang
+                ]
+            ];
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            error_log("Lỗi themTram TramCuuHoModel: " . $e->getMessage());
+            return ['success' => false, 'message' => 'Không thể thêm trạm cứu hộ mới. Vui lòng thử lại.'];
+        }
+    }
 }
