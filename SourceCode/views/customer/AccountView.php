@@ -101,11 +101,7 @@ foreach ($allReturns as $r) {
           <table style="width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.8;">
             <tbody>
               <tr>
-                <td style="color: #777; width: 110px; padding: 4px 0;">Mã khách hàng:</td>
-                <td style="font-weight: bold; color: #222; padding: 4px 0;"><?= htmlspecialchars($maKH) ?></td>
-              </tr>
-              <tr>
-                <td style="color: #777; padding: 4px 0;">Số điện thoại:</td>
+                <td style="color: #777; width: 110px; padding: 4px 0;">Số điện thoại:</td>
                 <td id="displayPhone" style="font-weight: 600; color: #222; padding: 4px 0;"><?= htmlspecialchars($phone) ?></td>
               </tr>
               <tr>
