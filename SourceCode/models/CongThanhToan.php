@@ -178,7 +178,8 @@ class CongThanhToan {
         $ch = curl_init('https://api-merchant.payos.vn/v2/payment-requests/' . $digits);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 6,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 12,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_HTTPHEADER => [
                 'x-client-id: ' . $clientId,
@@ -187,7 +188,12 @@ class CongThanhToan {
         ]);
         $resp = curl_exec($ch);
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
         curl_close($ch);
+
+        if ($curlErr || $httpCode < 200 || $httpCode >= 300) {
+            error_log("PayOS sync error ({$maDonHang}): HTTP={$httpCode} ERR={$curlErr}");
+        }
 
         if ($httpCode >= 200 && $httpCode < 300 && !empty($resp)) {
             $json = json_decode($resp, true);
