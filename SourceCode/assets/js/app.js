@@ -226,8 +226,11 @@ function removeFromCart(id) {
 }
 
 // Xóa trắng giỏ
-function clearCart() {
-  if (confirm('Bạn có chắc chắn muốn xóa toàn bộ sản phẩm khỏi giỏ hàng?')) {
+async function clearCart() {
+  const ok = window.kiboConfirm
+    ? await window.kiboConfirm('Bạn có chắc chắn muốn xóa toàn bộ sản phẩm khỏi giỏ hàng?', 'Xác nhận xóa giỏ hàng')
+    : false;
+  if (ok) {
     saveCart([]);
   }
 }
@@ -267,11 +270,13 @@ function setupAddToCartButtons() {
 }
 
 // Xử lý Đặt Hàng thành công
-function handlePlaceOrder(e) {
+async function handlePlaceOrder(e) {
   e.preventDefault();
   const cart = getCart();
   if (cart.length === 0) {
-    alert('Giỏ hàng của bạn đang trống. Vui lòng chọn ít nhất 1 sản phẩm trước khi thanh toán!');
+    if (window.kiboAlert) {
+      await window.kiboAlert('Giỏ hàng của bạn đang trống. Vui lòng chọn ít nhất 1 sản phẩm trước khi thanh toán!', 'Thông báo');
+    }
     return;
   }
 
@@ -284,19 +289,18 @@ function handlePlaceOrder(e) {
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   const rescueAmount = Math.round(subtotal * 0.05);
 
-  const confirmMsg = `
-    ĐẶT HÀNG THÀNH CÔNG!
-    -------------------------------------------
-    Mã đơn hàng: ${orderId}
-    Người nhận: ${name} (${phone})
-    Địa chỉ: ${address}
-    Phương thức: ${paymentMethod === 'COD' ? 'Thanh toán COD khi nhận hàng' : 'VietQR Ngân Hàng'}
-    Khoản trích Quỹ Cứu Trợ 5%: +${formatVND(rescueAmount)}
-    
-    Hệ thống sẽ chuyển bạn đến trang Quỹ Cứu Trợ để theo dõi hành trình đóng góp!
-  `;
+  const confirmMsg = `ĐẶT HÀNG THÀNH CÔNG!
+Mã đơn hàng: ${orderId}
+Người nhận: ${name} (${phone})
+Địa chỉ: ${address}
+Phương thức: ${paymentMethod === 'COD' ? 'Thanh toán COD khi nhận hàng' : 'VietQR Ngân Hàng'}
+Khoản trích Quỹ Cứu Trợ 5%: +${formatVND(rescueAmount)}
 
-  alert(confirmMsg);
+Hệ thống sẽ chuyển bạn đến trang Quỹ Cứu Trợ để theo dõi hành trình đóng góp!`;
+
+  if (window.kiboAlert) {
+    await window.kiboAlert(confirmMsg, 'Đặt hàng thành công');
+  }
 
   // Xóa giỏ hàng sau khi đặt thành công
   saveCart([]);

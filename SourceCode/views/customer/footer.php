@@ -949,5 +949,109 @@
       }
     });
   </script>
+
+  <!-- GLOBAL CENTERED DIALOG MODAL (THAY THẾ ALERT / CONFIRM TRÌNH DUYỆT) -->
+  <div id="kiboDialogOverlay" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 99999999; place-items: center; padding: 16px;">
+    <div id="kiboDialogBox" role="dialog" aria-modal="true" style="background: #ffffff; width: min(440px, 94vw); border-radius: 4px; border: 1px solid #c8c8c8; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2); font-family: Arial, sans-serif; overflow: hidden;">
+      <div style="background: #f5f5f5; padding: 13px 18px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between;">
+        <h3 id="kiboDialogTitle" style="margin: 0; font-size: 15px; font-weight: 700; color: #222222;">Thông báo</h3>
+        <button type="button" id="kiboDialogCloseX" style="background: none; border: none; font-size: 18px; color: #666666; cursor: pointer; line-height: 1; padding: 0 4px;">✕</button>
+      </div>
+      <div style="padding: 20px 20px 18px;">
+        <p id="kiboDialogMessage" style="margin: 0; font-size: 14px; line-height: 1.55; color: #222222; white-space: pre-line;"></p>
+        <input type="text" id="kiboDialogInput" style="display: none; width: 100%; margin-top: 12px; height: 38px; padding: 0 10px; border: 1px solid #cccccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; outline: none;">
+      </div>
+      <div style="background: #fafafa; padding: 12px 18px; border-top: 1px solid #e8e8e8; display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" id="kiboDialogCancelBtn" style="display: none; padding: 8px 18px; background: #ffffff; color: #333333; border: 1px solid #cccccc; border-radius: 4px; font-size: 13.5px; font-weight: 500; cursor: pointer;">Hủy</button>
+        <button type="button" id="kiboDialogOkBtn" style="padding: 8px 20px; background: #2c1a0e; color: #ffffff; border: 1px solid #2c1a0e; border-radius: 4px; font-size: 13.5px; font-weight: 600; cursor: pointer;">Xác nhận</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      function openKiboDialog(opts) {
+        const overlay = document.getElementById('kiboDialogOverlay');
+        const titleEl = document.getElementById('kiboDialogTitle');
+        const msgEl = document.getElementById('kiboDialogMessage');
+        const inputEl = document.getElementById('kiboDialogInput');
+        const cancelBtn = document.getElementById('kiboDialogCancelBtn');
+        const okBtn = document.getElementById('kiboDialogOkBtn');
+        const closeX = document.getElementById('kiboDialogCloseX');
+
+        if (!overlay) return Promise.resolve(opts.mode === 'confirm' ? false : (opts.mode === 'prompt' ? null : undefined));
+
+        titleEl.textContent = opts.title || 'Thông báo';
+        msgEl.textContent = String(opts.message ?? '');
+        okBtn.textContent = opts.okText || (opts.mode === 'alert' ? 'Đóng' : 'Xác nhận');
+        cancelBtn.textContent = opts.cancelText || 'Hủy';
+        cancelBtn.style.display = (opts.mode === 'confirm' || opts.mode === 'prompt') ? 'inline-block' : 'none';
+
+        if (opts.mode === 'prompt') {
+          inputEl.style.display = 'block';
+          inputEl.value = opts.defaultValue || '';
+          inputEl.placeholder = opts.placeholder || '';
+        } else {
+          inputEl.style.display = 'none';
+          inputEl.value = '';
+        }
+
+        overlay.style.display = 'grid';
+
+        return new Promise((resolve) => {
+          let settled = false;
+          function finish(val) {
+            if (settled) return;
+            settled = true;
+            overlay.style.display = 'none';
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            closeX.removeEventListener('click', onCancel);
+            overlay.removeEventListener('click', onBackdrop);
+            document.removeEventListener('keydown', onKey);
+            resolve(val);
+          }
+          function onOk() {
+            if (opts.mode === 'confirm') finish(true);
+            else if (opts.mode === 'prompt') finish(inputEl.value);
+            else finish(undefined);
+          }
+          function onCancel() {
+            if (opts.mode === 'confirm') finish(false);
+            else if (opts.mode === 'prompt') finish(null);
+            else finish(undefined);
+          }
+          function onBackdrop(e) {
+            if (e.target === overlay) onCancel();
+          }
+          function onKey(e) {
+            if (e.key === 'Escape') onCancel();
+            else if (e.key === 'Enter' && opts.mode !== 'prompt') onOk();
+          }
+
+          okBtn.addEventListener('click', onOk);
+          cancelBtn.addEventListener('click', onCancel);
+          closeX.addEventListener('click', onCancel);
+          overlay.addEventListener('click', onBackdrop);
+          document.addEventListener('keydown', onKey);
+
+          setTimeout(() => {
+            if (opts.mode === 'prompt') inputEl.focus();
+            else okBtn.focus();
+          }, 10);
+        });
+      }
+
+      window.kiboAlert = function (message, title = 'Thông báo') {
+        return openKiboDialog({ mode: 'alert', message, title, okText: 'Đóng' });
+      };
+      window.kiboConfirm = function (message, title = 'Xác nhận thao tác', okText = 'Xác nhận', cancelText = 'Hủy') {
+        return openKiboDialog({ mode: 'confirm', message, title, okText, cancelText });
+      };
+      window.kiboPrompt = function (message, defaultValue = '', title = 'Nhập thông tin') {
+        return openKiboDialog({ mode: 'prompt', message, defaultValue, title, okText: 'Xác nhận', cancelText: 'Hủy' });
+      };
+    })();
+  </script>
 </body>
 </html>

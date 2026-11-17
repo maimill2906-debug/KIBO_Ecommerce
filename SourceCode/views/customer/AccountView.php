@@ -150,7 +150,7 @@ foreach ($allReturns as $r) {
                         <strong style="font-size: 14px; color: #222;"><?= htmlspecialchars($vc['TenVoucher']) ?></strong>
                       </div>
                       <small style="display: block; color: #666; font-size: 12.5px; margin-top: 4px;">
-                        Đơn từ <?= number_format((float)$vc['DonHangToiThieu'], 0, ',', '.') ?>₫ · Mỗi tài khoản 1 lần
+                        Đơn từ <?= number_format((float)$vc['DonHangToiThieu'], 0, ',', '.') ?>₫
                       </small>
                     </div>
                     <?php if ($isUsed): ?>
@@ -199,7 +199,6 @@ foreach ($allReturns as $r) {
                 <tbody>
                   <?php foreach ($myOrders as $ord): 
                     $st = $ord['trangthaidonhang'] ?? 'Chờ xác nhận';
-                    $stColor = ($st === 'Giao thành công') ? '#2e7d32' : (($st === 'Đang giao') ? '#1565c0' : '#d97706');
                   ?>
                     <tr style="border-bottom: 1px solid #f0f0f0;">
                       <td style="padding: 12px; font-weight: bold; color: #2c1a0e;">
@@ -215,7 +214,7 @@ foreach ($allReturns as $r) {
                         <?= number_format($ord['sotiendonggop'] ?? DonHangModel::tinhQuy($ord['tongtienhang'] ?? $ord['tongthanhtoan'], $ord['tiengiamgia'] ?? 0), 0, ',', '.') ?>₫
                       </td>
                       <td style="padding: 12px; text-align: center;">
-                        <span style="background: <?= $stColor ?>; color: #fff; padding: 4px 10px; border-radius: 3px; font-size: 12px; font-weight: bold; display: inline-block;">
+                        <span style="background: #f5f5f5; color: #333333; border: 1px solid #d4d4d4; padding: 4px 10px; border-radius: 3px; font-size: 12px; font-weight: 600; display: inline-block;">
                           <?= htmlspecialchars($st) ?>
                         </span>
                       </td>
@@ -229,15 +228,15 @@ foreach ($allReturns as $r) {
                           $remainDays = (int)ceil($remainSecs / 86400);
                         ?>
                         <?php if (isset($returnMap[$ord['madonhang']])): ?>
-                          <div style="margin-top: 6px; font-size: 12.5px; color: #0284c7; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 4px; padding: 4px 8px; font-weight: 600;">
+                          <div style="margin-top: 6px; font-size: 12px; color: #333333; background: #f5f5f5; border: 1px solid #d4d4d4; border-radius: 3px; padding: 4px 8px; font-weight: 600;">
                             Đổi trả: <?= htmlspecialchars($returnMap[$ord['madonhang']]['TrangThaiYeuCau']) ?>
                           </div>
                         <?php elseif (($st === 'Giao thành công' || $st === 'Giao hàng thành công') && $remainDays > 0): ?>
-                          <button type="button" onclick="openReturnModal('<?= htmlspecialchars($ord['madonhang']) ?>')" style="margin-top: 6px; padding: 6px 10px; border: 1px solid #c8c8c8; background: #fff; color: #333; border-radius: 4px; font-size: 12px; cursor: pointer; display: block; width: 100%; font-weight: 500;">
+                          <button type="button" onclick="openReturnModal('<?= htmlspecialchars($ord['madonhang']) ?>')" style="margin-top: 6px; padding: 6px 10px; border: 1px solid #c8c8c8; background: #fff; color: #333; border-radius: 3px; font-size: 12px; cursor: pointer; display: block; width: 100%; font-weight: 500;">
                             Đổi trả (Còn <?= $remainDays ?> ngày)
                           </button>
                         <?php elseif (in_array($st, ['Chờ xác nhận', 'Chờ đóng gói'], true)): ?>
-                          <button type="button" onclick="cancelOrder('<?= htmlspecialchars($ord['madonhang']) ?>')" style="margin-top: 6px; padding: 6px 10px; border: 1px solid #d32f2f; background: #fff5f5; color: #d32f2f; border-radius: 4px; font-size: 12.5px; font-weight: 600; cursor: pointer; display: block; width: 100%;">
+                          <button type="button" onclick="cancelOrder('<?= htmlspecialchars($ord['madonhang']) ?>')" style="margin-top: 6px; padding: 6px 10px; border: 1px solid #c8c8c8; background: #ffffff; color: #333333; border-radius: 3px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: block; width: 100%;">
                             Hủy đơn
                           </button>
                         <?php endif; ?>
@@ -631,7 +630,8 @@ async function handleChangePasswordSubmit(e) {
 }
 
 async function cancelOrder(orderId) {
-  if (!confirm(`Bạn có chắc chắn muốn hủy đơn hàng #${orderId} không?`)) return;
+  const ok = await kiboConfirm(`Bạn có chắc chắn muốn hủy đơn hàng #${orderId} không?`, 'Xác nhận hủy đơn hàng', 'Xác nhận hủy', 'Đóng');
+  if (!ok) return;
   try {
     const res = await fetch('index.php?action=cancel_order', {
       method: 'POST',
@@ -643,13 +643,13 @@ async function cancelOrder(orderId) {
     });
     const data = await res.json();
     if (data.success) {
-      alert(data.message || 'Hủy đơn hàng thành công!');
+      await kiboAlert(data.message || 'Hủy đơn hàng thành công!', 'Thông báo');
       window.location.reload();
     } else {
-      alert(data.message || 'Không thể hủy đơn hàng.');
+      await kiboAlert(data.message || 'Không thể hủy đơn hàng.', 'Thông báo');
     }
   } catch (e) {
-    alert('Lỗi kết nối khi gửi yêu cầu hủy đơn.');
+    await kiboAlert('Lỗi kết nối khi gửi yêu cầu hủy đơn.', 'Thông báo');
   }
 }
 </script>
