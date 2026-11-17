@@ -1058,7 +1058,15 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
                     $isFailed = ($ttSt === 'Thất bại');
                     $stClass = $isSuccess ? 'good' : (($isRefunded || $isFailed) ? 'out' : 'low');
                     $refundBankNote = '';
-                    if (!empty($pay['ghichu']) && preg_match('/\[Hoàn tiền:[^\]]+\]/u', $pay['ghichu'], $m)) {
+                    $refundBankName = '';
+                    $refundAccNo = '';
+                    $refundAccHolder = '';
+                    if (!empty($pay['ghichu']) && preg_match('/\[Hoàn tiền:\s*(.+?)\s*-\s*STK:\s*(.+?)\s*-\s*Chủ TK:\s*(.+?)\]/u', $pay['ghichu'], $m)) {
+                      $refundBankNote = $m[0];
+                      $refundBankName = trim($m[1]);
+                      $refundAccNo = trim($m[2]);
+                      $refundAccHolder = trim($m[3]);
+                    } elseif (!empty($pay['ghichu']) && preg_match('/\[Hoàn tiền:[^\]]+\]/u', $pay['ghichu'], $m)) {
                       $refundBankNote = $m[0];
                     }
                   ?>
@@ -1088,7 +1096,21 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
                       </td>
                       <td>
                         <?php if ($isPendingRefund): ?>
-                          <button type="button" onclick="adminConfirmRefund('<?= htmlspecialchars($pay['magiaodich']) ?>')" style="padding: 5px 10px; font-size: 12px; background: #2c1a0e; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap;" title="Xác nhận đã chuyển khoản hoàn tiền cho khách">Đã hoàn tiền</button>
+                          <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                            <?php if ($refundBankName !== '' && $refundAccNo !== ''): ?>
+                              <button type="button" onclick='openAdminRefundQrModal(<?= json_encode([
+                                "id" => $pay["magiaodich"],
+                                "orderId" => $pay["madonhang"],
+                                "amount" => (int)round((float)$pay["sotien"]),
+                                "bank" => $refundBankName,
+                                "accNo" => $refundAccNo,
+                                "accName" => $refundAccHolder
+                              ], JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?>)' style="padding: 5px 10px; font-size: 12px; background: #ffffff; color: #222222; border: 1px solid #cccccc; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap;">
+                                QR hoàn tiền
+                              </button>
+                            <?php endif; ?>
+                            <button type="button" onclick="adminConfirmRefund('<?= htmlspecialchars($pay['magiaodich']) ?>')" style="padding: 5px 10px; font-size: 12px; background: #2c1a0e; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap;" title="Xác nhận đã chuyển khoản hoàn tiền cho khách">Đã hoàn tiền</button>
+                          </div>
                         <?php elseif ($ttSt === 'Chờ thanh toán' && ($pay['trangthaidonhang'] ?? '') !== 'Đã hủy'): ?>
                           <button type="button" onclick="adminConfirmPayment('<?= htmlspecialchars($pay['magiaodich']) ?>')" style="padding: 5px 12px; font-size: 12.5px; background: #2e7d32; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Xác nhận nhận tiền">Xác nhận</button>
                         <?php elseif ($isRefunded): ?>
@@ -2377,6 +2399,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
         });
         const res = await resp.json();
         if (res.success) {
+          closeAdminRefundQrModal();
           showAdminToast('Thành công', res.message, 'success');
           setTimeout(() => location.reload(), 800);
         } else {
@@ -2385,6 +2408,66 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       } catch (err) {
         showAdminToast('Lỗi kết nối', err.message, 'error');
       }
+    }
+
+    let currentRefundQrTxId = '';
+    function resolveVietQrBankId(bankName) {
+      const raw = String(bankName || '').trim();
+      const norm = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const map = {
+        vietcombank: 'VCB', vcb: 'VCB',
+        techcombank: 'TCB', tcb: 'TCB',
+        mbbank: 'MB', mb: 'MB',
+        bidv: 'BIDV',
+        vietinbank: 'ICB', icb: 'ICB', viettinbank: 'ICB',
+        acb: 'ACB',
+        vpbank: 'VPB', vpb: 'VPB',
+        tpbank: 'TPB', tpb: 'TPB',
+        sacombank: 'STB', stb: 'STB',
+        agribank: 'VBA', vba: 'VBA',
+        hdbank: 'HDB', hdb: 'HDB',
+        vib: 'VIB',
+        ocb: 'OCB',
+        msb: 'MSB',
+        shb: 'SHB',
+        eximbank: 'EIB', eib: 'EIB',
+        seabank: 'SEAB', seab: 'SEAB',
+        lpbank: 'LPB', lienvietpostbank: 'LPB', lpb: 'LPB',
+        namabank: 'NAB', nab: 'NAB',
+        abbank: 'ABB', abb: 'ABB',
+        cake: 'CAKE', timo: 'TIMO'
+      };
+      for (const key in map) {
+        if (norm === key || norm.includes(key)) return map[key];
+      }
+      return raw.replace(/\s+/g, '');
+    }
+
+    function openAdminRefundQrModal(data) {
+      currentRefundQrTxId = data.id || '';
+      const bankCode = resolveVietQrBankId(data.bank);
+      const addInfo = 'Hoan tien don ' + (data.orderId || '');
+      const qrUrl = `https://api.vietqr.io/image/${encodeURIComponent(bankCode)}-${encodeURIComponent(data.accNo)}-compact2.jpg?amount=${encodeURIComponent(data.amount)}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(data.accName || '')}`;
+
+      document.getElementById('refundQrOrderId').textContent = '#' + (data.orderId || '');
+      document.getElementById('refundQrBank').textContent = data.bank || '';
+      document.getElementById('refundQrAccNo').textContent = data.accNo || '';
+      document.getElementById('refundQrAccName').textContent = data.accName || '';
+      document.getElementById('refundQrAmount').textContent = Number(data.amount || 0).toLocaleString('vi-VN') + 'đ';
+      document.getElementById('refundQrMemo').textContent = addInfo;
+
+      const img = document.getElementById('refundQrImg');
+      const errEl = document.getElementById('refundQrErr');
+      errEl.style.display = 'none';
+      img.style.display = 'block';
+      img.src = qrUrl;
+
+      document.getElementById('adminRefundQrModal').style.display = 'grid';
+    }
+
+    function closeAdminRefundQrModal() {
+      const m = document.getElementById('adminRefundQrModal');
+      if (m) m.style.display = 'none';
     }
 
     async function updateCurrentOrderModalStatus(newStatus) {
@@ -3751,6 +3834,33 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
     <div style="position: relative; max-width: 90vw; max-height: 90vh;">
       <button type="button" onclick="closeImageLightbox()" style="position: absolute; top: -36px; right: 0; background: none; border: none; font-size: 30px; color: #fff; cursor: pointer;">✕</button>
       <img id="lightboxImage" src="" alt="Hình ảnh phóng to" style="max-width: 90vw; max-height: 85vh; border-radius: 6px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); object-fit: contain;">
+    </div>
+  </div>
+
+  <!-- MODAL QUÉT MÃ VIETQR HOÀN TIỀN CHO KHÁCH -->
+  <div id="adminRefundQrModal" onclick="if(event.target === this) closeAdminRefundQrModal()" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 99999999; place-items: center; padding: 16px;">
+    <div style="background: #ffffff; width: min(440px, 94vw); border-radius: 4px; border: 1px solid #c8c8c8; box-shadow: 0 10px 28px rgba(0,0,0,0.2); font-family: Arial, sans-serif; overflow: hidden;">
+      <div style="background: #f5f5f5; padding: 13px 18px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #222222;">Quét mã VietQR hoàn tiền (<span id="refundQrOrderId">#</span>)</h3>
+        <button type="button" onclick="closeAdminRefundQrModal()" style="background: none; border: none; font-size: 18px; color: #666666; cursor: pointer; line-height: 1; padding: 0 4px;">✕</button>
+      </div>
+      <div style="padding: 18px 20px; text-align: center;">
+        <img id="refundQrImg" src="" alt="Mã VietQR hoàn tiền" onerror="this.style.display='none'; document.getElementById('refundQrErr').style.display='block';" style="width: 230px; max-width: 100%; height: auto; border: 1px solid #e5e5e5; border-radius: 4px; padding: 6px; background: #fff; margin: 0 auto 12px;">
+        <div id="refundQrErr" style="display: none; padding: 12px; background: #fafafa; border: 1px solid #dcdcdc; border-radius: 4px; font-size: 13px; color: #555; margin-bottom: 12px;">
+          Không tạo được ảnh QR tự động cho tên ngân hàng này. Vui lòng chuyển khoản theo thông tin bên dưới.
+        </div>
+        <div style="text-align: left; background: #fafafa; border: 1px solid #e5e5e5; border-radius: 4px; padding: 10px 12px; font-size: 13px; line-height: 1.65; color: #222;">
+          <div>Ngân hàng: <strong id="refundQrBank"></strong></div>
+          <div>Số tài khoản: <strong id="refundQrAccNo"></strong></div>
+          <div>Chủ tài khoản: <strong id="refundQrAccName"></strong></div>
+          <div>Số tiền hoàn: <strong id="refundQrAmount"></strong></div>
+          <div>Nội dung CK: <strong id="refundQrMemo"></strong></div>
+        </div>
+      </div>
+      <div style="background: #fafafa; padding: 12px 18px; border-top: 1px solid #e8e8e8; display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" onclick="closeAdminRefundQrModal()" style="padding: 8px 16px; background: #ffffff; color: #333333; border: 1px solid #cccccc; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Đóng</button>
+        <button type="button" onclick="adminConfirmRefund(currentRefundQrTxId)" style="padding: 8px 18px; background: #2c1a0e; color: #ffffff; border: 1px solid #2c1a0e; border-radius: 4px; font-size: 13.5px; font-weight: 600; cursor: pointer;">Xác nhận đã hoàn tiền</button>
+      </div>
     </div>
   </div>
 
