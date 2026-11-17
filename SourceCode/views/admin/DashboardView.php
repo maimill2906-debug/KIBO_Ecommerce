@@ -1051,8 +1051,16 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
               <tbody>
                 <?php if (!empty($paymentsList)): ?>
                   <?php foreach ($paymentsList as $pay): 
-                    $isSuccess = ($pay['trangthaitt'] === 'Thành công');
-                    $stClass = $isSuccess ? 'good' : (($pay['trangthaitt'] === 'Hoàn tiền') ? 'out' : 'low');
+                    $ttSt = $pay['trangthaitt'] ?? '';
+                    $isSuccess = ($ttSt === 'Thành công');
+                    $isPendingRefund = ($ttSt === 'Chờ hoàn tiền');
+                    $isRefunded = ($ttSt === 'Hoàn tiền');
+                    $isFailed = ($ttSt === 'Thất bại');
+                    $stClass = $isSuccess ? 'good' : (($isRefunded || $isFailed) ? 'out' : 'low');
+                    $refundBankNote = '';
+                    if (!empty($pay['ghichu']) && preg_match('/\[Hoàn tiền:[^\]]+\]/u', $pay['ghichu'], $m)) {
+                      $refundBankNote = $m[0];
+                    }
                   ?>
                     <tr>
                       <td><code><?= htmlspecialchars($pay['magiaodich']) ?></code></td>
@@ -1060,6 +1068,11 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
                       <td>
                         <div><?= htmlspecialchars($pay['tennguoinhan'] ?? 'Khách vãng lai') ?></div>
                         <small style="color: #777;"><?= htmlspecialchars($pay['sodienthoainhan'] ?? '') ?></small>
+                        <?php if ($refundBankNote !== ''): ?>
+                          <div style="margin-top: 3px; font-size: 11.5px; color: #333; background: #f5f5f5; border: 1px solid #d4d4d4; padding: 2px 6px; border-radius: 3px;">
+                            <?= htmlspecialchars($refundBankNote) ?>
+                          </div>
+                        <?php endif; ?>
                       </td>
                       <td>
                         <span style="font-weight: 600; color: <?= $pay['phuongthuctt'] === 'VietQR' ? '#1565c0' : '#4e342e' ?>;">
@@ -1071,11 +1084,17 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
                         <?= !empty($pay['thoigiantt']) ? date('d/m/Y H:i', strtotime($pay['thoigiantt'])) : '--' ?>
                       </td>
                       <td>
-                        <span class="ops-stock-status <?= $stClass ?>"><?= htmlspecialchars($pay['trangthaitt']) ?></span>
+                        <span class="ops-stock-status <?= $stClass ?>"><?= htmlspecialchars($ttSt) ?></span>
                       </td>
                       <td>
-                        <?php if (!$isSuccess && $pay['trangthaitt'] !== 'Hoàn tiền'): ?>
+                        <?php if ($isPendingRefund): ?>
+                          <button type="button" onclick="adminConfirmRefund('<?= htmlspecialchars($pay['magiaodich']) ?>')" style="padding: 5px 10px; font-size: 12px; background: #2c1a0e; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; white-space: nowrap;" title="Xác nhận đã chuyển khoản hoàn tiền cho khách">Đã hoàn tiền</button>
+                        <?php elseif ($ttSt === 'Chờ thanh toán' && ($pay['trangthaidonhang'] ?? '') !== 'Đã hủy'): ?>
                           <button type="button" onclick="adminConfirmPayment('<?= htmlspecialchars($pay['magiaodich']) ?>')" style="padding: 5px 12px; font-size: 12.5px; background: #2e7d32; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Xác nhận nhận tiền">Xác nhận</button>
+                        <?php elseif ($isRefunded): ?>
+                          <span style="color: #555; font-size: 12px; font-weight: 600;">✓ Đã hoàn</span>
+                        <?php elseif ($isFailed): ?>
+                          <span style="color: #777; font-size: 12px;">Đã hủy</span>
                         <?php else: ?>
                           <span style="color: #2e7d32; font-size: 12.5px; font-weight: 600;">✓ Xong</span>
                         <?php endif; ?>
@@ -2342,6 +2361,26 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
           setTimeout(() => location.reload(), 800);
         } else {
           showAdminToast('Thất bại', res.message || 'Không thể xác nhận thanh toán.', 'error');
+        }
+      } catch (err) {
+        showAdminToast('Lỗi kết nối', err.message, 'error');
+      }
+    }
+
+    async function adminConfirmRefund(id) {
+      if (!(await kiboConfirm(`Xác nhận đã chuyển khoản hoàn tiền cho giao dịch ${id}?`))) return;
+      try {
+        const resp = await fetch('index.php?action=admin_confirm_refund', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          showAdminToast('Thành công', res.message, 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          showAdminToast('Thất bại', res.message || 'Không thể xác nhận hoàn tiền.', 'error');
         }
       } catch (err) {
         showAdminToast('Lỗi kết nối', err.message, 'error');

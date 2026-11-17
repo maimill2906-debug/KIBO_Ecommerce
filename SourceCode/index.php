@@ -134,7 +134,30 @@ switch ($action) {
             exit;
         }
 
+        // Kiểm tra xem đơn hàng đã thanh toán thành công chưa (VD: VietQR)
+        $stmtTT = $db->prepare("SELECT trangthaitt, phuongthuctt FROM thanh_toan WHERE madonhang = ? LIMIT 1");
+        $stmtTT->execute([$orderId]);
+        $ttInfo = $stmtTT->fetch();
+        $isPaid = ($ttInfo && ($ttInfo['trangthaitt'] === TrangThai::TT_THANH_CONG || $ttInfo['trangthaitt'] === 'Thành công'));
+
+        if ($isPaid) {
+            $refundBank = is_array($input['refund_bank'] ?? null) ? $input['refund_bank'] : [];
+            $nganHang = trim((string)($refundBank['ngan_hang'] ?? ''));
+            $soTK     = trim((string)($refundBank['so_tai_khoan'] ?? ''));
+            $chuTK    = trim((string)($refundBank['chu_tai_khoan'] ?? ''));
+            if ($nganHang === '' || $soTK === '' || $chuTK === '') {
+                echo json_encode(['success' => false, 'message' => 'Đơn hàng đã thanh toán. Vui lòng nhập đầy đủ Tên ngân hàng, Số tài khoản và Chủ tài khoản để nhận hoàn tiền.'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+            $refundNote = "[Hoàn tiền: {$nganHang} - STK: {$soTK} - Chủ TK: {$chuTK}]";
+            $stmtNote = $db->prepare("UPDATE don_hang SET ghichu = CASE WHEN COALESCE(ghichu, '') = '' THEN ? ELSE ghichu || E'\\n' || ? END WHERE madonhang = ?");
+            $stmtNote->execute([$refundNote, $refundNote, $orderId]);
+        }
+
         $res = DonHangModel::capNhatTrangThai($orderId, TrangThai::DH_DA_HUY);
+        if (!empty($res['success']) && $isPaid) {
+            $res['message'] = "Hủy đơn #{$orderId} thành công! Yêu cầu hoàn tiền của bạn đã được ghi nhận và chuyển cho cửa hàng xử lý.";
+        }
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 
@@ -458,6 +481,17 @@ switch ($action) {
         $input = json_decode($raw, true) ?: $_POST;
         $id = $input['id'] ?? ($input['magiaodich'] ?? ($input['madonhang'] ?? ''));
         $res = ThanhToanModel::xacNhanNhanTien($id);
+        echo json_encode($res, JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'admin_confirm_refund':
+        requireAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/models/ThanhToanModel.php';
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        $id = $input['id'] ?? ($input['magiaodich'] ?? ($input['madonhang'] ?? ''));
+        $res = ThanhToanModel::xacNhanHoanTien($id);
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 

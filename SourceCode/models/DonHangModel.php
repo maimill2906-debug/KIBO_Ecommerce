@@ -761,6 +761,22 @@ class DonHangModel {
                 $stmtQuy = $db->prepare("UPDATE quy_cuu_tro SET trangthaiquy = ? WHERE madonhang = ?");
                 $stmtQuy->execute([TrangThai::QUY_DA_HUY, $maDonHang]);
 
+                // b2. Cập nhật trạng thái thanh toán:
+                // - Nếu đã thanh toán Thành công (VietQR) -> Chờ hoàn tiền
+                // - Nếu đang Chờ thanh toán -> Thất bại
+                $stmtChkTT = $db->prepare("SELECT magiaodich, trangthaitt FROM thanh_toan WHERE madonhang = ? LIMIT 1");
+                $stmtChkTT->execute([$maDonHang]);
+                $ttRow = $stmtChkTT->fetch();
+                if ($ttRow) {
+                    if ($ttRow['trangthaitt'] === TrangThai::TT_THANH_CONG || $ttRow['trangthaitt'] === 'Thành công') {
+                        $stmtUpTT = $db->prepare("UPDATE thanh_toan SET trangthaitt = ? WHERE magiaodich = ?");
+                        $stmtUpTT->execute([TrangThai::TT_CHO_HOAN_TIEN, $ttRow['magiaodich']]);
+                    } elseif ($ttRow['trangthaitt'] === TrangThai::TT_CHO_THANH_TOAN || $ttRow['trangthaitt'] === 'Chờ thanh toán') {
+                        $stmtUpTT = $db->prepare("UPDATE thanh_toan SET trangthaitt = ? WHERE magiaodich = ?");
+                        $stmtUpTT->execute([TrangThai::TT_THAT_BAI, $ttRow['magiaodich']]);
+                    }
+                }
+
                 // c. Hoàn lại tồn kho cho từng biến thể
                 $stmtCT = $db->prepare("SELECT mabienthe, soluong FROM chi_tiet_don_hang WHERE madonhang = ?");
                 $stmtCT->execute([$maDonHang]);
@@ -824,9 +840,10 @@ class DonHangModel {
         $db = Database::getConnection();
         if ($db) {
             try {
-                $sql = "SELECT dh.*, qct.sotiendonggop, qct.trangthaiquy
+                $sql = "SELECT dh.*, qct.sotiendonggop, qct.trangthaiquy, tt.phuongthuctt, tt.trangthaitt
                         FROM don_hang dh
                         LEFT JOIN quy_cuu_tro qct ON dh.madonhang = qct.madonhang
+                        LEFT JOIN thanh_toan tt ON dh.madonhang = tt.madonhang
                         WHERE dh.makh = ?
                         ORDER BY dh.ngaydathang DESC";
                 $stmt = $db->prepare($sql);

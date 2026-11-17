@@ -29,6 +29,7 @@ class TrangThai {
     public const TT_CHO_THANH_TOAN  = 'Chờ thanh toán';
     public const TT_THANH_CONG      = 'Thành công';
     public const TT_THAT_BAI        = 'Thất bại';
+    public const TT_CHO_HOAN_TIEN   = 'Chờ hoàn tiền';
     public const TT_HOAN_TIEN       = 'Hoàn tiền';
 
     // Danh sách các trạng thái đơn hàng hợp lệ

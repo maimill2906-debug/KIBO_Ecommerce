@@ -213,6 +213,15 @@ foreach ($allReturns as $r) {
                         <span style="background: #f5f5f5; color: #333333; border: 1px solid #d4d4d4; padding: 4px 10px; border-radius: 3px; font-size: 12px; font-weight: 600; display: inline-block;">
                           <?= htmlspecialchars($st) ?>
                         </span>
+                        <?php
+                          $ttStatus = $ord['trangthaitt'] ?? '';
+                          $isOrderPaid = ($ttStatus === 'Thành công');
+                        ?>
+                        <?php if ($ttStatus === 'Chờ hoàn tiền'): ?>
+                          <div style="margin-top: 4px; font-size: 11.5px; color: #555555;">Chờ hoàn tiền</div>
+                        <?php elseif ($ttStatus === 'Hoàn tiền'): ?>
+                          <div style="margin-top: 4px; font-size: 11.5px; color: #2e7d32; font-weight: 600;">Đã hoàn tiền</div>
+                        <?php endif; ?>
                       </td>
                       <td style="padding: 12px; text-align: center;">
                         <a href="index.php?action=tracking&order=<?= urlencode($ord['madonhang']) ?>" style="padding: 5px 12px; border: 1px solid #767676; background: #efefef; color: #111; border-radius: 3px; text-decoration: none; font-size: 12.5px; font-weight: 500; display: inline-block;">
@@ -232,7 +241,7 @@ foreach ($allReturns as $r) {
                             Đổi trả (Còn <?= $remainDays ?> ngày)
                           </button>
                         <?php elseif (in_array($st, ['Chờ xác nhận', 'Chờ đóng gói'], true)): ?>
-                          <button type="button" onclick="cancelOrder('<?= htmlspecialchars($ord['madonhang']) ?>')" style="margin-top: 6px; padding: 6px 10px; border: 1px solid #c8c8c8; background: #ffffff; color: #333333; border-radius: 3px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: block; width: 100%;">
+                          <button type="button" onclick="cancelOrder('<?= htmlspecialchars($ord['madonhang']) ?>', <?= $isOrderPaid ? 'true' : 'false' ?>)" style="margin-top: 6px; padding: 6px 10px; border: 1px solid #c8c8c8; background: #ffffff; color: #333333; border-radius: 3px; font-size: 12.5px; font-weight: 500; cursor: pointer; display: block; width: 100%;">
                             Hủy đơn
                           </button>
                         <?php endif; ?>
@@ -625,17 +634,29 @@ async function handleChangePasswordSubmit(e) {
   }
 }
 
-async function cancelOrder(orderId) {
+async function cancelOrder(orderId, isPaid = false) {
+  if (isPaid) {
+    openRefundCancelModal(orderId);
+    return;
+  }
   const ok = await kiboConfirm(`Bạn có chắc chắn muốn hủy đơn hàng #${orderId} không?`, 'Xác nhận hủy đơn hàng', 'Xác nhận hủy', 'Đóng');
   if (!ok) return;
+  await submitCancelOrderRequest(orderId, null);
+}
+
+async function submitCancelOrderRequest(orderId, refundBank) {
   try {
+    const payload = {
+      madonhang: orderId,
+      csrf_token: window.KIBO_CSRF_TOKEN || ''
+    };
+    if (refundBank) {
+      payload.refund_bank = refundBank;
+    }
     const res = await fetch('index.php?action=cancel_order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        madonhang: orderId,
-        csrf_token: window.KIBO_CSRF_TOKEN || ''
-      })
+      body: JSON.stringify(payload)
     });
     const data = await res.json();
     if (data.success) {
@@ -709,5 +730,67 @@ async function cancelOrder(orderId) {
     </form>
   </div>
 </div>
+
+<!-- MODAL HỦY ĐƠN ĐÃ THANH TOÁN & NHẬP TÀI KHOẢN HOÀN TIỀN -->
+<div id="refundCancelModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 999999; place-items: center; padding: 16px;">
+  <div style="background: #ffffff; width: min(460px, 94vw); border-radius: 4px; border: 1px solid #c8c8c8; box-shadow: 0 10px 28px rgba(0,0,0,0.2); font-family: Arial, sans-serif; overflow: hidden;">
+    <div style="background: #f5f5f5; padding: 13px 18px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between;">
+      <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #222222;">Hủy đơn &amp; Yêu cầu hoàn tiền</h3>
+      <button type="button" onclick="closeRefundCancelModal()" style="background: none; border: none; font-size: 18px; color: #666666; cursor: pointer; line-height: 1; padding: 0 4px;">✕</button>
+    </div>
+    <form id="refundCancelForm" onsubmit="handleRefundCancelSubmit(event)" style="padding: 18px 20px;">
+      <input type="hidden" id="refundCancelOrderId">
+      <p style="margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: #333333;">
+        Đơn hàng <strong id="refundCancelOrderText">#</strong> đã được thanh toán. Vui lòng nhập thông tin tài khoản ngân hàng để cửa hàng chuyển khoản hoàn tiền cho bạn:
+      </p>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 4px;">Tên ngân hàng *</label>
+        <input type="text" id="refundBankName" required placeholder="VD: Vietcombank, MB Bank, Techcombank..." style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 4px;">Số tài khoản *</label>
+        <input type="text" id="refundAccountNumber" required placeholder="Nhập số tài khoản nhận tiền hoàn" style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 4px;">Tên chủ tài khoản *</label>
+        <input type="text" id="refundAccountHolder" required placeholder="VD: NGUYEN VAN A" style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid #eee;">
+        <button type="button" onclick="closeRefundCancelModal()" style="padding: 8px 18px; border: 1px solid #cccccc; background: #ffffff; color: #333333; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Đóng</button>
+        <button type="submit" id="btnSubmitRefundCancel" style="padding: 8px 18px; border: 1px solid #2c1a0e; background: #2c1a0e; color: #ffffff; border-radius: 4px; font-size: 13.5px; font-weight: 600; cursor: pointer;">Xác nhận hủy &amp; Hoàn tiền</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openRefundCancelModal(orderId) {
+  document.getElementById('refundCancelOrderId').value = orderId;
+  document.getElementById('refundCancelOrderText').textContent = '#' + orderId;
+  document.getElementById('refundBankName').value = '';
+  document.getElementById('refundAccountNumber').value = '';
+  document.getElementById('refundAccountHolder').value = '';
+  document.getElementById('refundCancelModal').style.display = 'grid';
+}
+function closeRefundCancelModal() {
+  document.getElementById('refundCancelModal').style.display = 'none';
+}
+async function handleRefundCancelSubmit(e) {
+  e.preventDefault();
+  const orderId = document.getElementById('refundCancelOrderId').value;
+  const ngan_hang = document.getElementById('refundBankName').value.trim();
+  const so_tai_khoan = document.getElementById('refundAccountNumber').value.trim();
+  const chu_tai_khoan = document.getElementById('refundAccountHolder').value.trim();
+  if (!ngan_hang || !so_tai_khoan || !chu_tai_khoan) return;
+
+  const btn = document.getElementById('btnSubmitRefundCancel');
+  btn.disabled = true;
+  btn.textContent = 'Đang xử lý...';
+  closeRefundCancelModal();
+  await submitCancelOrderRequest(orderId, { ngan_hang, so_tai_khoan, chu_tai_khoan });
+  btn.disabled = false;
+  btn.textContent = 'Xác nhận hủy & Hoàn tiền';
+}
+</script>
 
 <?php require __DIR__ . '/footer.php'; ?>

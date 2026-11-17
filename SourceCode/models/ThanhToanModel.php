@@ -36,7 +36,7 @@ class ThanhToanModel {
 
         try {
             $sql = "SELECT tt.magiaodich, tt.madonhang, tt.phuongthuctt, tt.sotien, tt.thoigiantt, tt.trangthaitt,
-                           dh.tennguoinhan, dh.sodienthoainhan, dh.trangthaidonhang, dh.ngaydathang
+                           dh.tennguoinhan, dh.sodienthoainhan, dh.trangthaidonhang, dh.ngaydathang, dh.ghichu
                     FROM thanh_toan tt
                     LEFT JOIN don_hang dh ON tt.madonhang = dh.madonhang
                     ORDER BY COALESCE(tt.thoigiantt, dh.ngaydathang) DESC";
@@ -88,6 +88,44 @@ class ThanhToanModel {
             return [
                 'success' => true,
                 'message' => "Đã xác nhận nhận tiền thành công cho đơn {$tt['madonhang']} (" . number_format($tt['sotien'], 0, ',', '.') . "đ)."
+            ];
+        } catch (Exception $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    public static function xacNhanHoanTien($id) {
+        $db = Database::getConnection();
+        if (!$db) return ['success' => false, 'message' => 'Lỗi kết nối CSDL'];
+
+        try {
+            $stmt = $db->prepare("SELECT tt.magiaodich, tt.madonhang, tt.sotien, tt.trangthaitt, tt.phuongthuctt
+                                  FROM thanh_toan tt
+                                  WHERE tt.magiaodich = ? OR tt.madonhang = ?
+                                  LIMIT 1");
+            $stmt->execute([$id, $id]);
+            $tt = $stmt->fetch();
+
+            if (!$tt) {
+                return ['success' => false, 'message' => 'Không tìm thấy thông tin giao dịch thanh toán.'];
+            }
+
+            if ($tt['trangthaitt'] === TrangThai::TT_HOAN_TIEN || $tt['trangthaitt'] === 'Hoàn tiền') {
+                return ['success' => false, 'message' => 'Giao dịch này đã được xác nhận hoàn tiền trước đó.'];
+            }
+
+            if ($tt['trangthaitt'] !== TrangThai::TT_CHO_HOAN_TIEN && $tt['trangthaitt'] !== 'Chờ hoàn tiền') {
+                return ['success' => false, 'message' => 'Chỉ có thể xác nhận hoàn tiền cho giao dịch đang ở trạng thái Chờ hoàn tiền.'];
+            }
+
+            $upd = $db->prepare("UPDATE thanh_toan SET trangthaitt = ?, thoigiantt = NOW() WHERE magiaodich = ?");
+            $upd->execute([TrangThai::TT_HOAN_TIEN, $tt['magiaodich']]);
+
+            NhatKyModel::ghi('Xác nhận hoàn tiền', 'thanh_toan', $tt['magiaodich'], "Đã hoàn tiền " . number_format($tt['sotien'], 0, ',', '.') . "đ cho đơn hủy {$tt['madonhang']}");
+
+            return [
+                'success' => true,
+                'message' => "Đã xác nhận hoàn tiền " . number_format($tt['sotien'], 0, ',', '.') . "đ cho đơn {$tt['madonhang']}."
             ];
         } catch (Exception $e) {
             return ['success' => false, 'message' => $e->getMessage()];
