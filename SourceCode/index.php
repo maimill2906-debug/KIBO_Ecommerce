@@ -496,6 +496,7 @@ switch ($action) {
         exit;
 
     case 'chung_tu':
+        require_once __DIR__ . '/config/database.php';
         $ctId = trim($_GET['id'] ?? '');
         $db = Database::getConnection();
         $stmtCT = $db->prepare("SELECT ct.*, t.tentram, t.diachi AS diachitram, t.nguoidaidien, t.sotaikhoan, t.nganhang
