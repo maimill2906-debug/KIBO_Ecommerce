@@ -47,23 +47,19 @@ if ($isValidCode) {
         $rawCust = $dbOrder['customerName'] ?? 'Khách hàng';
 
         $verifyError = '';
+        $isVerifiedOrder = false;
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_order_phone'])) {
             $inputPhone = preg_replace('/\s+/', '', trim((string)$_POST['verify_order_phone']));
             $cleanOrderPhone = preg_replace('/\s+/', '', trim((string)$rawPhone));
             if ($inputPhone !== '' && $cleanOrderPhone !== '' && $inputPhone === $cleanOrderPhone) {
-                if (!isset($_SESSION['verified_tracking_orders']) || !is_array($_SESSION['verified_tracking_orders'])) {
-                    $_SESSION['verified_tracking_orders'] = [];
-                }
-                $_SESSION['verified_tracking_orders'][] = $dbOrder['orderId'];
+                $isVerifiedOrder = true;
             } else {
                 $verifyError = 'Số điện thoại xác minh không khớp với đơn hàng.';
             }
         }
 
         $recentGuestOrders = $_SESSION['recent_guest_orders'] ?? [];
-        $verifiedTrackingOrders = $_SESSION['verified_tracking_orders'] ?? [];
         $isRecentGuestOrder = is_array($recentGuestOrders) && in_array($dbOrder['orderId'], $recentGuestOrders, true);
-        $isVerifiedOrder = is_array($verifiedTrackingOrders) && in_array($dbOrder['orderId'], $verifiedTrackingOrders, true);
         $isOwner = $isRecentGuestOrder
                    || $isVerifiedOrder
                    || ($currUser && !empty($currUser['MaKH']) && !empty($orderMaKH) && $currUser['MaKH'] === $orderMaKH)
