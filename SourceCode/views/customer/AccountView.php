@@ -490,9 +490,9 @@ function showAlert(msg, isSuccess) {
   if (!alert) return;
   alert.textContent = msg;
   alert.style.display = 'block';
-  alert.style.background = isSuccess ? '#eaf4e6' : '#fdf2f2';
-  alert.style.color = isSuccess ? '#2e7d32' : '#c94336';
-  alert.style.border = isSuccess ? '1px solid #b7deb2' : '1px solid #f8d7da';
+  alert.style.background = '#f7f7f7';
+  alert.style.color = '#222222';
+  alert.style.border = isSuccess ? '1px solid #dcdcdc' : '1px solid #999999';
 }
 
 function openReturnModal(orderCode) {
@@ -517,8 +517,9 @@ async function handleReturnSubmit(e) {
   if (!lydo) {
     alertEl.textContent = 'Vui lòng nhập lý do đổi trả.';
     alertEl.style.display = 'block';
-    alertEl.style.background = '#fdf2f2';
-    alertEl.style.color = '#c94336';
+    alertEl.style.background = '#f7f7f7';
+    alertEl.style.color = '#222222';
+    alertEl.style.border = '1px solid #999999';
     return;
   }
 
@@ -542,8 +543,9 @@ async function handleReturnSubmit(e) {
     if (res.success) {
       alertEl.textContent = '✓ ' + (res.message || 'Gửi yêu cầu thành công!');
       alertEl.style.display = 'block';
-      alertEl.style.background = '#eaf4e6';
-      alertEl.style.color = '#2e7d32';
+      alertEl.style.background = '#f7f7f7';
+      alertEl.style.color = '#222222';
+      alertEl.style.border = '1px solid #dcdcdc';
       setTimeout(() => {
         closeReturnModal();
         window.location.reload();
@@ -551,14 +553,16 @@ async function handleReturnSubmit(e) {
     } else {
       alertEl.textContent = res.message || 'Có lỗi xảy ra, vui lòng thử lại.';
       alertEl.style.display = 'block';
-      alertEl.style.background = '#fdf2f2';
-      alertEl.style.color = '#c94336';
+      alertEl.style.background = '#f7f7f7';
+      alertEl.style.color = '#222222';
+      alertEl.style.border = '1px solid #999999';
     }
   } catch (err) {
     alertEl.textContent = 'Lỗi kết nối máy chủ.';
     alertEl.style.display = 'block';
-    alertEl.style.background = '#fdf2f2';
-    alertEl.style.color = '#c94336';
+    alertEl.style.background = '#f7f7f7';
+    alertEl.style.color = '#222222';
+    alertEl.style.border = '1px solid #999999';
   } finally {
     btn.disabled = false;
     btn.innerHTML = 'Gửi yêu cầu';
@@ -586,16 +590,18 @@ async function handleChangePasswordSubmit(e) {
   if (newPass.length < 8) {
     alertEl.textContent = 'Mật khẩu mới phải có ít nhất 8 ký tự.';
     alertEl.style.display = 'block';
-    alertEl.style.background = '#fdf2f2';
-    alertEl.style.color = '#c94336';
+    alertEl.style.background = '#f7f7f7';
+    alertEl.style.color = '#222222';
+    alertEl.style.border = '1px solid #999999';
     return;
   }
 
   if (newPass !== confirmPass) {
     alertEl.textContent = 'Mật khẩu xác nhận không khớp.';
     alertEl.style.display = 'block';
-    alertEl.style.background = '#fdf2f2';
-    alertEl.style.color = '#c94336';
+    alertEl.style.background = '#f7f7f7';
+    alertEl.style.color = '#222222';
+    alertEl.style.border = '1px solid #999999';
     return;
   }
 
@@ -612,22 +618,25 @@ async function handleChangePasswordSubmit(e) {
     if (res.success) {
       alertEl.textContent = '✓ ' + (res.message || 'Đổi mật khẩu thành công!');
       alertEl.style.display = 'block';
-      alertEl.style.background = '#eaf4e6';
-      alertEl.style.color = '#2e7d32';
+      alertEl.style.background = '#f7f7f7';
+      alertEl.style.color = '#222222';
+      alertEl.style.border = '1px solid #dcdcdc';
       setTimeout(() => {
         closeChangePasswordModal();
       }, 1500);
     } else {
       alertEl.textContent = res.message || 'Không thể đổi mật khẩu.';
       alertEl.style.display = 'block';
-      alertEl.style.background = '#fdf2f2';
-      alertEl.style.color = '#c94336';
+      alertEl.style.background = '#f7f7f7';
+      alertEl.style.color = '#222222';
+      alertEl.style.border = '1px solid #999999';
     }
   } catch (err) {
     alertEl.textContent = 'Lỗi kết nối máy chủ.';
     alertEl.style.display = 'block';
-    alertEl.style.background = '#fdf2f2';
-    alertEl.style.color = '#c94336';
+    alertEl.style.background = '#f7f7f7';
+    alertEl.style.color = '#222222';
+    alertEl.style.border = '1px solid #999999';
   } finally {
     btn.disabled = false;
     btn.textContent = 'Lưu mật khẩu mới';
