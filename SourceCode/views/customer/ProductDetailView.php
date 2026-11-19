@@ -145,7 +145,7 @@ $discountPercent = ($product['oldPrice'] > $product['price']) ? round((1 - $prod
       <div class="contribution">
         <span><?= kibo_icon('heart', 20) ?></span>
         <p>
-          <strong>Bạn góp thêm <?= $rescueContribution ?>đ vào Quỹ cứu trợ KIBO</strong>
+          <strong id="pdpRescueBoxStrong">Bạn góp thêm <?= $rescueContribution ?>đ vào Quỹ cứu trợ KIBO</strong>
           <small>Trích tự động 5% mỗi đơn hàng thành công cho các trạm cứu hộ động vật.</small>
         </p>
       </div>
@@ -263,8 +263,11 @@ function handleVariantChange(sel) {
   const priceDisplay = new Intl.NumberFormat('vi-VN').format(price) + '₫';
   const priceEl = document.querySelector('.pdp-price-main');
   if (priceEl) priceEl.textContent = priceDisplay;
+  const rescueFormatted = new Intl.NumberFormat('vi-VN').format(Math.round(price * 0.05));
   const fundEl = document.querySelector('.pdp-fund-line strong');
-  if (fundEl) fundEl.textContent = new Intl.NumberFormat('vi-VN').format(Math.round(price * 0.05)) + '₫';
+  if (fundEl) fundEl.textContent = rescueFormatted + '₫';
+  const rescueBoxEl = document.getElementById('pdpRescueBoxStrong');
+  if (rescueBoxEl) rescueBoxEl.textContent = 'Bạn góp thêm ' + rescueFormatted + 'đ vào Quỹ cứu trợ KIBO';
 
   const statusEl = document.getElementById('pdpStockStatus');
   const btn = document.getElementById('btnPdpAddToCart');

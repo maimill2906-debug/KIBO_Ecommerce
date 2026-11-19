@@ -236,22 +236,35 @@
       <button type="button" class="modal-close btn" onclick="closeForgotPasswordModal()" aria-label="Đóng"><?= kibo_icon('close', 20) ?></button>
       <div class="auth-brand" style="margin-bottom: 16px;">
         <?= kibo_logo_svg('default', 44) ?>
-        <h2 style="margin-top: 12px; font-size: 20px; color: #2c1a0e;">Khôi phục mật khẩu tài khoản</h2>
+        <h2 style="margin-top: 12px; font-size: 20px; color: #2c1a0e;">Khôi phục mật khẩu bằng OTP</h2>
+        <p style="font-size: 13px; color: #666; margin-top: 4px;">Nhập Email hoặc Số điện thoại đã đăng ký để nhận mã OTP xác thực.</p>
       </div>
 
-      <div style="background: #fffbeb; border: 1px solid #fef3c7; color: #92400e; padding: 16px; border-radius: 8px; font-size: 13.5px; line-height: 1.55; text-align: left; margin-bottom: 20px;">
-        <strong style="display:block; margin-bottom: 6px; font-size: 14px;">🔒 Thông báo hỗ trợ cấp lại mật khẩu:</strong>
-        Hệ thống gửi mã OTP tự động qua SMS/Email đang trong lộ trình tích hợp cổng dịch vụ số (xác thực qua tổng đài Zalo ZNS / SMS Brandname).
-        <p style="margin: 10px 0 6px;">Để đảm bảo an toàn tuyệt đối, Quý khách vui lòng liên hệ trực tiếp bộ phận CSKH để được hỗ trợ cấp lại mật khẩu:</p>
-        <ul style="margin: 4px 0 0 16px; padding: 0;">
-          <li>Hotline / Zalo hỗ trợ: <strong>0772 906 756</strong> (8:00 - 21:00)</li>
-          <li>Email tiếp nhận: <strong>cskh@kibo.vn</strong></li>
-        </ul>
-      </div>
+      <form id="forgotOtpForm" onsubmit="handleForgotOtpSubmit(event)" style="text-align: left;">
+        <label class="field" style="margin-bottom: 10px;">
+          <span>Email hoặc Số điện thoại *</span>
+          <div style="display: flex; gap: 8px; margin-top: 4px;">
+            <input type="text" id="forgotIdentifier" placeholder="Ví dụ: name@example.com" required style="flex: 1;">
+            <button type="button" id="btnSendOtp" class="btn primary" onclick="sendForgotOtp()" style="white-space: nowrap; padding: 0 14px; font-size: 13px; font-weight: 600;">Gửi OTP</button>
+          </div>
+        </label>
 
-      <button type="button" class="btn primary confirm" onclick="closeForgotPasswordModal()" style="width: 100%; min-height: 44px; font-weight: 700;">
-        Đã hiểu và quay lại
-      </button>
+        <div id="forgotOtpMsg" style="display: none; padding: 10px 12px; border-radius: 6px; font-size: 13px; margin: 10px 0;"></div>
+
+        <div id="forgotStep2Fields" style="display: none; margin-top: 10px;">
+          <label class="field" style="margin-bottom: 10px;">
+            <span>Mã OTP (6 số) *</span>
+            <input type="text" id="forgotOtpCode" maxlength="6" placeholder="Nhập mã OTP từ Email" required>
+          </label>
+          <label class="field" style="margin-bottom: 14px;">
+            <span>Mật khẩu mới (tối thiểu 8 ký tự) *</span>
+            <input type="password" id="forgotNewPassword" minlength="8" placeholder="Nhập mật khẩu mới" required>
+          </label>
+          <button type="submit" class="btn primary confirm" style="width: 100%; min-height: 44px; font-weight: 700;">
+            Xác nhận đặt lại mật khẩu
+          </button>
+        </div>
+      </form>
     </section>
   </div>
 
