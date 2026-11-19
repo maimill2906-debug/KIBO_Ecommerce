@@ -495,6 +495,73 @@ switch ($action) {
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 
+    case 'chung_tu':
+        $ctId = trim($_GET['id'] ?? '');
+        $db = Database::getConnection();
+        $stmtCT = $db->prepare("SELECT ct.*, t.tentram, t.diachi AS diachitram, t.nguoidaidien, t.sotaikhoan, t.nganhang
+                                FROM chung_tu_giai_ngan ct
+                                LEFT JOIN tram_cuu_ho t ON ct.matram = t.matram
+                                WHERE ct.machungtu = ? LIMIT 1");
+        $stmtCT->execute([$ctId]);
+        $ct = $stmtCT->fetch();
+        if (!$ct) {
+            http_response_code(404);
+            echo 'Không tìm thấy chứng từ giải ngân.';
+            exit;
+        }
+        $ngayFmt = !empty($ct['ngaychuyenkhoan']) ? date('d/m/Y', strtotime($ct['ngaychuyenkhoan'])) : '--';
+        $tienFmt = number_format((float)$ct['sotiengiaingan'], 0, ',', '.') . ' VNĐ';
+        ?>
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head>
+          <meta charset="UTF-8">
+          <title>Chứng từ giải ngân #<?= htmlspecialchars($ct['machungtu']) ?> - KIBO</title>
+          <style>
+            body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 24px; color: #222; }
+            .sheet { max-width: 720px; margin: 0 auto; background: #fff; border: 1px solid #d4d4d4; padding: 28px 32px; }
+            .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #2c1a0e; padding-bottom: 14px; margin-bottom: 18px; }
+            table { width: 100%; border-collapse: collapse; font-size: 14px; }
+            td { padding: 9px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
+            .lbl { color: #555; width: 34%; }
+            .signs { display: flex; justify-content: space-between; text-align: center; margin-top: 32px; font-size: 13px; }
+            .btn-bar { max-width: 720px; margin: 0 auto 14px; display: flex; justify-content: flex-end; gap: 10px; }
+            @media print { .btn-bar { display: none; } body { background: #fff; padding: 0; } .sheet { border: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="btn-bar">
+            <button type="button" onclick="window.print()" style="padding: 8px 16px; background: #2c1a0e; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">In / Lưu PDF</button>
+          </div>
+          <div class="sheet">
+            <div class="head">
+              <div>
+                <h2 style="margin: 0 0 4px; font-size: 18px;">ỦY NHIỆM CHI / CHỨNG TỪ GIẢI NGÂN QUỸ CỨU TRỢ 5%</h2>
+                <div style="font-size: 13px; color: #555;">KIBO PET'S HOME · Quỹ cứu trợ động vật minh bạch</div>
+              </div>
+              <div style="text-align: right;">
+                <strong>Mã chứng từ: #<?= htmlspecialchars($ct['machungtu']) ?></strong><br>
+                <span style="font-size: 13px; color: #555;">Ngày: <?= htmlspecialchars($ngayFmt) ?></span>
+              </div>
+            </div>
+            <table>
+              <tr><td class="lbl">Đơn vị thụ hưởng:</td><td><strong><?= htmlspecialchars($ct['tentram'] ?? 'Trạm cứu hộ đối tác') ?></strong></td></tr>
+              <tr><td class="lbl">Người đại diện:</td><td><?= htmlspecialchars($ct['nguoidaidien'] ?? '--') ?></td></tr>
+              <tr><td class="lbl">Ngân hàng / STK nhận:</td><td><?= htmlspecialchars(($ct['nganhang'] ?? '--') . ' - ' . ($ct['sotaikhoan'] ?? '--')) ?></td></tr>
+              <tr><td class="lbl">Số tiền giải ngân:</td><td><strong style="font-size: 16px;"><?= $tienFmt ?></strong></td></tr>
+              <tr><td class="lbl">Nội dung / Mục đích chi:</td><td><?= htmlspecialchars($ct['mucdichsudung'] ?? '') ?></td></tr>
+              <tr><td class="lbl">Trạng thái:</td><td><strong>Đã chuyển khoản &amp; đối soát công khai</strong></td></tr>
+            </table>
+            <div class="signs">
+              <div style="width: 45%;"><strong>KẾ TOÁN QUỸ KIBO</strong><br><br><br>Đã xác nhận chi</div>
+              <div style="width: 45%;"><strong>ĐẠI DIỆN TRẠM CỨU HỘ</strong><br><br><br>Đã xác nhận nhận tiền</div>
+            </div>
+          </div>
+        </body>
+        </html>
+        <?php
+        exit;
+
     case 'admin_create_category':
         requireAdmin();
         header('Content-Type: application/json; charset=utf-8');

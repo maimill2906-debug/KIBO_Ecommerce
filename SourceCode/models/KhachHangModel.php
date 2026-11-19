@@ -106,18 +106,22 @@ class KhachHangModel {
                 return ['success' => false, 'message' => 'Không tìm thấy thông tin khách hàng để cập nhật'];
             }
 
-            // Kiểm tra trùng SĐT với tài khoản thành viên khác
+            // Kiểm tra trùng SĐT với tài khoản thành viên khác (chỉ kiểm tra nếu khách đổi sang SĐT chưa gắn với chính mình)
             if (!empty($phone)) {
-                $chkDupPhone = $db->prepare("
-                    SELECT s.makh 
-                    FROM sdt_kh s 
-                    JOIN khach_hang k ON s.makh = k.makh 
-                    WHERE s.sodienthoai = ? AND s.makh <> ? AND k.matk IS NOT NULL 
-                    LIMIT 1
-                ");
-                $chkDupPhone->execute([$phone, $maKH]);
-                if ($chkDupPhone->fetchColumn()) {
-                    return ['success' => false, 'message' => 'Số điện thoại này đã được đăng ký bởi một tài khoản khác.'];
+                $chkOwnPhone = $db->prepare("SELECT 1 FROM sdt_kh WHERE makh = ? AND sodienthoai = ? LIMIT 1");
+                $chkOwnPhone->execute([$maKH, $phone]);
+                if (!$chkOwnPhone->fetchColumn()) {
+                    $chkDupPhone = $db->prepare("
+                        SELECT s.makh 
+                        FROM sdt_kh s 
+                        JOIN khach_hang k ON s.makh = k.makh 
+                        WHERE s.sodienthoai = ? AND s.makh <> ? AND k.matk IS NOT NULL 
+                        LIMIT 1
+                    ");
+                    $chkDupPhone->execute([$phone, $maKH]);
+                    if ($chkDupPhone->fetchColumn()) {
+                        return ['success' => false, 'message' => 'Số điện thoại này đã được đăng ký bởi một tài khoản khác.'];
+                    }
                 }
             }
 

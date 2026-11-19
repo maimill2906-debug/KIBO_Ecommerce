@@ -10,6 +10,16 @@ require_once __DIR__ . '/../../models/KhachHangModel.php';
 require_once __DIR__ . '/../../models/VoucherModel.php';
 require_once __DIR__ . '/../../models/CongThanhToan.php';
 $vietqrConfig = CongThanhToan::getConfig();
+$variantStockMap = [];
+try {
+    $dbStock = Database::getConnection();
+    if ($dbStock) {
+        $rowsStock = $dbStock->query("SELECT mabienthe, soluongton FROM bien_the")->fetchAll();
+        foreach ($rowsStock as $rs) {
+            $variantStockMap[$rs['mabienthe']] = (int)$rs['soluongton'];
+        }
+    }
+} catch (Exception $e) {}
 
 $initialStep = (isset($_GET['action']) && $_GET['action'] === 'checkout') || (isset($_GET['step']) && $_GET['step'] === 'checkout') ? 'checkout' : 'cart';
 
@@ -358,6 +368,10 @@ $preselectedVoucher = trim($_GET['voucher'] ?? '');
           <strong id="gwAccountNo" style="color: #222;">--</strong>
         </div>
         <div style="display: flex; justify-content: space-between;">
+          <span style="color: #666;">Chủ tài khoản:</span>
+          <strong id="gwAccountName" style="color: #222;">--</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
           <span style="color: #666;">Số tiền:</span>
           <strong id="gwAmount" style="color: #222; font-size: 15px;">0₫</strong>
         </div>
@@ -456,6 +470,7 @@ $preselectedVoucher = trim($_GET['voucher'] ?? '');
 
 <script>
 window.KIBO_VIETQR = <?= json_encode($vietqrConfig, JSON_UNESCAPED_UNICODE) ?>;
+window.KIBO_VARIANT_STOCK = <?= json_encode($variantStockMap, JSON_UNESCAPED_UNICODE) ?>;
 let currentVoucherDiscount = 0;
 let appliedVoucherCode = null;
 let currentStep = '<?= $initialStep ?>';
@@ -489,6 +504,18 @@ function formatVND(amount) {
 }
 
 function goToCheckoutStep() {
+  const cart = getCart();
+  for (const item of cart) {
+    const maxStock = (window.KIBO_VARIANT_STOCK && window.KIBO_VARIANT_STOCK[item.id] !== undefined)
+      ? Number(window.KIBO_VARIANT_STOCK[item.id])
+      : null;
+    if (maxStock !== null && item.quantity > maxStock) {
+      const msg = `Sản phẩm "${item.name}" chỉ còn ${maxStock} sản phẩm trong kho. Vui lòng giảm số lượng trước khi thanh toán.`;
+      if (window.kiboAlert) kiboAlert(msg, 'Thông báo tồn kho');
+      else showCustomerToast(msg, 'error');
+      return;
+    }
+  }
   currentStep = 'checkout';
   document.getElementById('cartStep1').style.display = 'none';
   document.getElementById('cartStep2').style.display = 'block';
@@ -724,6 +751,17 @@ function changeQty(id, variant, delta) {
   let cart = getCart();
   const item = cart.find(x => x.id === id && x.variant === variant);
   if (item) {
+    if (delta > 0) {
+      const maxStock = (window.KIBO_VARIANT_STOCK && window.KIBO_VARIANT_STOCK[id] !== undefined)
+        ? Number(window.KIBO_VARIANT_STOCK[id])
+        : null;
+      if (maxStock !== null && item.quantity + delta > maxStock) {
+        const msg = `Sản phẩm "${item.name}" chỉ còn ${maxStock} sản phẩm trong kho.`;
+        if (window.kiboAlert) kiboAlert(msg, 'Thông báo tồn kho');
+        else showCustomerToast(msg, 'error');
+        return;
+      }
+    }
     item.quantity += delta;
     if (item.quantity <= 0) {
       cart = cart.filter(x => !(x.id === id && x.variant === variant));
@@ -1166,6 +1204,9 @@ function openVietQRGatewayModal(orderCode, amount, fundAmount, qrUrl) {
   if (document.getElementById('gwBankName') && window.KIBO_VIETQR) {
     document.getElementById('gwBankName').textContent = window.KIBO_VIETQR.bank_name || 'MSB';
     document.getElementById('gwAccountNo').textContent = window.KIBO_VIETQR.account_no || '';
+    if (document.getElementById('gwAccountName')) {
+      document.getElementById('gwAccountName').textContent = window.KIBO_VIETQR.account_name || 'NGUYEN LE QUYNH MAI';
+    }
   }
   if (document.getElementById('gwAmount')) document.getElementById('gwAmount').textContent = formatVND(amount);
   if (document.getElementById('gwContent')) document.getElementById('gwContent').textContent = 'KIBO ' + orderCode;

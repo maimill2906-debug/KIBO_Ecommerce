@@ -180,11 +180,15 @@ $shelterImage = 'https://images.unsplash.com/photo-1718885433034-908d5bca08cf?au
       <!-- Modal Footer -->
       <div style="padding: 12px 20px; background: #ffffff; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
         <button type="button" onclick="closeStatementModal()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Đóng</button>
-        <?php if (!empty($latestDisbursement['FileHoaDonChungTu'])): ?>
-          <a href="<?= htmlspecialchars($latestDisbursement['FileHoaDonChungTu']) ?>" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border: none; background: #1e293b; color: #ffffff; border-radius: 4px; font-weight: 600; font-size: 13.5px; text-decoration: none; cursor: pointer;">
-            Xem / Tải chứng từ gốc
-          </a>
-        <?php endif; ?>
+        <?php
+          $ctId = $latestDisbursement['MaChungTu'] ?? '';
+          $ctFile = $latestDisbursement['FileHoaDonChungTu'] ?? '';
+          $useDynamicReceipt = empty($ctFile) || ($ctId !== 'CT001' && $ctFile === 'assets/docs/chung_tu_nong_lam_092026.pdf');
+          $receiptHref = $useDynamicReceipt ? ('index.php?action=chung_tu&id=' . urlencode($ctId)) : $ctFile;
+        ?>
+        <a href="<?= htmlspecialchars($receiptHref) ?>" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border: none; background: #1e293b; color: #ffffff; border-radius: 4px; font-weight: 600; font-size: 13.5px; text-decoration: none; cursor: pointer;">
+          Xem / Tải chứng từ gốc
+        </a>
       </div>
 
     </div>

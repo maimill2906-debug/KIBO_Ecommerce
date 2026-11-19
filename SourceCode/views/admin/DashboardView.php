@@ -1215,7 +1215,9 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       const tbody = document.getElementById('inventoryTableBody');
       if (tbody) {
         tbody.innerHTML = filtered.map(item => {
-          const st = getStockStatus(item.stock);
+          const st = (item.trangthai === 'Ngừng bán')
+            ? { label: 'Ngừng bán', className: 'out' }
+            : getStockStatus(item.stock);
           const costDisplay = (item.cost_price && item.cost_price > 0) ? new Intl.NumberFormat('vi-VN').format(item.cost_price) + '₫' : '—';
           const priceDisplay = new Intl.NumberFormat('vi-VN').format(item.price) + '₫';
           return `
@@ -1770,8 +1772,13 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
         inventoryData.unshift({
           id: newId,
           name: name,
+          brand: brand,
           sku: newSku,
           category: catText,
+          price: price,
+          cost_price: costPrice,
+          image: image,
+          trangthai: 'Đang bán',
           sold: 0,
           stock: stock,
           color: '#589442',
@@ -3027,7 +3034,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
         <button type="button" onclick="closeAddProductModal()" style="background: none; border: none; font-size: 22px; color: #fff; cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='none'">✕</button>
       </div>
 
-      <form id="formAddProduct" onsubmit="submitNewProduct(event)" style="padding: 22px 26px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto;">
+      <form id="formAddProduct" novalidate onsubmit="submitNewProduct(event)" style="padding: 22px 26px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto;">
         <!-- Tên sản phẩm -->
         <div>
           <label style="display: block; font-size: 13.5px; font-weight: bold; margin-bottom: 6px; color: #222;">Tên sản phẩm *</label>
