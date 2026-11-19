@@ -988,6 +988,7 @@ async function handleFinalCheckout() {
       })),
       mavoucher: appliedVoucherCode,
       tennguoinhan: name,
+      email: email,
       sodienthoainhan: phone,
       tinhthanh: city,
       quanhuyen: district,
