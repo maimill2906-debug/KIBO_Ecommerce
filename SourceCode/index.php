@@ -105,11 +105,6 @@ switch ($action) {
         if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
             @session_start();
         }
-        $currentUser = $_SESSION['user'] ?? null;
-        if (!$currentUser || empty($currentUser['MaKH'])) {
-            echo json_encode(['success' => false, 'message' => 'Vui lòng đăng nhập để thực hiện hủy đơn.']);
-            exit;
-        }
         $raw = file_get_contents('php://input');
         $input = json_decode($raw, true) ?: $_POST;
         if (!verifyCsrfToken($input)) {
@@ -126,7 +121,7 @@ switch ($action) {
         require_once __DIR__ . '/models/DonHangModel.php';
         require_once __DIR__ . '/models/TrangThai.php';
         $db = Database::getConnection();
-        $stmtChk = $db->prepare("SELECT makh, trangthaidonhang FROM don_hang WHERE madonhang = ?");
+        $stmtChk = $db->prepare("SELECT makh, trangthaidonhang, sodienthoainhan FROM don_hang WHERE madonhang = ?");
         $stmtChk->execute([$orderId]);
         $ord = $stmtChk->fetch();
 
@@ -134,8 +129,17 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Không tìm thấy đơn hàng.']);
             exit;
         }
-        if ($ord['makh'] !== $currentUser['MaKH']) {
-            echo json_encode(['success' => false, 'message' => 'Bạn không có quyền thao tác trên đơn hàng này.']);
+
+        $currentUser = $_SESSION['user'] ?? null;
+        $isLoggedOwner = ($currentUser && !empty($currentUser['MaKH']) && $ord['makh'] === $currentUser['MaKH']);
+        $recentGuestOrders = $_SESSION['recent_guest_orders'] ?? [];
+        $isRecentGuest = is_array($recentGuestOrders) && in_array($orderId, $recentGuestOrders, true);
+        $verifyPhone = preg_replace('/\s+/', '', trim((string)($input['verify_phone'] ?? '')));
+        $orderPhone = preg_replace('/\s+/', '', trim((string)($ord['sodienthoainhan'] ?? '')));
+        $isPhoneVerified = ($verifyPhone !== '' && $orderPhone !== '' && $verifyPhone === $orderPhone);
+
+        if (!$isLoggedOwner && !$isRecentGuest && !$isPhoneVerified) {
+            echo json_encode(['success' => false, 'message' => 'Vui lòng đăng nhập hoặc xác minh số điện thoại đặt hàng để hủy đơn.']);
             exit;
         }
         if (!in_array($ord['trangthaidonhang'], [TrangThai::DH_CHO_XAC_NHAN, TrangThai::DH_CHO_DONG_GOI], true)) {

@@ -94,6 +94,8 @@ if ($isValidCode) {
             'fundStatus' => $dbOrder['trangthaiquy'] ?? ($dbOrder['fundStatus'] ?? ($step === 4 ? 'Đã trích quỹ' : 'Chờ trích quỹ')),
             'carrierStatus' => $dbOrder['carrierStatus'] ?? '',
             'mavandon' => $dbOrder['mavandon'] ?? null,
+            'paymentStatus' => $dbOrder['paymentStatus'] ?? 'Chờ thanh toán',
+            'rawPhone' => $rawPhone,
             'status' => $statusText,
             'status_step' => $step,
             'shelter' => $dbOrder['allocatedStation'] ?? null,
@@ -197,6 +199,14 @@ if ($isValidCode) {
               <?php endif; ?>
               <?php if (!empty($orderData['mavandon'])): ?>
                 <p style="margin: 4px 0 0; color: #2c1a0e; font-size: 13px; font-weight: 700;">📦 Mã vận đơn: <span style="background: #f5efe8; padding: 2px 6px; border-radius: 3px;"><?= htmlspecialchars($orderData['mavandon']) ?></span></p>
+              <?php endif; ?>
+              <?php if (!empty($isOwner) && in_array($orderData['status'], ['Chờ xác nhận', 'Chờ đóng gói'], true)): ?>
+                <?php $isTrackingPaid = (($orderData['paymentStatus'] ?? '') === 'Thành công'); ?>
+                <div style="margin-top: 10px;">
+                  <button type="button" onclick='cancelTrackingOrder(<?= json_encode($orderData["code"]) ?>, <?= $isTrackingPaid ? "true" : "false" ?>, <?= json_encode($orderData["rawPhone"] ?? "") ?>)' style="padding: 6px 14px; border: 1px solid #c8c8c8; background: #ffffff; color: #333333; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;">
+                    Hủy đơn hàng
+                  </button>
+                </div>
               <?php endif; ?>
             </div>
           </div>
@@ -450,7 +460,97 @@ async function handleTrackingReturnSubmit(e) {
     btn.innerHTML = 'Gửi yêu cầu';
   }
 }
+
+let trackingCancelPhone = '';
+async function cancelTrackingOrder(orderId, isPaid, rawPhone) {
+  trackingCancelPhone = rawPhone || '';
+  if (isPaid) {
+    document.getElementById('trackingRefundOrderId').value = orderId;
+    document.getElementById('trackingRefundOrderText').textContent = '#' + orderId;
+    document.getElementById('trackingRefundBank').value = '';
+    document.getElementById('trackingRefundAccNo').value = '';
+    document.getElementById('trackingRefundAccHolder').value = '';
+    document.getElementById('trackingRefundCancelModal').style.display = 'grid';
+    return;
+  }
+  const ok = await kiboConfirm(`Bạn có chắc chắn muốn hủy đơn hàng #${orderId} không?`, 'Xác nhận hủy đơn hàng', 'Xác nhận hủy', 'Đóng');
+  if (!ok) return;
+  await submitTrackingCancelOrder(orderId, null);
+}
+
+function closeTrackingRefundModal() {
+  const m = document.getElementById('trackingRefundCancelModal');
+  if (m) m.style.display = 'none';
+}
+
+async function handleTrackingRefundSubmit(e) {
+  e.preventDefault();
+  const orderId = document.getElementById('trackingRefundOrderId').value;
+  const ngan_hang = document.getElementById('trackingRefundBank').value.trim();
+  const so_tai_khoan = document.getElementById('trackingRefundAccNo').value.trim();
+  const chu_tai_khoan = document.getElementById('trackingRefundAccHolder').value.trim();
+  if (!ngan_hang || !so_tai_khoan || !chu_tai_khoan) return;
+  closeTrackingRefundModal();
+  await submitTrackingCancelOrder(orderId, { ngan_hang, so_tai_khoan, chu_tai_khoan });
+}
+
+async function submitTrackingCancelOrder(orderId, refundBank) {
+  try {
+    const payload = {
+      madonhang: orderId,
+      verify_phone: trackingCancelPhone,
+      csrf_token: window.KIBO_CSRF_TOKEN || ''
+    };
+    if (refundBank) payload.refund_bank = refundBank;
+    const res = await fetch('index.php?action=cancel_order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      await kiboAlert(data.message || 'Hủy đơn hàng thành công!', 'Thông báo');
+      window.location.href = 'index.php?action=tracking&order=' + encodeURIComponent(orderId);
+    } else {
+      await kiboAlert(data.message || 'Không thể hủy đơn hàng.', 'Thông báo');
+    }
+  } catch (err) {
+    await kiboAlert('Lỗi kết nối khi gửi yêu cầu hủy đơn.', 'Thông báo');
+  }
+}
 </script>
+
+<!-- MODAL HỦY ĐƠN ĐÃ THANH TOÁN & HOÀN TIỀN (TRANG TRA CỨU) -->
+<div id="trackingRefundCancelModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 999999; place-items: center; padding: 16px;">
+  <div style="background: #ffffff; width: min(460px, 94vw); border-radius: 4px; border: 1px solid #c8c8c8; box-shadow: 0 10px 28px rgba(0,0,0,0.2); font-family: Arial, sans-serif; overflow: hidden;">
+    <div style="background: #f5f5f5; padding: 13px 18px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between;">
+      <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #222222;">Hủy đơn &amp; Yêu cầu hoàn tiền</h3>
+      <button type="button" onclick="closeTrackingRefundModal()" style="background: none; border: none; font-size: 18px; color: #666666; cursor: pointer; line-height: 1; padding: 0 4px;">✕</button>
+    </div>
+    <form onsubmit="handleTrackingRefundSubmit(event)" style="padding: 18px 20px;">
+      <input type="hidden" id="trackingRefundOrderId">
+      <p style="margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: #333333;">
+        Đơn hàng <strong id="trackingRefundOrderText">#</strong> đã được thanh toán. Vui lòng nhập thông tin tài khoản ngân hàng để nhận hoàn tiền:
+      </p>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 4px;">Tên ngân hàng *</label>
+        <input type="text" id="trackingRefundBank" required placeholder="VD: Vietcombank, MB Bank, Techcombank..." style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 4px;">Số tài khoản *</label>
+        <input type="text" id="trackingRefundAccNo" required placeholder="Nhập số tài khoản nhận tiền hoàn" style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 4px;">Tên chủ tài khoản *</label>
+        <input type="text" id="trackingRefundAccHolder" required placeholder="VD: NGUYEN VAN A" style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13.5px; box-sizing: border-box;">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid #eee;">
+        <button type="button" onclick="closeTrackingRefundModal()" style="padding: 8px 18px; border: 1px solid #cccccc; background: #ffffff; color: #333333; border-radius: 4px; font-size: 13.5px; cursor: pointer;">Đóng</button>
+        <button type="submit" style="padding: 8px 18px; border: 1px solid #2c1a0e; background: #2c1a0e; color: #ffffff; border-radius: 4px; font-size: 13.5px; font-weight: 600; cursor: pointer;">Xác nhận hủy &amp; Hoàn tiền</button>
+      </div>
+    </form>
+  </div>
+</div>
     </div>
   </section>
 </main>
