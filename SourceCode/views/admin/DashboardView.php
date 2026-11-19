@@ -1215,7 +1215,8 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       const tbody = document.getElementById('inventoryTableBody');
       if (tbody) {
         tbody.innerHTML = filtered.map(item => {
-          const st = (item.trangthai === 'Ngừng bán')
+          const isHidden = (item.trangthai === 'Ngừng bán' || item.trangthai === 'Ngừng kinh doanh');
+          const st = isHidden
             ? { label: 'Ngừng bán', className: 'out' }
             : getStockStatus(item.stock);
           const costDisplay = (item.cost_price && item.cost_price > 0) ? new Intl.NumberFormat('vi-VN').format(item.cost_price) + '₫' : '—';
@@ -1244,7 +1245,7 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
                 <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                   <button type="button" class="ops-restock" onclick="restockItem('${item.id}')">+ Nhập</button>
                   <button type="button" class="ops-restock" style="background: #2c1a0e; color: #fff;" onclick="openEditProductModal('${item.id}', '${item.name.replace(/'/g, "\\'")}', '${item.stock}')">✏️ Sửa</button>
-                  <button type="button" class="ops-restock" style="background: ${item.trangthai === 'Ngừng bán' ? '#1565c0' : '#c94336'}; color: #fff;" onclick="adminToggleProductStatus('${item.id}', '${item.trangthai || 'Đang bán'}')">${item.trangthai === 'Ngừng bán' ? 'Mở bán' : 'Ẩn'}</button>
+                  <button type="button" class="ops-restock" style="background: ${isHidden ? '#1565c0' : '#c94336'}; color: #fff;" onclick="adminToggleProductStatus('${item.id}', '${item.trangthai || 'Đang bán'}')">${isHidden ? 'Mở bán' : 'Ẩn'}</button>
                 </div>
               </td>
             </tr>
@@ -1595,7 +1596,8 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
     }
 
     async function adminToggleProductStatus(masp, currentStatus) {
-      const nextStatus = (currentStatus === 'Ngừng bán') ? 'Đang bán' : 'Ngừng bán';
+      const isCurrentlyHidden = (currentStatus === 'Ngừng bán' || currentStatus === 'Ngừng kinh doanh');
+      const nextStatus = isCurrentlyHidden ? 'Đang bán' : 'Ngừng bán';
       if (!(await kiboConfirm(`Xác nhận chuyển trạng thái sản phẩm ${masp} sang "${nextStatus}"?`))) return;
       try {
         const resp = await fetch('index.php?action=admin_toggle_product_status', {
