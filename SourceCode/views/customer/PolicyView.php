@@ -434,8 +434,8 @@ $freeNgoaiTinh= number_format((int)($biz['ship']['mien_phi_khac'] ?? 500000), 0,
         <section class="kibo-doc-section">
           <h2><b>Mục 03.</b> Quy định đồng kiểm khi nhận hàng</h2>
           <ul class="kibo-doc-list">
-            <li>Khách hàng được quyền mở kiện hàng kiểm tra ngoại quan (tem niêm phong, đúng phân loại trọng lượng, hạn sử dụng in trên bao bì và tình trạng túi hạt/hộp pate không bị bục rách) trước khi thanh toán COD.</li>
-            <li>Nếu phát hiện sản phẩm bị móp méo nặng hoặc sai mẫu đã đặt, quý khách có quyền từ chối nhận hàng ngay tại thời điểm giao mà không mất bất kỳ chi phí vận chuyển nào.</li>
+            <li>KIBO cho phép khách hàng mở kiện hàng kiểm tra ngoại quan (tem niêm phong, đúng phân loại trọng lượng, hạn sử dụng in trên bao bì và tình trạng túi hạt/hộp pate không bị bục rách) trước khi thanh toán COD.</li>
+            <li>Nếu phát hiện sản phẩm bị móp méo nặng hoặc sai mẫu đã đặt, KIBO hỗ trợ quý khách từ chối nhận hàng ngay tại thời điểm giao mà không thu bất kỳ chi phí vận chuyển nào.</li>
           </ul>
         </section>
 
