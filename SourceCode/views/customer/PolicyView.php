@@ -447,7 +447,7 @@ $freeNgoaiTinh= number_format((int)($biz['ship']['mien_phi_khac'] ?? 500000), 0,
 
         <section class="kibo-doc-section">
           <h2><b>Mục 01.</b> Các trường hợp áp dụng đổi trả</h2>
-          <p>Tuân thủ trách nhiệm đối với hàng hóa có khuyết tật tại Luật Bảo vệ quyền lợi người tiêu dùng số 19/2023/QH15 và Nghị định 55/2024/NĐ-CP, KIBO nhận đổi mới 1-1 hoặc hoàn tiền 100% trong vòng <strong><?= $doiTraGio ?> giờ (0<?= $doiTraNgay ?> ngày)</strong> kể từ lúc đơn hàng báo <em>Giao thành công</em> đối với:</p>
+          <p>Ngoài trách nhiệm đối với hàng hóa có khuyết tật theo Luật Bảo vệ quyền lợi người tiêu dùng số 19/2023/QH15 và Nghị định 55/2024/NĐ-CP, KIBO hỗ trợ đổi mới 1-1 hoặc hoàn tiền 100% trong vòng <strong><?= $doiTraGio ?> giờ (0<?= $doiTraNgay ?> ngày)</strong> kể từ lúc đơn hàng báo <em>Giao thành công</em> đối với:</p>
           <ul class="kibo-doc-list">
             <li>Sản phẩm giao sai chủng loại, sai trọng lượng hoặc thiếu số lượng so với đơn đặt hàng.</li>
             <li>Bao bì hạt, súp thưởng hoặc hộp pate bị xì hơi, phồng rộp, rách niêm phong do quá trình vận chuyển.</li>
@@ -493,12 +493,12 @@ $freeNgoaiTinh= number_format((int)($biz['ship']['mien_phi_khac'] ?? 500000), 0,
       <?php elseif ($tab === 'terms'): ?>
         <div class="kibo-doc-meta">
           <span>Căn cứ: <strong>Luật Thương mại điện tử số 122/2025/QH15 &amp; Luật Giao dịch điện tử số 20/2023/QH15</strong></span>
-          <span>Bổ trợ: <strong>Nghị định 55/2024/NĐ-CP &amp; Nghị định 85/2021/NĐ-CP</strong></span>
+          <span>Bổ trợ: <strong>Nghị định 248/2026/NĐ-CP &amp; Nghị định 55/2024/NĐ-CP</strong></span>
         </div>
 
         <section class="kibo-doc-section">
           <h2><b>Điều 01.</b> Phân loại nền tảng &amp; Nguyên tắc giao dịch</h2>
-          <p>Theo phân loại tại Luật Thương mại điện tử số 122/2025/QH15 (thông qua ngày 10/12/2025), <strong>KIBO Pet's Home</strong> thuộc mô hình <em>Nền tảng thương mại điện tử kinh doanh trực tiếp</em> do đội ngũ KIBO trực tiếp vận hành, cung cấp thức ăn dinh dưỡng, phụ kiện thú cưng chính hãng và trích 5% doanh thu mỗi đơn thành công cho các trạm cứu hộ động vật.</p>
+          <p>Theo phân loại tại Luật Thương mại điện tử số 122/2025/QH15 (thông qua ngày 10/12/2025, hiệu lực 01/07/2026), <strong>KIBO Pet's Home</strong> thuộc mô hình <em>Nền tảng thương mại điện tử kinh doanh trực tiếp</em> do đội ngũ KIBO trực tiếp vận hành, cung cấp thức ăn dinh dưỡng, phụ kiện thú cưng chính hãng và trích 5% doanh thu mỗi đơn thành công cho các trạm cứu hộ động vật.</p>
           <ul class="kibo-doc-list">
             <li>Khách hàng có thể mua sắm thông qua tài khoản thành viên hoặc đặt hàng nhanh không cần đăng nhập (Guest Checkout).</li>
             <li>Giá bán niêm yết trên website là giá cuối cùng đã bao gồm thuế GTGT (chưa bao gồm phí vận chuyển phát sinh nếu đơn hàng chưa đạt ngưỡng miễn phí).</li>
@@ -508,7 +508,7 @@ $freeNgoaiTinh= number_format((int)($biz['ship']['mien_phi_khac'] ?? 500000), 0,
 
         <section class="kibo-doc-section">
           <h2><b>Điều 02.</b> Quy trình giao kết hợp đồng đặt hàng trực tuyến</h2>
-          <p>Tuân thủ quy định về hợp đồng điện tử trong giao dịch từ xa tại Nghị định 55/2024/NĐ-CP và Nghị định 52/2013/NĐ-CP (sửa đổi bởi Nghị định 85/2021/NĐ-CP), một đơn hàng trên KIBO được xác lập qua 03 giai đoạn:</p>
+          <p>Tuân thủ quy định về hợp đồng điện tử trong giao dịch từ xa tại Luật Thương mại điện tử số 122/2025/QH15 và Nghị định 248/2026/NĐ-CP (cùng Nghị định 55/2024/NĐ-CP), một đơn hàng trên KIBO được xác lập qua 03 giai đoạn:</p>
           <table class="kibo-CleanTable">
             <thead>
               <tr>
@@ -536,7 +536,7 @@ $freeNgoaiTinh= number_format((int)($biz['ship']['mien_phi_khac'] ?? 500000), 0,
         <section class="kibo-doc-section">
           <h2><b>Điều 03.</b> Quy định về Mã giảm giá, Điểm tích lũy &amp; Hủy đơn</h2>
           <ul class="kibo-doc-list">
-            <li><strong>Mã giảm giá (Voucher):</strong> Mỗi đơn hàng áp dụng tối đa 01 mã khuyến mãi còn hiệu lực. Các mã ưu đãi chào thành viên mới (như KIBO20, FREESHIP) được hiển thị sẵn trong trang Tài khoản và khung Thanh toán, giới hạn 01 lượt sử dụng trên mỗi tài khoản hoặc số điện thoại.</li>
+            <li><strong>Mã giảm giá (Voucher):</strong> Mỗi đơn hàng áp dụng tối đa 01 mã khuyến mãi còn hiệu lực. Các mã ưu đãi (như <strong>KIBO30K</strong> - giảm 30.000đ cho đơn từ 200.000đ, <strong>KIBO20</strong> - giảm 20.000đ cho đơn từ 200.000đ, <strong>FREESHIP</strong>) được hiển thị sẵn trong trang Tài khoản và khung Thanh toán, giới hạn 01 lượt sử dụng trên mỗi tài khoản hoặc Email.</li>
             <li><strong>Điểm tích lũy thành viên:</strong> Với mỗi <strong><?= $diemMoiDong ?></strong> giá trị thanh toán của đơn hàng <em>Giao thành công</em>, tài khoản thành viên được cộng tự động 01 điểm thưởng.</li>
             <li><strong>Quyền hủy đơn hàng:</strong> Khách hàng được chủ động hủy đơn trực tiếp trên website khi đơn đang ở trạng thái <em>Chờ xác nhận</em> hoặc <em>Chờ đóng gói</em>; tồn kho và lượt sử dụng Voucher sẽ được hoàn lại ngay lập tức.</li>
           </ul>
@@ -544,7 +544,7 @@ $freeNgoaiTinh= number_format((int)($biz['ship']['mien_phi_khac'] ?? 500000), 0,
 
         <section class="kibo-doc-section">
           <h2><b>Điều 04.</b> Cơ chế trích lập và công khai Quỹ cứu trợ <?= $quyPercent ?>%</h2>
-          <p>Tuân thủ nguyên tắc minh bạch tài trợ tại Nghị định 93/2019/NĐ-CP (sửa đổi, bổ sung bởi Nghị định 136/2024/NĐ-CP), với mỗi đơn hàng giao thành công, KIBO trích trực tiếp <strong><?= $quyPercent ?>% giá trị tiền hàng (sau khi trừ khuyến mãi)</strong> từ doanh thu của cửa hàng vào Quỹ cứu trợ động vật, tuyệt đối không thu thêm bất kỳ khoản phụ phí nào từ khách hàng. Toàn bộ khoản trích được tổng hợp và giải ngân định kỳ hàng tháng kèm chứng từ Ủy nhiệm chi ngân hàng công khai tại trang <a href="index.php?action=rescue" style="color: var(--green-dark); font-weight: 700; text-decoration: underline;">Quỹ cứu trợ</a>.</p>
+          <p>KIBO không phải tổ chức từ thiện và không kêu gọi quyên góp từ cộng đồng. Khoản <strong><?= $quyPercent ?>% giá trị tiền hàng (sau khi trừ khuyến mãi)</strong> được KIBO tự nguyện trích trực tiếp từ doanh thu của mỗi đơn hàng giao thành công theo quy chế nội bộ vào Quỹ cứu trợ động vật, tuyệt đối không thu thêm bất kỳ khoản phụ phí nào từ khách hàng. Toàn bộ khoản trích được tổng hợp và giải ngân định kỳ hàng tháng kèm chứng từ Ủy nhiệm chi ngân hàng công khai tại trang <a href="index.php?action=rescue" style="color: var(--green-dark); font-weight: 700; text-decoration: underline;">Quỹ cứu trợ</a>.</p>
         </section>
 
       <?php else: ?>
@@ -599,7 +599,7 @@ $freeNgoaiTinh= number_format((int)($biz['ship']['mien_phi_khac'] ?? 500000), 0,
           <h2><b>Mục 03.</b> Quyền của Chủ thể dữ liệu (Theo Luật số 91/2025/QH15 &amp; Nghị định 356/2025/NĐ-CP)</h2>
           <ul class="kibo-doc-list">
             <li>Khách hàng có toàn quyền truy cập, xem và chỉnh sửa Họ tên, Số điện thoại, Địa chỉ giao hàng, hoặc thay đổi mật khẩu bất cứ lúc nào tại trang <a href="index.php?action=account" style="color: var(--green-dark); font-weight: 700; text-decoration: underline;">Tài khoản của tôi</a>.</li>
-            <li>Trường hợp muốn rút lại sự đồng ý, hạn chế xử lý hoặc yêu cầu xóa dữ liệu cá nhân khỏi hệ thống, quý khách vui lòng liên hệ Bộ phận Bảo vệ Dữ liệu Cá nhân (DPO) của KIBO qua Hotline <strong><?= htmlspecialchars(kibo_business('hotline') ?? '0772 906 756') ?></strong> hoặc email <strong><?= htmlspecialchars(kibo_business('email') ?? 'kibopetshome.support@gmail.com') ?></strong> để được thực hiện trong vòng 72 giờ theo quy định tại Nghị định 356/2025/NĐ-CP.</li>
+            <li>Trường hợp muốn rút lại sự đồng ý, hạn chế xử lý hoặc yêu cầu xóa dữ liệu cá nhân khỏi hệ thống, quý khách vui lòng liên hệ Bộ phận Bảo vệ Dữ liệu Cá nhân (DPO) của KIBO qua Hotline <strong><?= htmlspecialchars(kibo_business('hotline') ?? '0772 906 756') ?></strong> hoặc email <strong><?= htmlspecialchars(kibo_business('email') ?? 'kibopetshome.support@gmail.com') ?></strong> — KIBO cam kết xử lý yêu cầu trong vòng 72 giờ.</li>
           </ul>
         </section>
       <?php endif; ?>
