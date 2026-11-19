@@ -72,7 +72,7 @@ if ($isValidCode) {
             if (count($addrParts) >= 2) {
                 $maskedAddr = '***, ' . implode(', ', array_slice($addrParts, 1));
             } else {
-                $maskedAddr = '*** (Đã bảo mật theo Luật BV Dữ liệu cá nhân 91/2025/QH15)';
+                $maskedAddr = '*** (Địa chỉ đã được ẩn để bảo mật)';
             }
         } else {
             $maskedCustomer = $rawCust;
