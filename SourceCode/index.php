@@ -82,10 +82,19 @@ switch ($action) {
         $targetKH = $_SESSION['user']['MaKH'] ?? '';
 
         $result = DonHangModel::taoDonHang($input);
-        if (!empty($result['success']) && empty($result['is_online'])) {
-            require_once __DIR__ . '/models/GioHangModel.php';
-            if (!empty($targetKH)) {
-                GioHangModel::clearCartInDb($targetKH);
+        if (!empty($result['success'])) {
+            $newCode = $result['order_code'] ?? ($result['orderId'] ?? '');
+            if ($newCode !== '') {
+                if (!isset($_SESSION['recent_guest_orders']) || !is_array($_SESSION['recent_guest_orders'])) {
+                    $_SESSION['recent_guest_orders'] = [];
+                }
+                $_SESSION['recent_guest_orders'][] = $newCode;
+            }
+            if (empty($result['is_online'])) {
+                require_once __DIR__ . '/models/GioHangModel.php';
+                if (!empty($targetKH)) {
+                    GioHangModel::clearCartInDb($targetKH);
+                }
             }
         }
         echo json_encode($result, JSON_UNESCAPED_UNICODE);

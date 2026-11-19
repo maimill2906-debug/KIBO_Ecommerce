@@ -39,21 +39,25 @@ if ($isValidCode) {
         $total = (float)($dbOrder['total'] ?? ($subtotal + $shipping - $discount));
         $fundAmount = (float)($dbOrder['fundAmount'] ?? DonHangModel::tinhQuy($subtotal, $discount));
 
-        // Phân quyền hiển thị thông tin bảo mật: Chỉ hiển thị đầy đủ SĐT & Địa chỉ nếu là chủ đơn hàng hoặc Admin
+        // Phân quyền hiển thị thông tin bảo mật: Chỉ hiển thị đầy đủ Tên, SĐT & Địa chỉ nếu là chủ đơn hàng, khách vừa đặt trong phiên, hoặc Admin
         $currUser = $_SESSION['user'] ?? null;
         $orderMaKH = $dbOrder['makh'] ?? '';
-        $isOwner = ($currUser && !empty($currUser['MaKH']) && !empty($orderMaKH) && $currUser['MaKH'] === $orderMaKH)
+        $recentGuestOrders = $_SESSION['recent_guest_orders'] ?? [];
+        $isRecentGuestOrder = is_array($recentGuestOrders) && in_array($dbOrder['orderId'], $recentGuestOrders, true);
+        $isOwner = $isRecentGuestOrder
+                   || ($currUser && !empty($currUser['MaKH']) && !empty($orderMaKH) && $currUser['MaKH'] === $orderMaKH)
                    || ($currUser && ($currUser['VaiTro'] ?? '') === 'Admin');
 
         $rawPhone = $dbOrder['phone'] ?? '';
         $rawAddr = $dbOrder['address'] ?? '';
         $rawCust = $dbOrder['customerName'] ?? 'Khách hàng';
-        $maskedCustomer = (mb_strlen($rawCust) > 1) ? (mb_substr($rawCust, 0, 1) . '***') : 'Khách hàng';
 
         if (!$isOwner) {
+            $maskedCustomer = (mb_strlen($rawCust) > 1) ? (mb_substr($rawCust, 0, 1) . '***') : 'Khách hàng';
             $maskedPhone = (strlen($rawPhone) >= 7) ? (substr($rawPhone, 0, 3) . '****' . substr($rawPhone, -3)) : '***';
             $maskedAddr = '*** (Đã bảo mật theo Luật BV Dữ liệu cá nhân 91/2025/QH15)';
         } else {
+            $maskedCustomer = $rawCust;
             $maskedPhone = $rawPhone;
             $maskedAddr = $rawAddr;
         }

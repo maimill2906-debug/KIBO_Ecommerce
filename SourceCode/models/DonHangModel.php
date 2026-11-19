@@ -280,6 +280,7 @@ class DonHangModel {
 
                     return [
                         'orderId' => $r['madonhang'],
+                        'makh' => $r['makh'] ?? '',
                         'mavandon' => $r['mavandon'] ?? null,
                         'createdAt' => $r['ngaydathang'],
                         'customerName' => $r['tennguoinhan'] ?? 'Khách hàng',
