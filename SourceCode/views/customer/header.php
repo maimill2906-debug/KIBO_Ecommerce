@@ -105,7 +105,7 @@ $currentUser = $_SESSION['user'] ?? null;
         <?= kibo_icon('phone', 24) ?>
         <span>
           <strong><?= htmlspecialchars(kibo_business('hotline') ?? '0772 906 756') ?></strong>
-          <small>Tổng đài miễn phí</small>
+          <small>Hotline</small>
         </span>
       </a>
 
