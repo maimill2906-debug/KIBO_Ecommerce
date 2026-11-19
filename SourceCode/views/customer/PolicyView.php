@@ -536,7 +536,7 @@ $freeNgoaiTinh= number_format((int)($biz['ship']['mien_phi_khac'] ?? 500000), 0,
         <section class="kibo-doc-section">
           <h2><b>Điều 03.</b> Quy định về Mã giảm giá, Điểm tích lũy &amp; Hủy đơn</h2>
           <ul class="kibo-doc-list">
-            <li><strong>Mã giảm giá (Voucher):</strong> Mỗi đơn hàng áp dụng tối đa 01 mã khuyến mãi còn hiệu lực. Các mã ưu đãi (như <strong>KIBO30K</strong> - giảm 30.000đ cho đơn từ 200.000đ, <strong>KIBO20</strong> - giảm 20.000đ cho đơn từ 200.000đ, <strong>FREESHIP</strong>) được hiển thị sẵn trong trang Tài khoản và khung Thanh toán, giới hạn 01 lượt sử dụng trên mỗi tài khoản hoặc Email.</li>
+            <li><strong>Mã giảm giá (Voucher):</strong> Mỗi đơn hàng áp dụng tối đa 01 mã khuyến mãi còn hiệu lực. Các mã ưu đãi đang kích hoạt theo từng chương trình của KIBO sẽ được hiển thị trong trang Tài khoản và khung Thanh toán, áp dụng theo điều kiện giá trị đơn tối thiểu, thời hạn và giới hạn lượt sử dụng của từng mã.</li>
             <li><strong>Điểm tích lũy thành viên:</strong> Với mỗi <strong><?= $diemMoiDong ?></strong> giá trị thanh toán của đơn hàng <em>Giao thành công</em>, tài khoản thành viên được cộng tự động 01 điểm thưởng.</li>
             <li><strong>Quyền hủy đơn hàng:</strong> Khách hàng được chủ động hủy đơn trực tiếp trên website khi đơn đang ở trạng thái <em>Chờ xác nhận</em> hoặc <em>Chờ đóng gói</em>; tồn kho và lượt sử dụng Voucher sẽ được hoàn lại ngay lập tức.</li>
           </ul>
