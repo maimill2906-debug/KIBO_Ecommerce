@@ -103,7 +103,7 @@ $currentUser = $_SESSION['user'] ?? null;
       <!-- Hotline -->
       <a href="tel:<?= preg_replace('/\D/', '', kibo_business('hotline') ?? '0772906756') ?>" class="hotline" title="Gọi hotline tư vấn miễn phí">
         <?= kibo_icon('phone', 24) ?>
-        <span>
+        <span style="display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center;">
           <strong><?= htmlspecialchars(kibo_business('hotline') ?? '0772 906 756') ?></strong>
           <small>Hotline</small>
         </span>
