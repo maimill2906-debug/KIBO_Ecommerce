@@ -39,23 +39,45 @@ if ($isValidCode) {
         $total = (float)($dbOrder['total'] ?? ($subtotal + $shipping - $discount));
         $fundAmount = (float)($dbOrder['fundAmount'] ?? DonHangModel::tinhQuy($subtotal, $discount));
 
-        // Phân quyền hiển thị thông tin bảo mật: Chỉ hiển thị đầy đủ Tên, SĐT & Địa chỉ nếu là chủ đơn hàng, khách vừa đặt trong phiên, hoặc Admin
+        // Phân quyền hiển thị thông tin bảo mật: Chỉ hiển thị đầy đủ Tên, SĐT & Địa chỉ nếu là chủ đơn hàng, khách vừa đặt trong phiên, đã xác minh SĐT, hoặc Admin
         $currUser = $_SESSION['user'] ?? null;
         $orderMaKH = $dbOrder['makh'] ?? '';
-        $recentGuestOrders = $_SESSION['recent_guest_orders'] ?? [];
-        $isRecentGuestOrder = is_array($recentGuestOrders) && in_array($dbOrder['orderId'], $recentGuestOrders, true);
-        $isOwner = $isRecentGuestOrder
-                   || ($currUser && !empty($currUser['MaKH']) && !empty($orderMaKH) && $currUser['MaKH'] === $orderMaKH)
-                   || ($currUser && ($currUser['VaiTro'] ?? '') === 'Admin');
-
         $rawPhone = $dbOrder['phone'] ?? '';
         $rawAddr = $dbOrder['address'] ?? '';
         $rawCust = $dbOrder['customerName'] ?? 'Khách hàng';
 
+        $verifyError = '';
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_order_phone'])) {
+            $inputPhone = preg_replace('/\s+/', '', trim((string)$_POST['verify_order_phone']));
+            $cleanOrderPhone = preg_replace('/\s+/', '', trim((string)$rawPhone));
+            if ($inputPhone !== '' && $cleanOrderPhone !== '' && $inputPhone === $cleanOrderPhone) {
+                if (!isset($_SESSION['verified_tracking_orders']) || !is_array($_SESSION['verified_tracking_orders'])) {
+                    $_SESSION['verified_tracking_orders'] = [];
+                }
+                $_SESSION['verified_tracking_orders'][] = $dbOrder['orderId'];
+            } else {
+                $verifyError = 'Số điện thoại xác minh không khớp với đơn hàng.';
+            }
+        }
+
+        $recentGuestOrders = $_SESSION['recent_guest_orders'] ?? [];
+        $verifiedTrackingOrders = $_SESSION['verified_tracking_orders'] ?? [];
+        $isRecentGuestOrder = is_array($recentGuestOrders) && in_array($dbOrder['orderId'], $recentGuestOrders, true);
+        $isVerifiedOrder = is_array($verifiedTrackingOrders) && in_array($dbOrder['orderId'], $verifiedTrackingOrders, true);
+        $isOwner = $isRecentGuestOrder
+                   || $isVerifiedOrder
+                   || ($currUser && !empty($currUser['MaKH']) && !empty($orderMaKH) && $currUser['MaKH'] === $orderMaKH)
+                   || ($currUser && ($currUser['VaiTro'] ?? '') === 'Admin');
+
         if (!$isOwner) {
             $maskedCustomer = (mb_strlen($rawCust) > 1) ? (mb_substr($rawCust, 0, 1) . '***') : 'Khách hàng';
             $maskedPhone = (strlen($rawPhone) >= 7) ? (substr($rawPhone, 0, 3) . '****' . substr($rawPhone, -3)) : '***';
-            $maskedAddr = '*** (Đã bảo mật theo Luật BV Dữ liệu cá nhân 91/2025/QH15)';
+            $addrParts = array_values(array_filter(array_map('trim', explode(',', $rawAddr)), function($p) { return $p !== ''; }));
+            if (count($addrParts) >= 2) {
+                $maskedAddr = '***, ' . implode(', ', array_slice($addrParts, 1));
+            } else {
+                $maskedAddr = '*** (Đã bảo mật theo Luật BV Dữ liệu cá nhân 91/2025/QH15)';
+            }
         } else {
             $maskedCustomer = $rawCust;
             $maskedPhone = $rawPhone;
@@ -165,6 +187,15 @@ if ($isValidCode) {
                 <p style="margin: 2px 0 4px; color: #444; font-size: 13.5px;">SĐT: <strong><?= htmlspecialchars($orderData['phone']) ?></strong></p>
               <?php endif; ?>
               <p style="margin: 0 0 4px; color: #555; font-size: 13.5px;"><?= htmlspecialchars($orderData['address']) ?></p>
+              <?php if (empty($isOwner)): ?>
+                <form method="POST" action="index.php?action=tracking&order=<?= urlencode($orderData['code']) ?>" style="margin: 8px 0 6px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                  <input type="tel" name="verify_order_phone" placeholder="Nhập SĐT đặt hàng để xem đầy đủ địa chỉ" required style="flex: 1; min-width: 190px; height: 32px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 12.5px;">
+                  <button type="submit" style="height: 32px; padding: 0 12px; background: #2c1a0e; color: #fff; border: none; border-radius: 4px; font-size: 12.5px; font-weight: 600; cursor: pointer;">Xem đầy đủ</button>
+                </form>
+                <?php if (!empty($verifyError)): ?>
+                  <div style="font-size: 12px; color: #c94336; margin-bottom: 4px;"><?= htmlspecialchars($verifyError) ?></div>
+                <?php endif; ?>
+              <?php endif; ?>
               <?php if (!empty($orderData['carrierStatus'])): ?>
                 <p style="margin: 4px 0 0; color: #2e7d32; font-size: 13px; font-weight: 600;">🚚 Vận chuyển: <?= htmlspecialchars($orderData['carrierStatus']) ?></p>
               <?php endif; ?>
