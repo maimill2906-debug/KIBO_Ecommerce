@@ -2263,9 +2263,9 @@ if (!empty($_GET['live_json'])) {
       bar.innerHTML = defs.map(d => {
         const active = (selectedOrderStatusTab === d.key);
         const bg = active ? '#111111' : '#ffffff';
-        const color = active ? '#ffffff' : '#4a3f37';
-        const border = active ? '1px solid #111111' : '1px solid #e5dfd7';
-        return `<button type="button" onclick="setOrderStatusTab('${d.key}')" style="padding: 7px 13px; border-radius: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.3px; cursor: pointer; background: ${bg}; color: ${color}; border: ${border}; transition: all 0.15s;">${d.label} <span style="opacity: ${active ? '0.9' : '0.65'};">(${counts[d.key]})</span></button>`;
+        const color = active ? '#ffffff' : '#374151';
+        const border = active ? '1px solid #111111' : '1px solid #e5e7eb';
+        return `<button type="button" onclick="setOrderStatusTab('${d.key}')" style="padding: 6px 12px; border-radius: 3px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.3px; cursor: pointer; background: ${bg}; color: ${color}; border: ${border}; transition: all 0.15s;">${d.label} <span style="opacity: ${active ? '0.9' : '0.6'};">(${counts[d.key]})</span></button>`;
       }).join('');
     }
 
@@ -2293,22 +2293,22 @@ if (!empty($_GET['live_json'])) {
           let quickBtn = '';
           if (order.status === 'Chờ xác nhận') {
             quickBtn = `
-              <button type="button" class="ops-row-action" style="background: #111111; color: #ffffff; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Chờ đóng gói')">Duyệt đơn</button>
-              <button type="button" class="ops-row-action" style="background: #ffffff; color: #b91c1c; border: 1px solid #e5b4af; font-weight: 600; margin-left: 2px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hủy</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #111111; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Chờ đóng gói')">Duyệt đơn</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #b91c1c; border: 1px solid #fecaca; font-weight: 600; margin-left: 2px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hủy</button>
             `;
           } else if (order.status === 'Chờ đóng gói') {
             quickBtn = `
-              <button type="button" class="ops-row-action" style="background: #111111; color: #ffffff; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đã xuất kho')">Xuất kho</button>
-              <button type="button" class="ops-row-action" style="background: #ffffff; color: #b91c1c; border: 1px solid #e5b4af; font-weight: 600; margin-left: 2px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hủy</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #111111; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đã xuất kho')">Xuất kho</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #b91c1c; border: 1px solid #fecaca; font-weight: 600; margin-left: 2px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hủy</button>
             `;
           } else if (order.status === 'Đã xuất kho') {
             quickBtn = `
-              <button type="button" class="ops-row-action" style="background: #111111; color: #ffffff; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đang giao')">Giao hàng</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #111111; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đang giao')">Giao hàng</button>
             `;
           } else if (order.status === 'Đang giao' || order.status === 'Đang giao hàng') {
             quickBtn = `
-              <button type="button" class="ops-row-action" style="background: #111111; color: #ffffff; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Giao thành công')">Hoàn tất</button>
-              <button type="button" class="ops-row-action" style="background: #ffffff; color: #b91c1c; border: 1px solid #e5b4af; font-weight: 600; margin-left: 2px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hoàn hàng</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #111111; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Giao thành công')">Hoàn tất</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #b91c1c; border: 1px solid #fecaca; font-weight: 600; margin-left: 2px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hoàn hàng</button>
             `;
           }
 
@@ -2353,14 +2353,14 @@ if (!empty($_GET['live_json'])) {
       const badge = document.getElementById('modalOrderStatusBadge');
       badge.textContent = order.status;
       if (order.status.includes('thành công') || order.status === 'Đã giao') {
-        badge.style.background = '#2e7d32';
+        badge.style.background = '#111111';
         badge.style.color = '#ffffff';
       } else if (order.status.includes('hủy')) {
-        badge.style.background = '#c94336';
-        badge.style.color = '#ffffff';
+        badge.style.background = '#fef2f2';
+        badge.style.color = '#b91c1c';
       } else {
-        badge.style.background = '#d97706';
-        badge.style.color = '#ffffff';
+        badge.style.background = '#eff6ff';
+        badge.style.color = '#1d4ed8';
       }
 
       document.getElementById('modalCustomerName').textContent = order.customer;
