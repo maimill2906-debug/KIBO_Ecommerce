@@ -99,6 +99,16 @@ $pendingReturnsCount = count(array_filter($dbReturns ?? [], function($r) {
     return $st === 'Chờ xử lý'; 
 }));
 $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($pendingReturnsCount > 0 ? 1 : 0) + ($deliveredOrdersCount > 0 ? 1 : 0);
+if (!empty($_GET['live_json'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'success' => true,
+        'orders' => $initialOrders,
+        'inventory' => $initialInventory,
+        'returns' => $dbReturns
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -3974,6 +3984,74 @@ $totalNotifs = ($lowStockCount > 0 ? 1 : 0) + ($newOrdersCount > 0 ? 1 : 0) + ($
       window.kiboPrompt = function (message, defaultValue = '', title = 'Nhập thông tin') {
         return openKiboDialog({ mode: 'prompt', message, defaultValue, title, okText: 'Xác nhận', cancelText: 'Hủy' });
       };
+    })();
+
+    // Real-time Admin polling: tự động đồng bộ đơn hàng mới & thay đổi trạng thái mỗi 4 giây
+    (function initAdminRealtimeSync() {
+      let lastSig = null;
+      let lastOrdersCount = Array.isArray(ordersData) ? ordersData.length : 0;
+      let syncing = false;
+
+      function isAdminBusy() {
+        const active = document.activeElement;
+        if (active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return true;
+        const modals = ['orderDetailModalBackdrop', 'returnDetailModalBackdrop', 'productFormModalBackdrop', 'voucherModalBackdrop', 'kiboDialogOverlay'];
+        return modals.some(id => {
+          const el = document.getElementById(id);
+          return el && el.style.display && el.style.display !== 'none';
+        });
+      }
+
+      async function pollAdminSummary() {
+        if (document.hidden || syncing) return;
+        try {
+          const resp = await fetch('index.php?action=admin_poll_summary', { cache: 'no-store' });
+          if (!resp.ok) return;
+          const res = await resp.json();
+          if (!res || !res.success || !res.sig) return;
+
+          if (lastSig === null) {
+            lastSig = res.sig;
+            lastOrdersCount = res.orders_count;
+            return;
+          }
+          if (res.sig === lastSig || isAdminBusy()) return;
+
+          syncing = true;
+          const isNewOrder = res.orders_count > lastOrdersCount;
+          lastSig = res.sig;
+          lastOrdersCount = res.orders_count;
+
+          if (['overview', 'orders', 'inventory', 'reports'].includes(currentTab)) {
+            const liveResp = await fetch('index.php?action=admin&live_json=1', { cache: 'no-store' });
+            if (liveResp.ok) {
+              const live = await liveResp.json();
+              if (live && live.success) {
+                ordersData = live.orders || ordersData;
+                inventoryData = live.inventory || inventoryData;
+                returnsData = live.returns || returnsData;
+                renderInventory();
+                renderOrders();
+                renderOverview();
+                showAdminToast(
+                  isNewOrder ? 'Có đơn hàng mới!' : 'Đồng bộ dữ liệu',
+                  isNewOrder && res.latest_order ? `Đơn #${res.latest_order} vừa được đặt.` : 'Trạng thái đơn hàng vừa được cập nhật.',
+                  'success'
+                );
+              }
+            }
+          } else {
+            showAdminToast('Cập nhật Real-time', 'Có dữ liệu mới, đang làm mới...', 'success');
+            setTimeout(() => window.location.reload(), 500);
+          }
+        } catch (e) {
+        } finally {
+          syncing = false;
+        }
+      }
+
+      pollAdminSummary();
+      setInterval(pollAdminSummary, 4000);
     })();
   </script>
 </body>
