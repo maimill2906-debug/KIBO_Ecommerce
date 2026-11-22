@@ -389,8 +389,8 @@
         document.body.appendChild(toast);
       }
       const cleanMsg = String(msg).replace(/<\/?strong>/gi, '');
-      toast.style.cssText = 'position: fixed; top: 18px; right: 18px; z-index: 9999999; background: #ebebeb; color: #222222; padding: 10px 16px; border-radius: 4px; font-family: Arial, sans-serif; font-size: 13.5px; font-weight: normal; line-height: 1.4; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); border: 1px solid #cccccc;';
-      toast.innerHTML = `<span style="font-weight: bold; color: #2e7d32;">✓</span> <span style="font-family: Arial, sans-serif; font-size: 13.5px; font-weight: normal; color: #222222;">${cleanMsg}</span>`;
+      toast.style.cssText = 'position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 999999999; background: #111111; color: #ffffff; padding: 10px 18px; border-radius: 6px; font-family: Arial, sans-serif; font-size: 13.5px; font-weight: 600; line-height: 1.4; display: flex; align-items: center; gap: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.18);';
+      toast.innerHTML = `<span style="font-weight: bold; color: #4ade80;">✓</span> <span style="font-family: Arial, sans-serif; font-size: 13.5px; font-weight: 600; color: #ffffff;">${cleanMsg}</span>`;
       toast.style.display = 'flex';
 
       clearTimeout(window._toastTimeout);

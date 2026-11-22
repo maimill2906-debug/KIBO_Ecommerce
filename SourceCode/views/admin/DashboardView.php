@@ -150,24 +150,43 @@ if (!empty($_GET['live_json'])) {
         const isSilent = url.indexOf('admin_poll_summary') !== -1 || url.indexOf('live_json=1') !== -1;
         let spinBtn = null;
         let spinTimer = null;
-        if (!isSilent && lastBtn && (Date.now() - lastBtnTs) <= 300 && document.body && document.body.contains(lastBtn) && !lastBtn.dataset.kiboLoading) {
-          spinBtn = lastBtn;
-          spinBtn.dataset.kiboLoading = '1';
-          spinBtn.dataset.kiboOrigHtml = spinBtn.innerHTML;
-          spinBtn.dataset.kiboOrigDisabled = spinBtn.disabled ? '1' : '0';
-          spinBtn.disabled = true;
+        let showCenterLoader = false;
+        const activeBtn = (!isSilent && lastBtn && (Date.now() - lastBtnTs) <= 400 && document.body && document.body.contains(lastBtn)) ? lastBtn : null;
+        if (!isSilent && (activeBtn || method === 'POST')) {
+          if (activeBtn && activeBtn.offsetParent !== null && !activeBtn.dataset.kiboLoading) {
+            spinBtn = activeBtn;
+            spinBtn.dataset.kiboLoading = '1';
+            spinBtn.dataset.kiboOrigHtml = spinBtn.innerHTML;
+            spinBtn.dataset.kiboOrigDisabled = spinBtn.disabled ? '1' : '0';
+            spinBtn.disabled = true;
+          } else {
+            showCenterLoader = true;
+          }
           spinTimer = setTimeout(() => {
-            if (document.body.contains(spinBtn) && spinBtn.dataset.kiboLoading) {
+            if (spinBtn && document.body.contains(spinBtn) && spinBtn.dataset.kiboLoading && spinBtn.offsetParent !== null) {
               spinBtn.style.opacity = '0.82';
               spinBtn.innerHTML = '<span class="kibo-spinner"></span>Đang xử lý...';
+            } else {
+              let pill = document.getElementById('kiboGlobalLoadingPill');
+              if (!pill && document.body) {
+                pill = document.createElement('div');
+                pill.id = 'kiboGlobalLoadingPill';
+                pill.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 999999999; background: rgba(17,17,17,0.9); color: #fff; padding: 12px 22px; border-radius: 8px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.22);';
+                pill.innerHTML = '<span class="kibo-spinner"></span>Đang xử lý, vui lòng chờ...';
+                document.body.appendChild(pill);
+              } else if (pill) {
+                pill.style.display = 'flex';
+              }
             }
           }, 120);
         }
         const p = origFetch.call(this, input, init);
-        if (spinBtn) {
+        if (spinTimer || spinBtn) {
           p.finally(() => {
             if (spinTimer) clearTimeout(spinTimer);
-            if (document.body.contains(spinBtn) && spinBtn.dataset.kiboLoading) {
+            const pill = document.getElementById('kiboGlobalLoadingPill');
+            if (pill) pill.style.display = 'none';
+            if (spinBtn && document.body.contains(spinBtn) && spinBtn.dataset.kiboLoading) {
               spinBtn.innerHTML = spinBtn.dataset.kiboOrigHtml || spinBtn.innerHTML;
               spinBtn.disabled = (spinBtn.dataset.kiboOrigDisabled === '1');
               spinBtn.style.opacity = '';
@@ -1348,7 +1367,7 @@ if (!empty($_GET['live_json'])) {
       if (!toastContainer) {
         toastContainer = document.createElement('div');
         toastContainer.id = 'adminToastContainer';
-        toastContainer.style.cssText = 'position: fixed; top: 16px; right: 16px; z-index: 999999999; display: flex; flex-direction: column; gap: 8px; max-width: 360px;';
+        toastContainer.style.cssText = 'position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 999999999; display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: min(460px, 92vw); pointer-events: none;';
         document.body.appendChild(toastContainer);
       }
 

@@ -917,7 +917,7 @@ function showCustomerToast(msg, type = 'error') {
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'checkoutToast';
-    toast.style.cssText = 'position: fixed; top: 16px; right: 16px; z-index: 9999999; padding: 10px 14px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); font-family: Arial, sans-serif; font-size: 13.5px; color: #fff; max-width: 360px;';
+    toast.style.cssText = 'position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 999999999; padding: 10px 18px; border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.2); font-family: Arial, sans-serif; font-size: 13.5px; font-weight: 600; color: #fff; max-width: min(440px, 92vw); text-align: center;';
     document.body.appendChild(toast);
   }
   toast.style.background = type === 'error' ? '#c94336' : '#2e7d32';
