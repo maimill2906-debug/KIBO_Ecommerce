@@ -439,14 +439,20 @@ if (!empty($_GET['live_json'])) {
               <h2>Danh sách đơn hàng</h2>
               <p id="ordersCountDesc">5 đơn trong kỳ đã chọn</p>
             </div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-              <button type="button" class="ops-primary-button" onclick="autoProcessOrders()" title="Tự động duyệt các đơn COD & đơn Online đã thanh toán, đồng thời sinh mã vận đơn GHN hàng loạt" style="padding: 5px 11px; font-size: 11.5px; min-height: 30px; background: #111111; color: #fff; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">Duyệt hàng loạt</button>
-              <button type="button" class="ops-secondary-button" onclick="batchDispatchOrders()" title="Xuất kho & bàn giao tất cả đơn Chờ đóng gói cho đơn vị vận chuyển" style="padding: 5px 11px; font-size: 11.5px; min-height: 30px;">Bàn giao ĐVVC</button>
-              <a href="index.php?action=admin_print_batch_orders" target="_blank" class="ops-secondary-button" style="padding: 5px 11px; font-size: 11.5px; min-height: 30px; text-decoration: none; display: inline-flex; align-items: center;">In phiếu hàng loạt</a>
-              <button type="button" class="ops-secondary-button" onclick="exportOrdersCSV()" style="padding: 5px 11px; font-size: 11.5px; min-height: 30px;">Xuất CSV</button>
+            <div style="display: flex; gap: 6px; flex-wrap: nowrap; align-items: center;">
+              <button type="button" class="ops-primary-button" onclick="autoProcessOrders()" title="Tự động duyệt các đơn COD & đơn Online đã thanh toán, đồng thời sinh mã vận đơn GHN hàng loạt" style="padding: 0 12px; font-size: 11.5px; height: 32px; background: #111111; color: #fff; border: none; border-radius: 2px; font-weight: 600; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center;">Duyệt hàng loạt</button>
+              <button type="button" class="ops-secondary-button" onclick="batchDispatchOrders()" title="Xuất kho & bàn giao tất cả đơn Chờ đóng gói cho đơn vị vận chuyển" style="padding: 0 12px; font-size: 11.5px; height: 32px; border-radius: 2px; white-space: nowrap; display: inline-flex; align-items: center;">Bàn giao ĐVVC</button>
+              <a href="index.php?action=admin_print_batch_orders" target="_blank" class="ops-secondary-button" style="padding: 0 12px; font-size: 11.5px; height: 32px; border-radius: 2px; text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center;">In phiếu hàng loạt</a>
+              <button type="button" class="ops-secondary-button" onclick="exportOrdersCSV()" style="padding: 0 12px; font-size: 11.5px; height: 32px; border-radius: 2px; white-space: nowrap; display: inline-flex; align-items: center;">Xuất CSV</button>
             </div>
           </div>
-          <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #e5e7eb; flex-wrap: nowrap; overflow-x: auto;">
+            <div id="orderStatusTabsBar" style="display: flex; gap: 6px; flex-wrap: nowrap; align-items: center;"></div>
+            <label style="height: 32px; min-width: 210px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #e5e7eb; border-radius: 2px; background: #ffffff; color: #9ca3af; flex-shrink: 0;">
+              <?= kibo_icon('search', 14) ?>
+              <input type="text" id="ordersInlineSearch" placeholder="Tìm mã đơn, khách hàng..." oninput="handleGlobalSearch(this.value)" style="border: none; outline: none; background: transparent; font-size: 12px; color: #111827; width: 100%; padding: 0;">
+            </label>
+          </div>
           <div class="ops-table-wrap">
             <table class="ops-table ops-orders-table" id="ordersMainTable">
               <thead>
@@ -2376,7 +2382,7 @@ if (!empty($_GET['live_json'])) {
         const bg = active ? '#111111' : '#ffffff';
         const color = active ? '#ffffff' : '#374151';
         const border = active ? '1px solid #111111' : '1px solid #e5e7eb';
-        return `<button type="button" onclick="setOrderStatusTab('${d.key}')" style="padding: 6px 12px; border-radius: 3px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.3px; cursor: pointer; background: ${bg}; color: ${color}; border: ${border}; transition: all 0.15s;">${d.label} <span style="opacity: ${active ? '0.9' : '0.6'};">(${counts[d.key]})</span></button>`;
+        return `<button type="button" onclick="setOrderStatusTab('${d.key}')" style="height: 32px; display: inline-flex; align-items: center; gap: 4px; padding: 0 11px; border-radius: 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; white-space: nowrap; flex-shrink: 0; cursor: pointer; background: ${bg}; color: ${color}; border: ${border}; transition: all 0.15s;">${d.label} <span style="opacity: ${active ? '0.9' : '0.6'};">(${counts[d.key]})</span></button>`;
       }).join('');
     }
 
@@ -2395,6 +2401,9 @@ if (!empty($_GET['live_json'])) {
 
       const tbody = document.getElementById('ordersTableBody');
       if (tbody) {
+        if (filtered.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px 16px; color: #6b7280; font-size: 13px;">Không tìm thấy đơn hàng phù hợp</td></tr>';
+        } else {
         tbody.innerHTML = filtered.map(order => {
           const isDone = (order.status === 'Đã giao' || order.status.includes('thành công'));
           const isCancelled = order.status.includes('hủy');
@@ -2443,6 +2452,7 @@ if (!empty($_GET['live_json'])) {
             </tr>
           `;
         }).join('');
+        }
       }
 
       const ordersDesc = document.getElementById('ordersCountDesc');
