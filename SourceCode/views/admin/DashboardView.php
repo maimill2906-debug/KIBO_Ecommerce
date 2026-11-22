@@ -418,10 +418,10 @@ if (!empty($_GET['live_json'])) {
               <p id="ordersCountDesc">5 đơn trong kỳ đã chọn</p>
             </div>
             <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-              <button type="button" class="ops-primary-button" onclick="autoProcessOrders()" title="Tự động duyệt các đơn COD & đơn Online đã thanh toán, đồng thời sinh mã vận đơn GHN hàng loạt" style="padding: 5px 10px; font-size: 11.5px; min-height: 30px; background: #166534; color: #fff; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">⚡ Duyệt hàng loạt</button>
-              <button type="button" class="ops-secondary-button" onclick="batchDispatchOrders()" title="Xuất kho & bàn giao tất cả đơn Chờ đóng gói cho đơn vị vận chuyển" style="padding: 5px 10px; font-size: 11.5px; min-height: 30px;">🚚 Bàn giao ĐVVC</button>
-              <a href="index.php?action=admin_print_batch_orders" target="_blank" class="ops-secondary-button" style="padding: 5px 10px; font-size: 11.5px; min-height: 30px; text-decoration: none; display: inline-flex; align-items: center;">🖨️ In phiếu hàng loạt</a>
-              <button type="button" class="ops-secondary-button" onclick="exportOrdersCSV()" style="padding: 5px 10px; font-size: 11.5px; min-height: 30px;">Xuất CSV</button>
+              <button type="button" class="ops-primary-button" onclick="autoProcessOrders()" title="Tự động duyệt các đơn COD & đơn Online đã thanh toán, đồng thời sinh mã vận đơn GHN hàng loạt" style="padding: 5px 11px; font-size: 11.5px; min-height: 30px; background: #111111; color: #fff; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">Duyệt hàng loạt</button>
+              <button type="button" class="ops-secondary-button" onclick="batchDispatchOrders()" title="Xuất kho & bàn giao tất cả đơn Chờ đóng gói cho đơn vị vận chuyển" style="padding: 5px 11px; font-size: 11.5px; min-height: 30px;">Bàn giao ĐVVC</button>
+              <a href="index.php?action=admin_print_batch_orders" target="_blank" class="ops-secondary-button" style="padding: 5px 11px; font-size: 11.5px; min-height: 30px; text-decoration: none; display: inline-flex; align-items: center;">In phiếu hàng loạt</a>
+              <button type="button" class="ops-secondary-button" onclick="exportOrdersCSV()" style="padding: 5px 11px; font-size: 11.5px; min-height: 30px;">Xuất CSV</button>
             </div>
           </div>
           <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
@@ -2259,22 +2259,22 @@ if (!empty($_GET['live_json'])) {
           let quickBtn = '';
           if (order.status === 'Chờ xác nhận') {
             quickBtn = `
-              <button type="button" class="ops-row-action" style="background: #2e7d32; color: #ffffff; border: none; font-weight: 700; margin-left: 6px;" onclick="updateOrderStatus('${order.id}', 'Chờ đóng gói')">Duyệt đơn</button>
-              <button type="button" class="ops-row-action" style="background: #ffffff; color: #c94336; border: 1px solid #dcdcdc; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hủy đơn</button>
+              <button type="button" class="ops-row-action" style="background: #111111; color: #ffffff; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Chờ đóng gói')">Duyệt đơn</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #b91c1c; border: 1px solid #e5b4af; font-weight: 600; margin-left: 2px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hủy</button>
             `;
           } else if (order.status === 'Chờ đóng gói') {
             quickBtn = `
-              <button type="button" class="ops-row-action" style="background: #0284c7; color: #ffffff; border: none; font-weight: 700; margin-left: 6px;" onclick="updateOrderStatus('${order.id}', 'Đã xuất kho')">Đã xuất kho</button>
-              <button type="button" class="ops-row-action" style="background: #ffffff; color: #c94336; border: 1px solid #dcdcdc; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hủy đơn</button>
+              <button type="button" class="ops-row-action" style="background: #111111; color: #ffffff; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đã xuất kho')">Xuất kho</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #b91c1c; border: 1px solid #e5b4af; font-weight: 600; margin-left: 2px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hủy</button>
             `;
           } else if (order.status === 'Đã xuất kho') {
             quickBtn = `
-              <button type="button" class="ops-row-action" style="background: #d97706; color: #ffffff; border: none; font-weight: 700; margin-left: 6px;" onclick="updateOrderStatus('${order.id}', 'Đang giao')">Bắt đầu giao</button>
+              <button type="button" class="ops-row-action" style="background: #111111; color: #ffffff; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đang giao')">Giao hàng</button>
             `;
           } else if (order.status === 'Đang giao' || order.status === 'Đang giao hàng') {
             quickBtn = `
-              <button type="button" class="ops-row-action" style="background: #1565c0; color: #ffffff; border: none; font-weight: 700; margin-left: 6px;" onclick="updateOrderStatus('${order.id}', 'Giao thành công')">Giao thành công</button>
-              <button type="button" class="ops-row-action" style="background: #ffffff; color: #c94336; border: 1px solid #dcdcdc; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hoàn hàng</button>
+              <button type="button" class="ops-row-action" style="background: #111111; color: #ffffff; border: 1px solid #111111; font-weight: 600; margin-left: 4px;" onclick="updateOrderStatus('${order.id}', 'Giao thành công')">Hoàn tất</button>
+              <button type="button" class="ops-row-action" style="background: #ffffff; color: #b91c1c; border: 1px solid #e5b4af; font-weight: 600; margin-left: 2px;" onclick="updateOrderStatus('${order.id}', 'Đã hủy')">Hoàn hàng</button>
             `;
           }
 
