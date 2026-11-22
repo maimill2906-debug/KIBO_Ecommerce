@@ -223,7 +223,8 @@ switch ($action) {
         $stmtTT->execute([$orderId]);
         $ttInfo = $stmtTT->fetch();
         $isPaid = ($ttInfo && ($ttInfo['trangthaitt'] === TrangThai::TT_THANH_CONG || $ttInfo['trangthaitt'] === 'Thành công'));
-        if ($isPaid || ($ttInfo['phuongthuctt'] ?? '') !== 'VietQR' || $ord['trangthaidonhang'] !== TrangThai::DH_CHO_XAC_NHAN) {
+        $isVietQR = (stripos((string)($ttInfo['phuongthuctt'] ?? ''), 'VietQR') !== false);
+        if ($isPaid || !$isVietQR || $ord['trangthaidonhang'] !== TrangThai::DH_CHO_XAC_NHAN) {
             echo json_encode(['success' => false, 'message' => 'Chỉ có thể hủy phiên thanh toán VietQR chưa thanh toán.'], JSON_UNESCAPED_UNICODE);
             exit;
         }
