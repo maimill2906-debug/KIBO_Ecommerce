@@ -163,6 +163,7 @@ if (!empty($_GET['live_json'])) {
       <label class="ops-range">
         <?= kibo_icon('clock', 17) ?>
         <select id="adminTimeRange" onchange="handleTimeRangeChange(this.value)">
+          <option value="1">Hôm nay</option>
           <option value="7">7 ngày gần nhất</option>
           <option value="30" selected>30 ngày gần nhất</option>
           <option value="90">Quý này (90 ngày)</option>
@@ -2711,6 +2712,7 @@ if (!empty($_GET['live_json'])) {
       if (customWrap) customWrap.style.display = 'none';
 
       const labelMap = {
+        '1': 'Hôm nay',
         '7': '7 ngày gần nhất',
         '30': '30 ngày gần nhất',
         '90': 'Quý này (90 ngày)',
