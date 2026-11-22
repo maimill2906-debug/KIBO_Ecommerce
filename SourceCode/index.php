@@ -129,6 +129,7 @@ switch ($action) {
         }
 
         require_once __DIR__ . '/models/DonHangModel.php';
+        require_once __DIR__ . '/config/database.php';
         require_once __DIR__ . '/models/TrangThai.php';
         $db = Database::getConnection();
         $stmtChk = $db->prepare("SELECT makh, trangthaidonhang, sodienthoainhan FROM don_hang WHERE madonhang = ?");
@@ -201,6 +202,7 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Mã đơn hàng không hợp lệ.'], JSON_UNESCAPED_UNICODE);
             exit;
         }
+        require_once __DIR__ . '/config/database.php';
         require_once __DIR__ . '/models/TrangThai.php';
         $db = Database::getConnection();
         $stmtChk = $db->prepare("SELECT makh, trangthaidonhang, mavoucher FROM don_hang WHERE madonhang = ?");
