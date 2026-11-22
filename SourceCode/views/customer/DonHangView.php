@@ -928,7 +928,10 @@ function showCustomerToast(msg, type = 'error') {
   }, 3500);
 }
 
+let isSubmittingCheckout = false;
+
 async function handleFinalCheckout() {
+  if (isSubmittingCheckout) return;
   const cart = getCart();
   if (cart.length === 0) {
     showCustomerToast('Giỏ hàng của bạn đang trống! Vui lòng chọn sản phẩm.', 'error');
@@ -973,6 +976,7 @@ async function handleFinalCheckout() {
   const paymentMethod = paymentRadio && paymentRadio.value === 'Online' ? 'Chuyển khoản VietQR' : 'Thanh toán khi nhận hàng (COD)';
 
   const btnConfirm = document.getElementById('btnConfirmOrder') || document.querySelector('.btn-checkout-full');
+  isSubmittingCheckout = true;
   if (btnConfirm) {
     btnConfirm.disabled = true;
     btnConfirm.style.cursor = 'not-allowed';
@@ -1049,6 +1053,7 @@ async function handleFinalCheckout() {
       btnConfirm.innerHTML = 'XÁC NHẬN ĐẶT HÀNG';
     }
   } finally {
+    isSubmittingCheckout = false;
     if (btnConfirm) {
       btnConfirm.disabled = false;
       btnConfirm.style.cursor = 'pointer';

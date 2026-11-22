@@ -81,7 +81,17 @@ switch ($action) {
         }
         $targetKH = $_SESSION['user']['MaKH'] ?? '';
 
+        $orderSig = md5(json_encode([$targetKH, $input['items'] ?? [], $input['sodienthoainhan'] ?? '', $input['phuongthuctt'] ?? '', $input['mavoucher'] ?? '']));
+        $lastLock = $_SESSION['last_create_order_lock'] ?? null;
+        if (is_array($lastLock) && ($lastLock['sig'] ?? '') === $orderSig && (time() - (int)($lastLock['ts'] ?? 0)) <= 5 && !empty($lastLock['result'])) {
+            echo json_encode($lastLock['result'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
         $result = DonHangModel::taoDonHang($input);
+        if (!empty($result['success'])) {
+            $_SESSION['last_create_order_lock'] = ['sig' => $orderSig, 'ts' => time(), 'result' => $result];
+        }
         if (!empty($result['success'])) {
             $newCode = $result['order_code'] ?? ($result['orderId'] ?? '');
             if ($newCode !== '') {
