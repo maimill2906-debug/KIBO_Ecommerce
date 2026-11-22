@@ -30,6 +30,7 @@ function kibo_icon($name, $size = 20) {
         'bell' => '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />',
         'ticket' => '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" /><path d="M13 5v2" /><path d="M13 17v2" /><path d="M13 11v2" />',
         'card' => '<rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" />',
+        'layers' => '<path d="m12 2 9 4.5-9 4.5-9-4.5Z" /><path d="m3 12 9 4.5 9-4.5" /><path d="m3 17.5 9 4.5 9-4.5" />',
     ];
 
     $path = $paths[$name] ?? '';

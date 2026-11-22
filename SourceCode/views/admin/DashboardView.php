@@ -287,8 +287,11 @@ if (!empty($_GET['live_json'])) {
         <button type="button" onclick="switchAdminTab('orders')">
           <?= kibo_icon('bag', 17) ?> <span>Đơn hàng</span>
         </button>
+        <button type="button" onclick="switchAdminTab('products')">
+          <?= kibo_icon('box', 16) ?> <span>Sản phẩm</span>
+        </button>
         <button type="button" onclick="switchAdminTab('inventory')">
-          <?= kibo_icon('box', 16) ?> <span>Sản phẩm &amp; Tồn kho</span>
+          <?= kibo_icon('layers', 16) ?> <span>Tồn kho</span>
         </button>
         <button type="button" onclick="switchAdminTab('fund')">
           <?= kibo_icon('heart', 17) ?> <span>Quỹ cứu trợ</span>
@@ -466,7 +469,65 @@ if (!empty($_GET['live_json'])) {
       </div>
 
       <!-- ================================================================
-           TAB 3: QUẢN LÝ TỒN KHO (INVENTORY)
+           TAB 3A: QUẢN LÝ SẢN PHẨM (PRODUCTS)
+           ================================================================ -->
+      <div id="tabContent_products" class="tab-pane" style="display: none;">
+        <section class="ops-summary-row" style="margin-top: 14px;">
+          <div>
+            <small>TỔNG SẢN PHẨM</small>
+            <strong id="prodTotalCount"><?= count($initialInventory) ?></strong>
+          </div>
+          <div>
+            <small>ĐANG BÁN</small>
+            <strong id="prodActiveCount">0</strong>
+          </div>
+          <div>
+            <small>NGỪNG BÁN</small>
+            <strong id="prodHiddenCount">0</strong>
+          </div>
+          <div>
+            <small>TỔNG ĐÃ BÁN</small>
+            <strong id="prodTotalSold">0</strong>
+          </div>
+        </section>
+
+        <article class="ops-card" style="margin-top: 14px;">
+          <div class="ops-card-head">
+            <div>
+              <h2>Danh sách sản phẩm</h2>
+              <p id="productsCountDesc"><?= count($initialInventory) ?> sản phẩm</p>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="ops-secondary-button" onclick="openManageCategoriesModal()">Quản lý danh mục</button>
+              <button type="button" class="ops-secondary-button" onclick="openAddCategoryModal()">+ Thêm danh mục</button>
+              <button type="button" onclick="openAddProductModal()" style="height: 32px; padding: 0 14px; background: #111111; color: #ffffff; border: none; border-radius: 4px; font-weight: 600; font-size: 12.5px; cursor: pointer;">+ Thêm sản phẩm</button>
+            </div>
+          </div>
+          <div class="ops-table-wrap">
+            <table class="ops-table" id="productsMainTable">
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Sản phẩm</th>
+                  <th>Danh mục</th>
+                  <th>Giá sỉ (nhập)</th>
+                  <th>Giá bán</th>
+                  <th>Tồn kho</th>
+                  <th>Đã bán</th>
+                  <th>Trạng thái</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="productsTableBody">
+                <!-- Render từ JS -->
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+
+      <!-- ================================================================
+           TAB 3B: QUẢN LÝ TỒN KHO (INVENTORY)
            ================================================================ -->
       <div id="tabContent_inventory" class="tab-pane" style="display: none;">
         <div class="ops-inventory-layout">
@@ -474,25 +535,18 @@ if (!empty($_GET['live_json'])) {
           <article class="ops-card">
             <div class="ops-card-head">
               <div>
-                <h2>Danh sách sản phẩm</h2>
+                <h2>Tồn kho sản phẩm</h2>
                 <p id="inventoryCountDesc">8 sản phẩm đang quản lý</p>
               </div>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button type="button" onclick="openManageCategoriesModal()" style="height: 38px; padding: 0 14px; background: #ffffff; color: #2c1a0e; border: 1.5px solid #2c1a0e; border-radius: 4px; font-weight: bold; font-size: 13.5px; cursor: pointer;">📂 Quản lý danh mục</button>
-                <button type="button" onclick="openAddCategoryModal()" style="height: 38px; padding: 0 16px; background: #2c1a0e; color: #ffffff; border: none; border-radius: 4px; font-weight: bold; font-size: 14px; cursor: pointer;">+ Thêm danh mục</button>
-                <button type="button" onclick="openAddProductModal()" style="height: 38px; padding: 0 16px; background: #2c1a0e; color: #ffffff; border: none; border-radius: 4px; font-weight: bold; font-size: 14px; cursor: pointer;">+ Thêm sản phẩm</button>
-              </div>
+              <button type="button" class="ops-secondary-button" onclick="switchAdminTab('products')">Quản lý sản phẩm</button>
             </div>
             <div class="ops-table-wrap">
               <table class="ops-table" id="inventoryMainTable">
                 <thead>
                   <tr>
-                    <th>Sản phẩm</th>
                     <th>SKU</th>
+                    <th>Sản phẩm</th>
                     <th>Danh mục</th>
-                    <th>Giá sỉ (nhập)</th>
-                    <th>Giá bán lẻ</th>
-                    <th>Đã bán</th>
                     <th>Tồn kho</th>
                     <th>Trạng thái</th>
                     <th>Thao tác</th>
@@ -1228,14 +1282,15 @@ if (!empty($_GET['live_json'])) {
 
     const tabDescriptions = {
       overview: { title: 'Tổng quan cửa hàng', desc: 'Các chỉ số kinh doanh chính trong kỳ.' },
-      orders: { title: 'Quản lý đơn hàng', desc: 'Theo dõi và cập nhật trạng thái đơn hàng.' },
-      inventory: { title: 'Quản lý tồn kho', desc: 'Kiểm tra số lượng và bổ sung hàng hóa.' },
-      fund: { title: 'Đối soát Quỹ cứu trợ', desc: 'Theo dõi khoản trích 5% và lịch sử giải ngân.' },
-      vouchers: { title: 'Quản lý mã giảm giá', desc: 'Tạo mới, kích hoạt hoặc vô hiệu hóa các mã ưu đãi khách hàng.' },
-      reports: { title: 'Báo cáo kinh doanh', desc: 'Tổng hợp số liệu theo thời gian và danh mục.' },
-      returns: { title: 'Quản lý yêu cầu đổi trả', desc: 'Tiếp nhận và xử lý yêu cầu đổi trả trong vòng 3 ngày.' },
-      customers: { title: 'Quản lý khách hàng', desc: 'Danh sách khách hàng, theo dõi chi tiêu và phân quyền khóa tài khoản.' },
-      payments: { title: 'Giao dịch thanh toán & Đối soát', desc: 'Theo dõi dòng tiền thanh toán VietQR / COD và xác nhận nhận tiền.' }
+      orders: { title: 'Đơn hàng', desc: 'Theo dõi và cập nhật trạng thái đơn hàng.' },
+      products: { title: 'Sản phẩm', desc: 'Quản lý danh mục, giá bán và trạng thái kinh doanh.' },
+      inventory: { title: 'Tồn kho', desc: 'Kiểm tra số lượng tồn kho và nhập thêm hàng hóa.' },
+      fund: { title: 'Quỹ cứu trợ', desc: 'Theo dõi khoản trích 5% và lịch sử giải ngân.' },
+      vouchers: { title: 'Mã giảm giá', desc: 'Tạo mới, kích hoạt hoặc vô hiệu hóa các mã ưu đãi khách hàng.' },
+      reports: { title: 'Báo cáo', desc: 'Tổng hợp số liệu theo thời gian và danh mục.' },
+      returns: { title: 'Yêu cầu đổi trả', desc: 'Tiếp nhận và xử lý yêu cầu đổi trả trong vòng 3 ngày.' },
+      customers: { title: 'Khách hàng', desc: 'Danh sách khách hàng, theo dõi chi tiêu và phân quyền khóa tài khoản.' },
+      payments: { title: 'Giao dịch thanh toán', desc: 'Theo dõi dòng tiền thanh toán VietQR / COD và xác nhận nhận tiền.' }
     };
 
     // 2. CHUYỂN ĐỔI TAB MƯỢT MÀ
@@ -1245,7 +1300,7 @@ if (!empty($_GET['live_json'])) {
       
       // Update sidebar active buttons
       const navButtons = document.querySelectorAll('#adminNav button');
-      const tabs = ['overview', 'orders', 'inventory', 'fund', 'vouchers', 'reports', 'returns', 'customers', 'payments'];
+      const tabs = ['overview', 'orders', 'products', 'inventory', 'fund', 'vouchers', 'reports', 'returns', 'customers', 'payments'];
       navButtons.forEach((btn, index) => {
         btn.className = (tabs[index] === tab) ? 'active' : '';
       });
@@ -1275,7 +1330,71 @@ if (!empty($_GET['live_json'])) {
       return { label: 'Còn hàng', className: 'good' };
     }
 
-    // 4. RENDER BẢNG TỒN KHO & CẢNH BÁO
+    // 4A. RENDER BẢNG SẢN PHẨM
+    function renderProducts() {
+      const q = searchQuery.toLowerCase().trim();
+      const filtered = q ? inventoryData.filter(item =>
+        (item.name + ' ' + item.sku + ' ' + item.category).toLowerCase().includes(q)
+      ) : inventoryData;
+
+      const totalCount = inventoryData.length;
+      const hiddenCount = inventoryData.filter(i => i.trangthai === 'Ngừng bán' || i.trangthai === 'Ngừng kinh doanh').length;
+      const activeCount = totalCount - hiddenCount;
+      const totalSold = inventoryData.reduce((s, i) => s + (parseInt(i.sold, 10) || 0), 0);
+
+      const elTotal = document.getElementById('prodTotalCount');
+      const elActive = document.getElementById('prodActiveCount');
+      const elHidden = document.getElementById('prodHiddenCount');
+      const elSold = document.getElementById('prodTotalSold');
+      const elDesc = document.getElementById('productsCountDesc');
+      if (elTotal) elTotal.textContent = totalCount;
+      if (elActive) elActive.textContent = activeCount;
+      if (elHidden) elHidden.textContent = hiddenCount;
+      if (elSold) elSold.textContent = totalSold;
+      if (elDesc) elDesc.textContent = `${filtered.length} sản phẩm`;
+
+      const tbody = document.getElementById('productsTableBody');
+      if (tbody) {
+        tbody.innerHTML = filtered.map(item => {
+          const isHidden = (item.trangthai === 'Ngừng bán' || item.trangthai === 'Ngừng kinh doanh');
+          const costDisplay = (item.cost_price && item.cost_price > 0) ? new Intl.NumberFormat('vi-VN').format(item.cost_price) + 'đ' : '—';
+          const priceDisplay = new Intl.NumberFormat('vi-VN').format(item.price) + 'đ';
+          const statusTag = isHidden
+            ? '<span class="ops-order-status cancelled">Ngừng bán</span>'
+            : '<span class="ops-order-status done">Đang bán</span>';
+          return `
+            <tr>
+              <td><code>${escapeHtml(item.sku)}</code></td>
+              <td>
+                <div class="ops-product">
+                  <span style="display:flex; align-items:center; justify-content:center; background:#fff; overflow:hidden;">
+                    ${item.image ? `<img src="${encodeURI(item.image)}" alt="" style="width:100%; height:100%; object-fit:contain; padding:2px;" onerror="this.style.display='none'">` : ''}
+                  </span>
+                  <div>
+                    <strong style="font-size:13px; color:#111827; line-height:1.35;">${escapeHtml(item.name)}</strong>
+                    <small style="display:block; color:#6b7280; font-size:11.5px; margin-top:2px;">${escapeHtml(item.brand || 'Chính hãng')}</small>
+                  </div>
+                </div>
+              </td>
+              <td>${escapeHtml(item.category)}</td>
+              <td style="color:#6b7280;">${costDisplay}</td>
+              <td><strong style="color:#111827;">${priceDisplay}</strong></td>
+              <td><a href="javascript:void(0)" onclick="switchAdminTab('inventory')" style="color:#111827; text-decoration:underline; font-weight:500;">${item.stock} (Xem kho)</a></td>
+              <td>${item.sold || 0}</td>
+              <td>${statusTag}</td>
+              <td>
+                <div style="display:flex; gap:4px; flex-wrap:nowrap;">
+                  <button type="button" class="ops-row-action" onclick="openEditProductModal('${item.id}', '${item.name.replace(/'/g, "\\'")}', '${item.stock}')">Sửa</button>
+                  <button type="button" class="ops-row-action" style="color:${isHidden ? '#111827' : '#b91c1c'}; border-color:${isHidden ? '#d1d5db' : '#fecaca'};" onclick="adminToggleProductStatus('${item.id}', '${item.trangthai || 'Đang bán'}')">${isHidden ? 'Mở bán' : 'Ẩn'}</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    // 4B. RENDER BẢNG TỒN KHO & CẢNH BÁO
     function renderInventory() {
       const q = searchQuery.toLowerCase().trim();
       const filtered = q ? inventoryData.filter(item => 
@@ -1289,34 +1408,25 @@ if (!empty($_GET['live_json'])) {
           const st = isHidden
             ? { label: 'Ngừng bán', className: 'out' }
             : getStockStatus(item.stock);
-          const costDisplay = (item.cost_price && item.cost_price > 0) ? new Intl.NumberFormat('vi-VN').format(item.cost_price) + '₫' : '—';
-          const priceDisplay = new Intl.NumberFormat('vi-VN').format(item.price) + '₫';
           return `
             <tr>
+              <td><code>${escapeHtml(item.sku)}</code></td>
               <td>
                 <div class="ops-product">
-                  <span style="border-left: 4px solid ${item.color}; display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden;">
-                    ${item.image ? `<img src="${encodeURI(item.image)}" alt="" style="width: 100%; height: 100%; object-fit: contain; padding: 2px;" onerror="this.style.display='none'">` : `<span style="font-size: 18px; color: #aaa;">📦</span>`}
+                  <span style="display: flex; align-items: center; justify-content: center; background: #fff; overflow: hidden;">
+                    ${item.image ? `<img src="${encodeURI(item.image)}" alt="" style="width: 100%; height: 100%; object-fit: contain; padding: 2px;" onerror="this.style.display='none'">` : ''}
                   </span>
                   <div>
-                    <strong style="font-size: 13.5px; color: #2c1a0e; line-height: 1.35;">${escapeHtml(item.name)}</strong>
-                    <small style="display:block; color:#777; font-size:12px; margin-top: 2px;">Thương hiệu: ${escapeHtml(item.brand || 'Chính hãng')}</small>
+                    <strong style="font-size: 13px; color: #111827; line-height: 1.35;">${escapeHtml(item.name)}</strong>
+                    <small style="display:block; color:#6b7280; font-size:11.5px; margin-top: 2px;">${escapeHtml(item.brand || 'Chính hãng')}</small>
                   </div>
                 </div>
               </td>
-              <td><code>${escapeHtml(item.sku)}</code></td>
               <td>${escapeHtml(item.category)}</td>
-              <td style="color: #666; font-size: 13px;">${costDisplay}</td>
-              <td><strong style="color: #2c1a0e; font-size: 13.5px;">${priceDisplay}</strong></td>
-              <td><strong>${item.sold}</strong></td>
-              <td><strong style="font-size: 13px;">${item.stock}</strong></td>
+              <td><strong style="font-size: 13px; color: #111827;">${item.stock}</strong></td>
               <td><span class="ops-stock-status ${st.className}">${st.label}</span></td>
               <td>
-                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                  <button type="button" class="ops-restock" onclick="restockItem('${item.id}')">+ Nhập</button>
-                  <button type="button" class="ops-restock" style="background: #2c1a0e; color: #fff;" onclick="openEditProductModal('${item.id}', '${item.name.replace(/'/g, "\\'")}', '${item.stock}')">✏️ Sửa</button>
-                  <button type="button" class="ops-restock" style="background: ${isHidden ? '#1565c0' : '#c94336'}; color: #fff;" onclick="adminToggleProductStatus('${item.id}', '${item.trangthai || 'Đang bán'}')">${isHidden ? 'Mở bán' : 'Ẩn'}</button>
-                </div>
+                <button type="button" class="ops-restock" onclick="restockItem('${item.id}')">+ Nhập hàng</button>
               </td>
             </tr>
           `;
@@ -1359,6 +1469,7 @@ if (!empty($_GET['live_json'])) {
 
       const invDesc = document.getElementById('inventoryCountDesc');
       if (invDesc) invDesc.textContent = `${inventoryData.length} sản phẩm đang quản lý`;
+      renderProducts();
     }
 
     // THÔNG BÁO TRỰC TIẾP TRÊN WEB (SONNER CLEAN CARD)
@@ -2820,6 +2931,7 @@ if (!empty($_GET['live_json'])) {
     // 8. TÌM KIẾM TOÀN CỤC & BỘ LỌC
     function handleGlobalSearch(val) {
       searchQuery = val;
+      if (currentTab === 'products') renderProducts();
       if (currentTab === 'inventory') renderInventory();
       if (currentTab === 'orders') renderOrders();
     }
