@@ -74,8 +74,8 @@ $currentUser = $_SESSION['user'] ?? null;
               if (!pill && document.body) {
                 pill = document.createElement('div');
                 pill.id = 'kiboGlobalLoadingPill';
-                pill.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 999999999; background: rgba(17,17,17,0.9); color: #fff; padding: 12px 22px; border-radius: 8px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.22);';
-                pill.innerHTML = '<span class="kibo-spinner"></span>Đang xử lý, vui lòng chờ...';
+                pill.style.cssText = 'position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 999999999; background: #ffffff; color: #111827; border: 1px solid rgba(0,0,0,0.08); padding: 13px 18px; border-radius: 12px; font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 4px 10px -2px rgba(0,0,0,0.04);';
+                pill.innerHTML = '<span class="kibo-spinner" style="border-color: rgba(17,24,39,0.18); border-top-color: #111827; width: 16px; height: 16px;"></span><span>Đang xử lý, vui lòng chờ...</span>';
                 document.body.appendChild(pill);
               } else if (pill) {
                 pill.style.display = 'flex';

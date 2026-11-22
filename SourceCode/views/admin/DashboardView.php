@@ -171,8 +171,8 @@ if (!empty($_GET['live_json'])) {
               if (!pill && document.body) {
                 pill = document.createElement('div');
                 pill.id = 'kiboGlobalLoadingPill';
-                pill.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 999999999; background: rgba(17,17,17,0.9); color: #fff; padding: 12px 22px; border-radius: 8px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.22);';
-                pill.innerHTML = '<span class="kibo-spinner"></span>Đang xử lý, vui lòng chờ...';
+                pill.style.cssText = 'position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 999999999; background: #ffffff; color: #111827; border: 1px solid rgba(0,0,0,0.08); padding: 13px 18px; border-radius: 12px; font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 4px 10px -2px rgba(0,0,0,0.04);';
+                pill.innerHTML = '<span class="kibo-spinner" style="border-color: rgba(17,24,39,0.18); border-top-color: #111827; width: 16px; height: 16px;"></span><span>Đang xử lý, vui lòng chờ...</span>';
                 document.body.appendChild(pill);
               } else if (pill) {
                 pill.style.display = 'flex';
@@ -1361,39 +1361,54 @@ if (!empty($_GET['live_json'])) {
       if (invDesc) invDesc.textContent = `${inventoryData.length} sản phẩm đang quản lý`;
     }
 
-    // THÔNG BÁO TRỰC TIẾP TRÊN WEB (DẠNG CƠ BẢN NHẤT)
+    // THÔNG BÁO TRỰC TIẾP TRÊN WEB (SONNER CLEAN CARD)
     function showAdminToast(title, message, type = 'success') {
       let toastContainer = document.getElementById('adminToastContainer');
       if (!toastContainer) {
         toastContainer = document.createElement('div');
         toastContainer.id = 'adminToastContainer';
-        toastContainer.style.cssText = 'position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 999999999; display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: min(460px, 92vw); pointer-events: none;';
+        toastContainer.style.cssText = 'position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 999999999; display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: min(440px, 92vw); pointer-events: none;';
         document.body.appendChild(toastContainer);
       }
 
       const toast = document.createElement('div');
       const isSuccess = (type === 'success');
-      const bgCol = isSuccess ? '#2e7d32' : '#c94336';
+      const iconBg = isSuccess ? '#000000' : '#dc2626';
+      const iconSvg = isSuccess
+        ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+        : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+      const textHtml = (isSuccess && (title === 'Thành công' || title === 'Thông báo') && message)
+        ? message
+        : `<strong>${title}:</strong> ${message}`;
 
       toast.style.cssText = `
-        background: ${bgCol};
-        color: #ffffff;
-        border-radius: 4px;
-        padding: 10px 14px;
+        pointer-events: auto;
+        background: #ffffff;
+        color: #111827;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 12px;
+        padding: 13px 18px;
+        min-width: 260px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-        font-family: Arial, sans-serif;
-        font-size: 13.5px;
+        gap: 12px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 10px -2px rgba(0, 0, 0, 0.04);
+        font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.4;
       `;
 
       toast.innerHTML = `
-        <div>
-          <strong>${title}:</strong> ${message}
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="width:20px; height:20px; border-radius:999px; background:${iconBg}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+            ${iconSvg}
+          </span>
+          <span>${textHtml}</span>
         </div>
-        <button type="button" style="background: none; border: none; color: #fff; font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1;">✕</button>
+        <button type="button" style="background: none; border: none; color: #9ca3af; font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0;" aria-label="Đóng">✕</button>
       `;
 
       const closeBtn = toast.querySelector('button');

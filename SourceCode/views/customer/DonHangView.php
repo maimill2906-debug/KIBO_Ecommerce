@@ -917,13 +917,18 @@ function showCustomerToast(msg, type = 'error') {
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'checkoutToast';
-    toast.style.cssText = 'position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 999999999; padding: 10px 18px; border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,0.2); font-family: Arial, sans-serif; font-size: 13.5px; font-weight: 600; color: #fff; max-width: min(440px, 92vw); text-align: center;';
     document.body.appendChild(toast);
   }
-  toast.style.background = type === 'error' ? '#c94336' : '#2e7d32';
-  toast.textContent = msg;
-  toast.style.display = 'block';
-  setTimeout(() => {
+  const isError = (type === 'error');
+  const iconBg = isError ? '#dc2626' : '#000000';
+  const iconSvg = isError
+    ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>'
+    : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+  toast.style.cssText = 'position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 999999999; background: #ffffff; color: #111827; border: 1px solid rgba(0,0,0,0.08); padding: 13px 18px; min-width: 260px; max-width: min(440px, 92vw); border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 4px 10px -2px rgba(0,0,0,0.04); font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif; font-size: 14px; font-weight: 500; line-height: 1.4; display: flex; align-items: center; gap: 10px;';
+  toast.innerHTML = `<span style="width:20px; height:20px; border-radius:999px; background:${iconBg}; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">${iconSvg}</span><span style="color:#111827;">${msg}</span>`;
+  toast.style.display = 'flex';
+  clearTimeout(window._customerToastTimer);
+  window._customerToastTimer = setTimeout(() => {
     toast.style.display = 'none';
   }, 3500);
 }
