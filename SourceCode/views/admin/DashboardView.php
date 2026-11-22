@@ -2349,14 +2349,10 @@ if (!empty($_GET['live_json'])) {
       renderOrders();
     }
 
-    function getReturnedOrderIdSet() {
-      return new Set((returnsData || []).map(r => String(r.madonhang || r.MaDonHang || '').trim()).filter(Boolean));
-    }
-
-    function normalizeOrderStatusBucket(st, orderId, returnedSet) {
+    function normalizeOrderStatusBucket(st) {
       st = String(st || '').trim();
       const low = st.toLowerCase();
-      if (low.includes('hoàn') || low.includes('trả') || (returnedSet && orderId && returnedSet.has(String(orderId)))) return 'HOAN_HANG';
+      if (low.includes('hoàn') || low.includes('trả')) return 'HOAN_HANG';
       if (st === 'Chờ xác nhận') return 'CHO_XAC_NHAN';
       if (st === 'Chờ đóng gói') return 'CHO_DONG_GOI';
       if (st === 'Đã xuất kho') return 'DA_XUAT_KHO';
@@ -2369,10 +2365,9 @@ if (!empty($_GET['live_json'])) {
     function renderOrderStatusTabs(rangedOrders) {
       const bar = document.getElementById('orderStatusTabsBar');
       if (!bar) return;
-      const returnedSet = getReturnedOrderIdSet();
       const counts = { ALL: rangedOrders.length, CHO_XAC_NHAN: 0, CHO_DONG_GOI: 0, DA_XUAT_KHO: 0, DANG_GIAO: 0, DA_GIAO: 0, DA_HUY: 0, HOAN_HANG: 0 };
       rangedOrders.forEach(o => {
-        const b = normalizeOrderStatusBucket(o.status, o.id, returnedSet);
+        const b = normalizeOrderStatusBucket(o.status);
         if (counts[b] !== undefined) counts[b]++;
       });
       const defs = [
@@ -2398,10 +2393,9 @@ if (!empty($_GET['live_json'])) {
       const q = searchQuery.toLowerCase().trim();
       const rangedOrders = getOrdersInSelectedRange();
       renderOrderStatusTabs(rangedOrders);
-      const returnedSet = getReturnedOrderIdSet();
       const statusFiltered = (selectedOrderStatusTab === 'ALL')
         ? rangedOrders
-        : rangedOrders.filter(o => normalizeOrderStatusBucket(o.status, o.id, returnedSet) === selectedOrderStatusTab);
+        : rangedOrders.filter(o => normalizeOrderStatusBucket(o.status) === selectedOrderStatusTab);
       const filtered = q ? statusFiltered.filter(o => 
         (o.id + ' ' + o.customer + ' ' + o.phone + ' ' + o.items).toLowerCase().includes(q)
       ) : statusFiltered;
