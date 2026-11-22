@@ -4000,8 +4000,6 @@ if (!empty($_GET['live_json'])) {
       let syncing = false;
 
       function isAdminBusy() {
-        const active = document.activeElement;
-        if (active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return true;
         const modals = ['orderDetailModalBackdrop', 'returnDetailModalBackdrop', 'productFormModalBackdrop', 'voucherModalBackdrop', 'kiboDialogOverlay'];
         return modals.some(id => {
           const el = document.getElementById(id);
