@@ -503,7 +503,9 @@ switch ($action) {
         $rowOrd = $db->query("SELECT COUNT(*) AS cnt, COALESCE(MAX(madonhang), '') AS latest, COALESCE(SUM(CASE WHEN trangthaidonhang = 'Chờ xác nhận' THEN 1 ELSE 0 END), 0) AS pending, COALESCE(SUM(CASE WHEN trangthaidonhang = 'Đã hủy' THEN 1 ELSE 0 END), 0) AS cancelled FROM don_hang")->fetch();
         $rowRet = $db->query("SELECT COUNT(*) AS cnt, COALESCE(SUM(CASE WHEN trangthaiyeucau = 'Chờ xử lý' THEN 1 ELSE 0 END), 0) AS pending FROM yeu_cau_doi_tra")->fetch();
         $rowPay = $db->query("SELECT COUNT(*) AS cnt, COALESCE(SUM(CASE WHEN trangthaitt = 'Thành công' THEN 1 ELSE 0 END), 0) AS paid FROM thanh_toan")->fetch();
-        $sig = md5(json_encode([$rowOrd, $rowRet, $rowPay]));
+        $rowCust = $db->query("SELECT COUNT(*) AS cnt FROM khach_hang")->fetch();
+        $rowFund = $db->query("SELECT COUNT(*) AS cnt, COALESCE(SUM(CASE WHEN trangthaiquy = 'Đã trích quỹ' THEN sotiendonggop ELSE 0 END), 0) AS total_fund FROM quy_cuu_tro")->fetch();
+        $sig = md5(json_encode([$rowOrd, $rowRet, $rowPay, $rowCust, $rowFund]));
         echo json_encode([
             'success' => true,
             'sig' => $sig,

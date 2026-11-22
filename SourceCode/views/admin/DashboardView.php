@@ -4040,17 +4040,45 @@ if (!empty($_GET['live_json'])) {
                 renderInventory();
                 renderOrders();
                 renderOverview();
-                showAdminToast(
-                  isNewOrder ? 'Có đơn hàng mới!' : 'Đồng bộ dữ liệu',
-                  isNewOrder && res.latest_order ? `Đơn #${res.latest_order} vừa được đặt.` : 'Trạng thái đơn hàng vừa được cập nhật.',
-                  'success'
-                );
               }
             }
-          } else {
-            showAdminToast('Cập nhật Real-time', 'Có dữ liệu mới, đang làm mới...', 'success');
-            setTimeout(() => window.location.reload(), 500);
           }
+
+          // Đồng bộ không tải lại trang cho các tab server-rendered (Quỹ 5%, Đổi trả, Voucher, Khách hàng, Thanh toán) & chuông thông báo
+          const htmlResp = await fetch('index.php?action=admin', { cache: 'no-store' });
+          if (htmlResp.ok) {
+            const html = await htmlResp.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            ['tabContent_fund', 'tabContent_returns', 'tabContent_vouchers', 'tabContent_customers', 'tabContent_payments'].forEach(id => {
+              const curEl = document.getElementById(id);
+              const newEl = doc.getElementById(id);
+              if (curEl && newEl) curEl.innerHTML = newEl.innerHTML;
+            });
+            const curNotif = document.getElementById('notifBadge');
+            const newNotif = doc.getElementById('notifBadge');
+            if (curNotif && newNotif) curNotif.textContent = newNotif.textContent;
+            const curUpd = document.querySelector('.ops-updated span');
+            const newUpd = doc.querySelector('.ops-updated span');
+            if (curUpd && newUpd) curUpd.textContent = newUpd.textContent;
+
+            if (!['overview', 'orders', 'inventory', 'reports'].includes(currentTab)) {
+              const liveResp2 = await fetch('index.php?action=admin&live_json=1', { cache: 'no-store' });
+              if (liveResp2.ok) {
+                const live2 = await liveResp2.json();
+                if (live2 && live2.success) {
+                  ordersData = live2.orders || ordersData;
+                  inventoryData = live2.inventory || inventoryData;
+                  returnsData = live2.returns || returnsData;
+                }
+              }
+            }
+          }
+
+          showAdminToast(
+            isNewOrder ? 'Có đơn hàng mới!' : 'Đồng bộ Real-time',
+            isNewOrder && res.latest_order ? `Đơn #${res.latest_order} vừa được cập nhật.` : 'Dữ liệu hệ thống vừa được đồng bộ tự động.',
+            'success'
+          );
         } catch (e) {
         } finally {
           syncing = false;
