@@ -1146,6 +1146,10 @@ td:first-child b { font-family: 'Montserrat', 'Be Vietnam Pro', -apple-system, B
 .auth-form input[type="checkbox"], .auth-modal input[type="checkbox"], #modalConsentCheckbox, #pageConsentCheckbox { width: 18px !important; height: 18px !important; max-width: 18px !important; max-height: 18px !important; min-width: 18px !important; min-height: 18px !important; padding: 0 !important; margin: 2px 0 0 0 !important; accent-color: var(--green) !important; cursor: pointer !important; flex: 0 0 18px !important; box-shadow: none !important; -webkit-appearance: checkbox !important; appearance: auto !important; }
 .password-input { position: relative; display: block; width: 100%; box-sizing: border-box; }
 .password-input input { padding-right: 44px; }
+.password-input input::-ms-reveal,
+.password-input input::-ms-clear,
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear { display: none !important; }
 .password-toggle { position: absolute; top: 0; right: 0; width: 42px; height: 42px; display: grid; place-items: center; color: var(--muted); background: transparent; border: 0; cursor: pointer; }
 .password-toggle:hover { color: var(--brown); }
 .login-options { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; font-size: 13.5px; }
