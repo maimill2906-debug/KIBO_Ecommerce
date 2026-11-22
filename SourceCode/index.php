@@ -500,18 +500,27 @@ switch ($action) {
         header('Content-Type: application/json; charset=utf-8');
         require_once __DIR__ . '/config/database.php';
         $db = Database::getConnection();
-        $rowOrd = $db->query("SELECT COUNT(*) AS cnt, COALESCE(MAX(madonhang), '') AS latest, COALESCE(SUM(CASE WHEN trangthaidonhang = 'Chờ xác nhận' THEN 1 ELSE 0 END), 0) AS pending, COALESCE(SUM(CASE WHEN trangthaidonhang = 'Đã hủy' THEN 1 ELSE 0 END), 0) AS cancelled FROM don_hang")->fetch();
-        $rowRet = $db->query("SELECT COUNT(*) AS cnt, COALESCE(SUM(CASE WHEN trangthaiyeucau = 'Chờ xử lý' THEN 1 ELSE 0 END), 0) AS pending FROM yeu_cau_doi_tra")->fetch();
-        $rowPay = $db->query("SELECT COUNT(*) AS cnt, COALESCE(SUM(CASE WHEN trangthaitt = 'Thành công' THEN 1 ELSE 0 END), 0) AS paid FROM thanh_toan")->fetch();
-        $rowCust = $db->query("SELECT COUNT(*) AS cnt FROM khach_hang")->fetch();
-        $rowFund = $db->query("SELECT COUNT(*) AS cnt, COALESCE(SUM(CASE WHEN trangthaiquy = 'Đã trích quỹ' THEN sotiendonggop ELSE 0 END), 0) AS total_fund FROM quy_cuu_tro")->fetch();
-        $sig = md5(json_encode([$rowOrd, $rowRet, $rowPay, $rowCust, $rowFund]));
+        $row = $db->query("
+            SELECT
+                (SELECT COUNT(*) FROM don_hang) AS ord_cnt,
+                (SELECT COALESCE(MAX(madonhang), '') FROM don_hang) AS latest_order,
+                (SELECT COALESCE(SUM(CASE WHEN trangthaidonhang = 'Chờ xác nhận' THEN 1 ELSE 0 END), 0) FROM don_hang) AS pending_orders,
+                (SELECT COALESCE(SUM(CASE WHEN trangthaidonhang = 'Đã hủy' THEN 1 ELSE 0 END), 0) FROM don_hang) AS cancelled_orders,
+                (SELECT COUNT(*) FROM yeu_cau_doi_tra) AS ret_cnt,
+                (SELECT COALESCE(SUM(CASE WHEN trangthaiyeucau = 'Chờ xử lý' THEN 1 ELSE 0 END), 0) FROM yeu_cau_doi_tra) AS pending_ret,
+                (SELECT COUNT(*) FROM thanh_toan) AS pay_cnt,
+                (SELECT COALESCE(SUM(CASE WHEN trangthaitt = 'Thành công' THEN 1 ELSE 0 END), 0) FROM thanh_toan) AS paid_cnt,
+                (SELECT COUNT(*) FROM khach_hang) AS cust_cnt,
+                (SELECT COUNT(*) FROM quy_cuu_tro) AS fund_cnt,
+                (SELECT COALESCE(SUM(CASE WHEN trangthaiquy = 'Đã trích quỹ' THEN sotiendonggop ELSE 0 END), 0) FROM quy_cuu_tro) AS total_fund
+        ")->fetch();
+        $sig = md5(json_encode($row));
         echo json_encode([
             'success' => true,
             'sig' => $sig,
-            'orders_count' => (int)($rowOrd['cnt'] ?? 0),
-            'latest_order' => (string)($rowOrd['latest'] ?? ''),
-            'pending_orders' => (int)($rowOrd['pending'] ?? 0)
+            'orders_count' => (int)($row['ord_cnt'] ?? 0),
+            'latest_order' => (string)($row['latest_order'] ?? ''),
+            'pending_orders' => (int)($row['pending_orders'] ?? 0)
         ], JSON_UNESCAPED_UNICODE);
         exit;
 

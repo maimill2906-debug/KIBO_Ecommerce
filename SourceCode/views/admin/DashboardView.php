@@ -2312,7 +2312,11 @@ if (!empty($_GET['live_json'])) {
       currentViewingOrderId = null;
     }
 
+    let isUpdatingOrderStatus = false;
     async function updateOrderStatus(orderId, newStatus) {
+      if (isUpdatingOrderStatus) return;
+      isUpdatingOrderStatus = true;
+      document.body.style.cursor = 'progress';
       try {
         const resp = await fetch('index.php?action=admin_update_order_status', {
           method: 'POST',
@@ -2330,9 +2334,13 @@ if (!empty($_GET['live_json'])) {
           showAdminToast('Cập nhật thành công', `Đơn hàng #${orderId} đã chuyển sang trạng thái: "${newStatus}".`, 'success');
         } else {
           showAdminToast('Bị từ chối', res.message || 'Không thể cập nhật trạng thái đơn hàng.', 'error');
+          if (typeof window.kiboForceAdminSync === 'function') window.kiboForceAdminSync();
         }
       } catch (e) {
         showAdminToast('Lỗi kết nối', e.message, 'error');
+      } finally {
+        isUpdatingOrderStatus = false;
+        document.body.style.cursor = '';
       }
     }
 
@@ -4038,37 +4046,30 @@ if (!empty($_GET['live_json'])) {
                 renderInventory();
                 renderOrders();
                 renderOverview();
-              }
-            }
-          }
-
-          // Đồng bộ không tải lại trang cho các tab server-rendered (Quỹ 5%, Đổi trả, Voucher, Khách hàng, Thanh toán) & chuông thông báo
-          const htmlResp = await fetch('index.php?action=admin', { cache: 'no-store' });
-          if (htmlResp.ok) {
-            const html = await htmlResp.text();
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            ['tabContent_fund', 'tabContent_returns', 'tabContent_vouchers', 'tabContent_customers', 'tabContent_payments'].forEach(id => {
-              const curEl = document.getElementById(id);
-              const newEl = doc.getElementById(id);
-              if (curEl && newEl) curEl.innerHTML = newEl.innerHTML;
-            });
-            const curNotif = document.getElementById('notifBadge');
-            const newNotif = doc.getElementById('notifBadge');
-            if (curNotif && newNotif) curNotif.textContent = newNotif.textContent;
-            const curUpd = document.querySelector('.ops-updated span');
-            const newUpd = doc.querySelector('.ops-updated span');
-            if (curUpd && newUpd) curUpd.textContent = newUpd.textContent;
-
-            if (!['overview', 'orders', 'inventory', 'reports'].includes(currentTab)) {
-              const liveResp2 = await fetch('index.php?action=admin&live_json=1', { cache: 'no-store' });
-              if (liveResp2.ok) {
-                const live2 = await liveResp2.json();
-                if (live2 && live2.success) {
-                  ordersData = live2.orders || ordersData;
-                  inventoryData = live2.inventory || inventoryData;
-                  returnsData = live2.returns || returnsData;
+                const updSpan = document.querySelector('.ops-updated span');
+                if (updSpan) {
+                  const now = new Date();
+                  updSpan.textContent = `Cập nhật ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} hôm nay`;
                 }
               }
+            }
+          } else {
+            // Chỉ tải HTML nền khi đang đứng ở các tab server-rendered (Quỹ 5%, Đổi trả, Voucher, Khách hàng, Thanh toán)
+            const htmlResp = await fetch('index.php?action=admin', { cache: 'no-store' });
+            if (htmlResp.ok) {
+              const html = await htmlResp.text();
+              const doc = new DOMParser().parseFromString(html, 'text/html');
+              ['tabContent_fund', 'tabContent_returns', 'tabContent_vouchers', 'tabContent_customers', 'tabContent_payments'].forEach(id => {
+                const curEl = document.getElementById(id);
+                const newEl = doc.getElementById(id);
+                if (curEl && newEl) curEl.innerHTML = newEl.innerHTML;
+              });
+              const curNotif = document.getElementById('notifBadge');
+              const newNotif = doc.getElementById('notifBadge');
+              if (curNotif && newNotif) curNotif.textContent = newNotif.textContent;
+              const curUpd = document.querySelector('.ops-updated span');
+              const newUpd = doc.querySelector('.ops-updated span');
+              if (curUpd && newUpd) curUpd.textContent = newUpd.textContent;
             }
           }
 
@@ -4083,8 +4084,9 @@ if (!empty($_GET['live_json'])) {
         }
       }
 
+      window.kiboForceAdminSync = pollAdminSummary;
       pollAdminSummary();
-      setInterval(pollAdminSummary, 4000);
+      setInterval(pollAdminSummary, 8000);
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) pollAdminSummary();
       });
