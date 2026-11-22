@@ -504,7 +504,6 @@ if (!empty($_GET['live_json'])) {
               <button type="button" class="ops-secondary-button" onclick="openDisbursementModal()">+ Lập chứng từ giải ngân</button>
             </div>
           </div>
-          <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
           <div class="ops-table-wrap">
             <table class="ops-table">
               <thead>
@@ -558,7 +557,6 @@ if (!empty($_GET['live_json'])) {
             </div>
             <button type="button" class="ops-secondary-button" onclick="exportFundReportCSV()">Tải báo cáo Excel</button>
           </div>
-          <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
           <div class="ops-table-wrap">
             <table class="ops-table">
               <thead>
@@ -772,7 +770,6 @@ if (!empty($_GET['live_json'])) {
             </div>
             <span style="font-size: 13.5px; color: #666;">Tổng cộng: <strong><?= count($dbReturns) ?></strong> yêu cầu</span>
           </div>
-          <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
           <div class="ops-table-wrap">
             <table class="ops-table">
               <thead>
@@ -859,7 +856,6 @@ if (!empty($_GET['live_json'])) {
             </div>
             <button type="button" class="ops-primary-button" onclick="openAddVoucherModal()">+ Thêm mã giảm giá</button>
           </div>
-          <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
           <div class="ops-table-wrap">
             <table class="ops-table">
               <thead>
