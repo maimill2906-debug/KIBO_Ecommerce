@@ -1150,6 +1150,18 @@ td:first-child b { font-family: 'Montserrat', 'Be Vietnam Pro', -apple-system, B
 .password-input input::-ms-clear,
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear { display: none !important; }
+@keyframes kiboSpin { to { transform: rotate(360deg); } }
+.kibo-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: kiboSpin 0.65s linear infinite;
+  vertical-align: -2px;
+  margin-right: 5px;
+}
 .password-toggle { position: absolute; top: 0; right: 0; width: 42px; height: 42px; display: grid; place-items: center; color: var(--muted); background: transparent; border: 0; cursor: pointer; }
 .password-toggle:hover { color: var(--brown); }
 .login-options { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; font-size: 13.5px; }

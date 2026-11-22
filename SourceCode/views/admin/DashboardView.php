@@ -132,6 +132,12 @@ if (!empty($_GET['live_json'])) {
     window.KIBO_CSRF_TOKEN = <?= json_encode(function_exists('getCsrfToken') ? getCsrfToken() : ($_SESSION['csrf_token'] ?? '')) ?>;
     (function() {
       const origFetch = window.fetch;
+      let lastBtn = null;
+      let lastBtnTs = 0;
+      document.addEventListener('click', function(ev) {
+        const btn = ev.target && ev.target.closest ? ev.target.closest('button') : null;
+        if (btn) { lastBtn = btn; lastBtnTs = Date.now(); }
+      }, true);
       window.fetch = function(input, init) {
         init = init || {};
         const method = String(init.method || 'GET').toUpperCase();
@@ -141,7 +147,29 @@ if (!empty($_GET['live_json'])) {
           if (!headers.has('X-CSRF-Token')) headers.set('X-CSRF-Token', window.KIBO_CSRF_TOKEN);
           init.headers = headers;
         }
-        return origFetch.call(this, input, init);
+        const isSilent = url.indexOf('admin_poll_summary') !== -1 || url.indexOf('live_json=1') !== -1;
+        let spinBtn = null;
+        if (method === 'POST' && !isSilent && lastBtn && (Date.now() - lastBtnTs) <= 250 && document.body && document.body.contains(lastBtn) && !lastBtn.dataset.kiboLoading) {
+          spinBtn = lastBtn;
+          spinBtn.dataset.kiboLoading = '1';
+          spinBtn.dataset.kiboOrigHtml = spinBtn.innerHTML;
+          spinBtn.dataset.kiboOrigDisabled = spinBtn.disabled ? '1' : '0';
+          spinBtn.disabled = true;
+          spinBtn.style.opacity = '0.82';
+          spinBtn.innerHTML = '<span class="kibo-spinner"></span>Đang xử lý...';
+        }
+        const p = origFetch.call(this, input, init);
+        if (spinBtn) {
+          p.finally(() => {
+            if (document.body.contains(spinBtn) && spinBtn.dataset.kiboLoading) {
+              spinBtn.innerHTML = spinBtn.dataset.kiboOrigHtml || spinBtn.innerHTML;
+              spinBtn.disabled = (spinBtn.dataset.kiboOrigDisabled === '1');
+              spinBtn.style.opacity = '';
+              delete spinBtn.dataset.kiboLoading;
+            }
+          });
+        }
+        return p;
       };
     })();
   </script>
