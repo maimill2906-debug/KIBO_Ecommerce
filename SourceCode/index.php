@@ -498,6 +498,7 @@ switch ($action) {
     case 'admin_poll_summary':
         requireAdmin();
         header('Content-Type: application/json; charset=utf-8');
+        require_once __DIR__ . '/config/database.php';
         $db = Database::getConnection();
         $rowOrd = $db->query("SELECT COUNT(*) AS cnt, COALESCE(MAX(madonhang), '') AS latest, COALESCE(SUM(CASE WHEN trangthaidonhang = 'Chờ xác nhận' THEN 1 ELSE 0 END), 0) AS pending, COALESCE(SUM(CASE WHEN trangthaidonhang = 'Đã hủy' THEN 1 ELSE 0 END), 0) AS cancelled FROM don_hang")->fetch();
         $rowRet = $db->query("SELECT COUNT(*) AS cnt, COALESCE(SUM(CASE WHEN trangthaiyeucau = 'Chờ xử lý' THEN 1 ELSE 0 END), 0) AS pending FROM yeu_cau_doi_tra")->fetch();

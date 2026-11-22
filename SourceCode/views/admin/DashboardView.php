@@ -24,17 +24,22 @@ require_once __DIR__ . '/../../models/KhachHangModel.php';
 require_once __DIR__ . '/../../models/ThanhToanModel.php';
 require_once __DIR__ . '/../../models/NhatKyModel.php';
 
+$isLiveJson = !empty($_GET['live_json']);
 $dbReturns = DoiTraModel::getAll();
-$dbVouchers = VoucherModel::getAllAdmin();
-$fundSummary = QuyCuuTroModel::getFundSummary();
-$fundTransactions = QuyCuuTroModel::getRecentTransactions(30);
-$shelters = TramCuuHoModel::getShelters();
-$disbursements = TramCuuHoModel::getDisbursements();
-$pendingDonations = QuyCuuTroModel::getPendingDonations();
-$customersList = KhachHangModel::layDanhSachKhachHang();
-$paymentsList = ThanhToanModel::getAllWithOrders();
-$reconciliationList = ThanhToanModel::layDanhSachDoiSoat();
-$auditLogs = NhatKyModel::layDanhSach(50);
+if (!$isLiveJson) {
+    $dbVouchers = VoucherModel::getAllAdmin();
+    $fundSummary = QuyCuuTroModel::getFundSummary();
+    $fundTransactions = QuyCuuTroModel::getRecentTransactions(30);
+    $shelters = TramCuuHoModel::getShelters();
+    $disbursements = TramCuuHoModel::getDisbursements();
+    $pendingDonations = QuyCuuTroModel::getPendingDonations();
+    $customersList = KhachHangModel::layDanhSachKhachHang();
+    $paymentsList = ThanhToanModel::getAllWithOrders();
+    $reconciliationList = ThanhToanModel::layDanhSachDoiSoat();
+    $auditLogs = NhatKyModel::layDanhSach(50);
+} else {
+    $dbVouchers = $fundSummary = $fundTransactions = $shelters = $disbursements = $pendingDonations = $customersList = $paymentsList = $reconciliationList = $auditLogs = [];
+}
 
 // Dữ liệu Tồn kho & Đã bán tính trực tiếp từ CSDL thật (bien_the & chi_tiet_don_hang)
 $initialInventory = SanPhamModel::getInventoryWithSales();
