@@ -390,6 +390,7 @@ if (!empty($_GET['live_json'])) {
               <button type="button" class="ops-secondary-button" onclick="exportOrdersCSV()">Xuất danh sách</button>
             </div>
           </div>
+          <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
           <div class="ops-table-wrap">
             <table class="ops-table ops-orders-table" id="ordersMainTable">
               <thead>
@@ -503,6 +504,7 @@ if (!empty($_GET['live_json'])) {
               <button type="button" class="ops-secondary-button" onclick="openDisbursementModal()">+ Lập chứng từ giải ngân</button>
             </div>
           </div>
+          <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
           <div class="ops-table-wrap">
             <table class="ops-table">
               <thead>
@@ -556,6 +558,7 @@ if (!empty($_GET['live_json'])) {
             </div>
             <button type="button" class="ops-secondary-button" onclick="exportFundReportCSV()">Tải báo cáo Excel</button>
           </div>
+          <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
           <div class="ops-table-wrap">
             <table class="ops-table">
               <thead>
@@ -769,6 +772,7 @@ if (!empty($_GET['live_json'])) {
             </div>
             <span style="font-size: 13.5px; color: #666;">Tổng cộng: <strong><?= count($dbReturns) ?></strong> yêu cầu</span>
           </div>
+          <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
           <div class="ops-table-wrap">
             <table class="ops-table">
               <thead>
@@ -855,6 +859,7 @@ if (!empty($_GET['live_json'])) {
             </div>
             <button type="button" class="ops-primary-button" onclick="openAddVoucherModal()">+ Thêm mã giảm giá</button>
           </div>
+          <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
           <div class="ops-table-wrap">
             <table class="ops-table">
               <thead>
@@ -2156,12 +2161,60 @@ if (!empty($_GET['live_json'])) {
       });
     }
 
+    let selectedOrderStatusTab = 'ALL';
+
+    function setOrderStatusTab(statusKey) {
+      selectedOrderStatusTab = statusKey;
+      renderOrders();
+    }
+
+    function normalizeOrderStatusBucket(st) {
+      st = String(st || '').trim();
+      if (st === 'Chờ xác nhận') return 'CHO_XAC_NHAN';
+      if (st === 'Chờ đóng gói') return 'CHO_DONG_GOI';
+      if (st === 'Đã xuất kho') return 'DA_XUAT_KHO';
+      if (st === 'Đang giao' || st === 'Đang giao hàng') return 'DANG_GIAO';
+      if (st === 'Đã giao' || st === 'Giao thành công' || st === 'Giao hàng thành công') return 'DA_GIAO';
+      if (st.includes('hủy') || st.includes('huỷ')) return 'DA_HUY';
+      return 'ALL';
+    }
+
+    function renderOrderStatusTabs(rangedOrders) {
+      const bar = document.getElementById('orderStatusTabsBar');
+      if (!bar) return;
+      const counts = { ALL: rangedOrders.length, CHO_XAC_NHAN: 0, CHO_DONG_GOI: 0, DA_XUAT_KHO: 0, DANG_GIAO: 0, DA_GIAO: 0, DA_HUY: 0 };
+      rangedOrders.forEach(o => {
+        const b = normalizeOrderStatusBucket(o.status);
+        if (counts[b] !== undefined) counts[b]++;
+      });
+      const defs = [
+        { key: 'ALL', label: 'TẤT CẢ' },
+        { key: 'CHO_XAC_NHAN', label: 'CHỜ XÁC NHẬN' },
+        { key: 'CHO_DONG_GOI', label: 'CHỜ ĐÓNG GÓI' },
+        { key: 'DA_XUAT_KHO', label: 'ĐÃ XUẤT KHO' },
+        { key: 'DANG_GIAO', label: 'ĐANG GIAO' },
+        { key: 'DA_GIAO', label: 'ĐÃ GIAO' },
+        { key: 'DA_HUY', label: 'ĐÃ HỦY' }
+      ];
+      bar.innerHTML = defs.map(d => {
+        const active = (selectedOrderStatusTab === d.key);
+        const bg = active ? '#111111' : '#ffffff';
+        const color = active ? '#ffffff' : '#4a3f37';
+        const border = active ? '1px solid #111111' : '1px solid #e5dfd7';
+        return `<button type="button" onclick="setOrderStatusTab('${d.key}')" style="padding: 7px 13px; border-radius: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.3px; cursor: pointer; background: ${bg}; color: ${color}; border: ${border}; transition: all 0.15s;">${d.label} <span style="opacity: ${active ? '0.9' : '0.65'};">(${counts[d.key]})</span></button>`;
+      }).join('');
+    }
+
     function renderOrders() {
       const q = searchQuery.toLowerCase().trim();
       const rangedOrders = getOrdersInSelectedRange();
-      const filtered = q ? rangedOrders.filter(o => 
+      renderOrderStatusTabs(rangedOrders);
+      const statusFiltered = (selectedOrderStatusTab === 'ALL')
+        ? rangedOrders
+        : rangedOrders.filter(o => normalizeOrderStatusBucket(o.status) === selectedOrderStatusTab);
+      const filtered = q ? statusFiltered.filter(o => 
         (o.id + ' ' + o.customer + ' ' + o.phone + ' ' + o.items).toLowerCase().includes(q)
-      ) : rangedOrders;
+      ) : statusFiltered;
       const descEl = document.getElementById('ordersCountDesc');
       if (descEl) descEl.textContent = `${filtered.length} đơn trong kỳ đã chọn`;
 
