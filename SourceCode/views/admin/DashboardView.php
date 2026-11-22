@@ -269,7 +269,7 @@ if (!empty($_GET['live_json'])) {
           <?= kibo_icon('bag', 17) ?> <span>Đơn hàng</span>
         </button>
         <button type="button" onclick="switchAdminTab('inventory')">
-          <?= kibo_icon('box', 17) ?> <span>Quản lý sản phẩm &amp; Tồn kho</span>
+          <?= kibo_icon('box', 16) ?> <span>Sản phẩm &amp; Tồn kho</span>
         </button>
         <button type="button" onclick="switchAdminTab('fund')">
           <?= kibo_icon('heart', 17) ?> <span>Quỹ cứu trợ</span>
