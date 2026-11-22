@@ -417,11 +417,11 @@ if (!empty($_GET['live_json'])) {
               <h2>Danh sách đơn hàng</h2>
               <p id="ordersCountDesc">5 đơn trong kỳ đã chọn</p>
             </div>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-              <button type="button" class="ops-primary-button" onclick="autoProcessOrders()" title="Tự động duyệt các đơn COD & đơn Online đã thanh toán, đồng thời sinh mã vận đơn GHN hàng loạt" style="padding: 8px 14px; font-size: 13px; background: #166534; color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">⚡ Duyệt &amp; Cấp vận đơn hàng loạt</button>
-              <button type="button" class="ops-secondary-button" onclick="batchDispatchOrders()" title="Xuất kho & bàn giao tất cả đơn Chờ đóng gói cho đơn vị vận chuyển">🚚 Bàn giao ĐVVC hàng loạt</button>
-              <a href="index.php?action=admin_print_batch_orders" target="_blank" class="ops-secondary-button" style="text-decoration: none; display: inline-flex; align-items: center;">🖨️ In phiếu đóng gói hàng loạt</a>
-              <button type="button" class="ops-secondary-button" onclick="exportOrdersCSV()">Xuất danh sách</button>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+              <button type="button" class="ops-primary-button" onclick="autoProcessOrders()" title="Tự động duyệt các đơn COD & đơn Online đã thanh toán, đồng thời sinh mã vận đơn GHN hàng loạt" style="padding: 5px 10px; font-size: 11.5px; min-height: 30px; background: #166534; color: #fff; border: none; border-radius: 5px; font-weight: 600; cursor: pointer;">⚡ Duyệt hàng loạt</button>
+              <button type="button" class="ops-secondary-button" onclick="batchDispatchOrders()" title="Xuất kho & bàn giao tất cả đơn Chờ đóng gói cho đơn vị vận chuyển" style="padding: 5px 10px; font-size: 11.5px; min-height: 30px;">🚚 Bàn giao ĐVVC</button>
+              <a href="index.php?action=admin_print_batch_orders" target="_blank" class="ops-secondary-button" style="padding: 5px 10px; font-size: 11.5px; min-height: 30px; text-decoration: none; display: inline-flex; align-items: center;">🖨️ In phiếu hàng loạt</a>
+              <button type="button" class="ops-secondary-button" onclick="exportOrdersCSV()" style="padding: 5px 10px; font-size: 11.5px; min-height: 30px;">Xuất CSV</button>
             </div>
           </div>
           <div id="orderStatusTabsBar" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; border-bottom: 1px solid #f0ebe4; margin-bottom: 8px;"></div>
@@ -1075,8 +1075,8 @@ if (!empty($_GET['live_json'])) {
         <?php endif; ?>
 
         <!-- Bảng tất cả giao dịch thanh toán -->
-        <article class="ops-card ops-table-card">
-          <header class="ops-card-header">
+        <article class="ops-card">
+          <header class="ops-card-head">
             <div>
               <h2>Nhật ký giao dịch thanh toán</h2>
               <p>Lịch sử thanh toán VietQR và thu tiền khi giao hàng (COD).</p>
