@@ -174,6 +174,73 @@ switch ($action) {
         echo json_encode($res, JSON_UNESCAPED_UNICODE);
         exit;
 
+    case 'cancel_pending_vietqr':
+        header('Content-Type: application/json; charset=utf-8');
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            @session_start();
+        }
+        $raw = file_get_contents('php://input');
+        $input = json_decode($raw, true) ?: $_POST;
+        if (!verifyCsrfToken($input)) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Phiên làm việc không hợp lệ (CSRF).'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $orderId = trim($input['madonhang'] ?? '');
+        if ($orderId === '') {
+            echo json_encode(['success' => false, 'message' => 'Mã đơn hàng không hợp lệ.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        require_once __DIR__ . '/models/TrangThai.php';
+        $db = Database::getConnection();
+        $stmtChk = $db->prepare("SELECT makh, trangthaidonhang, mavoucher FROM don_hang WHERE madonhang = ?");
+        $stmtChk->execute([$orderId]);
+        $ord = $stmtChk->fetch();
+        if (!$ord) {
+            echo json_encode(['success' => false, 'message' => 'Không tìm thấy giao dịch.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $currentUser = $_SESSION['user'] ?? null;
+        $isLoggedOwner = ($currentUser && !empty($currentUser['MaKH']) && $ord['makh'] === $currentUser['MaKH']);
+        $recentGuestOrders = $_SESSION['recent_guest_orders'] ?? [];
+        $isRecentGuest = is_array($recentGuestOrders) && in_array($orderId, $recentGuestOrders, true);
+        if (!$isLoggedOwner && !$isRecentGuest) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Không có quyền hủy giao dịch này.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $stmtTT = $db->prepare("SELECT trangthaitt, phuongthuctt FROM thanh_toan WHERE madonhang = ? LIMIT 1");
+        $stmtTT->execute([$orderId]);
+        $ttInfo = $stmtTT->fetch();
+        $isPaid = ($ttInfo && ($ttInfo['trangthaitt'] === TrangThai::TT_THANH_CONG || $ttInfo['trangthaitt'] === 'Thành công'));
+        if ($isPaid || ($ttInfo['phuongthuctt'] ?? '') !== 'VietQR' || $ord['trangthaidonhang'] !== TrangThai::DH_CHO_XAC_NHAN) {
+            echo json_encode(['success' => false, 'message' => 'Chỉ có thể hủy phiên thanh toán VietQR chưa thanh toán.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        try {
+            $db->beginTransaction();
+            $stmtItems = $db->prepare("SELECT mabienthe, soluong FROM chi_tiet_don_hang WHERE madonhang = ?");
+            $stmtItems->execute([$orderId]);
+            $items = $stmtItems->fetchAll();
+            $stmtRestock = $db->prepare("UPDATE bien_the SET soluongton = soluongton + ? WHERE mabienthe = ?");
+            foreach ($items as $it) {
+                $stmtRestock->execute([(int)$it['soluong'], $it['mabienthe']]);
+            }
+            if (!empty($ord['mavoucher'])) {
+                $db->prepare("UPDATE voucher SET soluongconlai = soluongconlai + 1 WHERE mavoucher = ?")->execute([$ord['mavoucher']]);
+            }
+            $db->prepare("DELETE FROM quy_cuu_tro WHERE madonhang = ?")->execute([$orderId]);
+            $db->prepare("DELETE FROM thanh_toan WHERE madonhang = ?")->execute([$orderId]);
+            $db->prepare("DELETE FROM chi_tiet_don_hang WHERE madonhang = ?")->execute([$orderId]);
+            $db->prepare("DELETE FROM don_hang WHERE madonhang = ?")->execute([$orderId]);
+            $db->commit();
+            echo json_encode(['success' => true, 'message' => 'Đã hủy phiên thanh toán VietQR.'], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            echo json_encode(['success' => false, 'message' => 'Lỗi hệ thống khi hủy phiên thanh toán.'], JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+
     case 'get_cart':
         header('Content-Type: application/json; charset=utf-8');
         if (session_status() === PHP_SESSION_NONE && !headers_sent()) {

@@ -1300,7 +1300,7 @@ async function confirmCancelOnlinePayment() {
   if (!gwActiveOrderCode) return;
   stopGatewayTimers();
   try {
-    await fetch('index.php?action=cancel_order', {
+    await fetch('index.php?action=cancel_pending_vietqr', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
