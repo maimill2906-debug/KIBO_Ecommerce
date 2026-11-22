@@ -2349,23 +2349,30 @@ if (!empty($_GET['live_json'])) {
       renderOrders();
     }
 
-    function normalizeOrderStatusBucket(st) {
+    function getReturnedOrderIdSet() {
+      return new Set((returnsData || []).map(r => String(r.madonhang || r.MaDonHang || '').trim()).filter(Boolean));
+    }
+
+    function normalizeOrderStatusBucket(st, orderId, returnedSet) {
       st = String(st || '').trim();
+      const low = st.toLowerCase();
+      if (low.includes('hoàn') || low.includes('trả') || (returnedSet && orderId && returnedSet.has(String(orderId)))) return 'HOAN_HANG';
       if (st === 'Chờ xác nhận') return 'CHO_XAC_NHAN';
       if (st === 'Chờ đóng gói') return 'CHO_DONG_GOI';
       if (st === 'Đã xuất kho') return 'DA_XUAT_KHO';
       if (st === 'Đang giao' || st === 'Đang giao hàng') return 'DANG_GIAO';
       if (st === 'Đã giao' || st === 'Giao thành công' || st === 'Giao hàng thành công') return 'DA_GIAO';
-      if (st.includes('hủy') || st.includes('huỷ')) return 'DA_HUY';
+      if (low.includes('hủy') || low.includes('huỷ')) return 'DA_HUY';
       return 'ALL';
     }
 
     function renderOrderStatusTabs(rangedOrders) {
       const bar = document.getElementById('orderStatusTabsBar');
       if (!bar) return;
-      const counts = { ALL: rangedOrders.length, CHO_XAC_NHAN: 0, CHO_DONG_GOI: 0, DA_XUAT_KHO: 0, DANG_GIAO: 0, DA_GIAO: 0, DA_HUY: 0 };
+      const returnedSet = getReturnedOrderIdSet();
+      const counts = { ALL: rangedOrders.length, CHO_XAC_NHAN: 0, CHO_DONG_GOI: 0, DA_XUAT_KHO: 0, DANG_GIAO: 0, DA_GIAO: 0, DA_HUY: 0, HOAN_HANG: 0 };
       rangedOrders.forEach(o => {
-        const b = normalizeOrderStatusBucket(o.status);
+        const b = normalizeOrderStatusBucket(o.status, o.id, returnedSet);
         if (counts[b] !== undefined) counts[b]++;
       });
       const defs = [
@@ -2375,14 +2382,15 @@ if (!empty($_GET['live_json'])) {
         { key: 'DA_XUAT_KHO', label: 'ĐÃ XUẤT KHO' },
         { key: 'DANG_GIAO', label: 'ĐANG GIAO' },
         { key: 'DA_GIAO', label: 'ĐÃ GIAO' },
-        { key: 'DA_HUY', label: 'ĐÃ HỦY' }
+        { key: 'DA_HUY', label: 'ĐÃ HỦY' },
+        { key: 'HOAN_HANG', label: 'HOÀN HÀNG' }
       ];
       bar.innerHTML = defs.map(d => {
         const active = (selectedOrderStatusTab === d.key);
         const bg = active ? '#111111' : '#ffffff';
         const color = active ? '#ffffff' : '#374151';
         const border = active ? '1px solid #111111' : '1px solid #e5e7eb';
-        return `<button type="button" onclick="setOrderStatusTab('${d.key}')" style="height: 32px; display: inline-flex; align-items: center; gap: 4px; padding: 0 11px; border-radius: 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; white-space: nowrap; flex-shrink: 0; cursor: pointer; background: ${bg}; color: ${color}; border: ${border}; transition: all 0.15s;">${d.label} <span style="opacity: ${active ? '0.9' : '0.6'};">(${counts[d.key]})</span></button>`;
+        return `<button type="button" onclick="setOrderStatusTab('${d.key}')" style="height: 32px; display: inline-flex; align-items: center; gap: 4px; padding: 0 9px; border-radius: 2px; font-size: 11px; font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; flex-shrink: 0; cursor: pointer; background: ${bg}; color: ${color}; border: ${border}; transition: all 0.15s;">${d.label} <span style="opacity: ${active ? '0.9' : '0.6'};">(${counts[d.key]})</span></button>`;
       }).join('');
     }
 
@@ -2390,9 +2398,10 @@ if (!empty($_GET['live_json'])) {
       const q = searchQuery.toLowerCase().trim();
       const rangedOrders = getOrdersInSelectedRange();
       renderOrderStatusTabs(rangedOrders);
+      const returnedSet = getReturnedOrderIdSet();
       const statusFiltered = (selectedOrderStatusTab === 'ALL')
         ? rangedOrders
-        : rangedOrders.filter(o => normalizeOrderStatusBucket(o.status) === selectedOrderStatusTab);
+        : rangedOrders.filter(o => normalizeOrderStatusBucket(o.status, o.id, returnedSet) === selectedOrderStatusTab);
       const filtered = q ? statusFiltered.filter(o => 
         (o.id + ' ' + o.customer + ' ' + o.phone + ' ' + o.items).toLowerCase().includes(q)
       ) : statusFiltered;
