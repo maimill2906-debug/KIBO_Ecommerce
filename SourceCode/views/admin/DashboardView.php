@@ -4052,6 +4052,10 @@ if (!empty($_GET['live_json'])) {
 
       pollAdminSummary();
       setInterval(pollAdminSummary, 4000);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) pollAdminSummary();
+      });
+      window.addEventListener('focus', pollAdminSummary);
     })();
   </script>
 </body>
