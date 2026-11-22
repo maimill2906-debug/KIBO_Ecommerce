@@ -100,12 +100,21 @@ $initialMode = (($_GET['action'] ?? '') === 'register' || $registerError) && !$r
           </label>
         </div>
 
+        <div id="pageRegisterOtpWrap" style="display: none; margin-top: 14px; padding: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 13px; font-weight: 700; color: #1e293b;">Mã xác thực Email (OTP 6 số) *</span>
+            <a href="javascript:void(0)" onclick="sendPageRegisterOtp()" style="font-size: 12px; color: #111827; font-weight: 600; text-decoration: underline;">Gửi lại mã</a>
+          </div>
+          <input type="text" name="otp" id="pageAuthRegisterOtp" maxlength="6" inputmode="numeric" placeholder="Nhập 6 chữ số OTP vừa gửi về email" style="width: 100%; height: 40px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; letter-spacing: 3px; font-weight: 700; text-align: center; box-sizing: border-box;">
+          <p id="pageOtpStatusMsg" style="font-size: 12px; color: #15803d; margin: 6px 0 0;"></p>
+        </div>
+
         <div class="login-options" id="pageLoginOptions" style="margin-top: 14px;">
           <label class="remember">
             <input type="checkbox" name="remember" checked style="width: 16px !important; height: 16px !important; max-width: 16px !important; max-height: 16px !important; min-width: 16px !important; min-height: 16px !important; margin: 0 !important; flex: 0 0 16px !important; -webkit-appearance: checkbox !important; appearance: auto !important;">
             <span>Ghi nhớ đăng nhập</span>
           </label>
-          <button type="button" class="btn forgot" onclick="if(typeof openForgotPasswordModal==='function') openForgotPasswordModal();">Quên mật khẩu?</button>
+          <button type="button" class="btn forgot" onclick="if(typeof openForgotPasswordModal==='function') openForgotPasswordModal();" style="background: none; border: none; padding: 0; color: #374151; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer;">Quên mật khẩu?</button>
         </div>
 
         <button type="submit" class="btn primary confirm" id="pageAuthSubmitBtn" style="margin-top: 18px; width: 100%; min-height: 44px; height: 44px; font-size: 14px; font-weight: 700; border-radius: 6px;">
@@ -245,6 +254,21 @@ document.addEventListener('DOMContentLoaded', () => {
           consentCb.focus();
           return;
         }
+
+        const otpWrap = document.getElementById('pageRegisterOtpWrap');
+        const otpInp = document.getElementById('pageAuthRegisterOtp');
+        if (otpWrap && otpWrap.style.display === 'none') {
+          e.preventDefault();
+          sendPageRegisterOtp();
+          return;
+        }
+        if (otpInp && !/^\d{6}$/.test(otpInp.value.trim())) {
+          e.preventDefault();
+          errBox.textContent = 'Vui lòng nhập đủ 6 chữ số mã OTP đã gửi về email.';
+          errBox.style.display = 'block';
+          otpInp.focus();
+          return;
+        }
       } else {
         const cleanLoginId = email.replace(/\s+/g, '');
         if (!emailRegex.test(email) && !phoneRegex.test(cleanLoginId)) {
@@ -275,6 +299,44 @@ function togglePagePassword(btn) {
   } else {
     input.type = 'password';
     btn.innerHTML = `<?= kibo_icon('eye', 18) ?>`;
+  }
+}
+
+async function sendPageRegisterOtp() {
+  const name = (document.getElementById('pageAuthName')?.value || '').trim();
+  const email = (document.getElementById('pageAuthEmail')?.value || '').trim();
+  const password = document.getElementById('pageAuthPassword')?.value || '';
+  const otpWrap = document.getElementById('pageRegisterOtpWrap');
+  const otpMsg = document.getElementById('pageOtpStatusMsg');
+  const otpInp = document.getElementById('pageAuthRegisterOtp');
+  let errBox = document.getElementById('pageClientError');
+  if (!errBox) {
+    const form = document.getElementById('pageAuthForm');
+    errBox = document.createElement('p');
+    errBox.id = 'pageClientError';
+    errBox.className = 'auth-error';
+    errBox.style.marginBottom = '14px';
+    form.parentNode.insertBefore(errBox, form);
+  }
+  try {
+    const resp = await fetch('index.php?action=register_send_otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ name, email, password })
+    });
+    const res = await resp.json();
+    if (!res.success) {
+      errBox.textContent = res.message || 'Không thể gửi mã xác thực email.';
+      errBox.style.display = 'block';
+      return;
+    }
+    errBox.style.display = 'none';
+    if (otpWrap) otpWrap.style.display = 'block';
+    if (otpMsg) otpMsg.textContent = res.message || 'Đã gửi mã OTP về email của bạn.';
+    if (otpInp) otpInp.focus();
+  } catch (err) {
+    errBox.textContent = 'Lỗi kết nối máy chủ khi gửi OTP.';
+    errBox.style.display = 'block';
   }
 }
 </script>

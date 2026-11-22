@@ -446,11 +446,11 @@ if (!empty($_GET['live_json'])) {
               <button type="button" class="ops-secondary-button" onclick="exportOrdersCSV()" style="padding: 0 12px; font-size: 11.5px; height: 32px; border-radius: 2px; white-space: nowrap; display: inline-flex; align-items: center;">Xuất CSV</button>
             </div>
           </div>
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; border-bottom: 1px solid #e5e7eb; flex-wrap: nowrap; overflow-x: auto;">
-            <div id="orderStatusTabsBar" style="display: flex; gap: 4px; flex-wrap: nowrap; align-items: center;"></div>
-            <label style="height: 30px; width: 175px; min-width: 150px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid #e5e7eb; border-radius: 2px; background: #ffffff; color: #9ca3af; flex-shrink: 0;">
-              <?= kibo_icon('search', 14) ?>
-              <input type="text" id="ordersInlineSearch" placeholder="Tìm mã đơn, khách..." oninput="handleGlobalSearch(this.value)" style="border: none; outline: none; background: transparent; font-size: 11.5px; color: #111827; width: 100%; padding: 0;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 10px 14px; border-bottom: 1px solid #e5e7eb; flex-wrap: nowrap; overflow-x: auto;">
+            <div id="orderStatusTabsBar" style="display: flex; gap: 3px; flex-wrap: nowrap; align-items: center;"></div>
+            <label style="height: 30px; width: 145px; min-width: 120px; display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; border: 1px solid #e5e7eb; border-radius: 2px; background: #ffffff; color: #9ca3af; flex-shrink: 0;">
+              <?= kibo_icon('search', 13) ?>
+              <input type="text" id="ordersInlineSearch" placeholder="Tìm đơn, khách..." oninput="handleGlobalSearch(this.value)" style="border: none; outline: none; background: transparent; font-size: 11px; color: #111827; width: 100%; padding: 0;">
             </label>
           </div>
           <div class="ops-table-wrap">
@@ -881,7 +881,7 @@ if (!empty($_GET['live_json'])) {
               <h2>Danh sách yêu cầu đổi trả hàng</h2>
               <p>Tiếp nhận và xử lý yêu cầu đổi trả trong vòng 3 ngày</p>
             </div>
-            <span style="font-size: 13.5px; color: #666;">Tổng cộng: <strong><?= count($dbReturns) ?></strong> yêu cầu</span>
+            <span style="font-size: 13px; color: #374151;">Tổng cộng:&nbsp;<strong><?= count($dbReturns) ?></strong>&nbsp;yêu cầu</span>
           </div>
           <div class="ops-table-wrap">
             <table class="ops-table">
@@ -2385,7 +2385,7 @@ if (!empty($_GET['live_json'])) {
         const bg = active ? '#111111' : '#ffffff';
         const color = active ? '#ffffff' : '#374151';
         const border = active ? '1px solid #111111' : '1px solid #e5e7eb';
-        return `<button type="button" onclick="setOrderStatusTab('${d.key}')" style="height: 30px; display: inline-flex; align-items: center; gap: 3px; padding: 0 7px; border-radius: 2px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.1px; white-space: nowrap; flex-shrink: 0; cursor: pointer; background: ${bg}; color: ${color}; border: ${border}; transition: all 0.15s;">${d.label} <span style="opacity: ${active ? '0.9' : '0.6'};">(${counts[d.key]})</span></button>`;
+        return `<button type="button" onclick="setOrderStatusTab('${d.key}')" style="height: 30px; display: inline-flex; align-items: center; gap: 3px; padding: 0 6px; border-radius: 2px; font-size: 10px; font-weight: 600; letter-spacing: 0.1px; white-space: nowrap; flex-shrink: 0; cursor: pointer; background: ${bg}; color: ${color}; border: ${border}; transition: all 0.15s;">${d.label} <span style="opacity: ${active ? '0.9' : '0.6'};">(${counts[d.key]})</span></button>`;
       }).join('');
     }
 
