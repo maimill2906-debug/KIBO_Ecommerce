@@ -53,20 +53,26 @@ $currentUser = $_SESSION['user'] ?? null;
           if (!headers.has('X-CSRF-Token')) headers.set('X-CSRF-Token', window.KIBO_CSRF_TOKEN);
           init.headers = headers;
         }
-        const isSilent = url.indexOf('sync_cart') !== -1 || url.indexOf('check_payment_status') !== -1;
+        const isSilent = url.indexOf('sync_cart') !== -1 || url.indexOf('check_payment_status') !== -1 || url.indexOf('get_wards') !== -1 || url.indexOf('get_provinces') !== -1;
         let spinBtn = null;
-        if (method === 'POST' && !isSilent && lastBtn && (Date.now() - lastBtnTs) <= 250 && document.body && document.body.contains(lastBtn) && !lastBtn.dataset.kiboLoading) {
+        let spinTimer = null;
+        if (!isSilent && lastBtn && (Date.now() - lastBtnTs) <= 300 && document.body && document.body.contains(lastBtn) && !lastBtn.dataset.kiboLoading) {
           spinBtn = lastBtn;
           spinBtn.dataset.kiboLoading = '1';
           spinBtn.dataset.kiboOrigHtml = spinBtn.innerHTML;
           spinBtn.dataset.kiboOrigDisabled = spinBtn.disabled ? '1' : '0';
           spinBtn.disabled = true;
-          spinBtn.style.opacity = '0.82';
-          spinBtn.innerHTML = '<span class="kibo-spinner"></span>Đang xử lý...';
+          spinTimer = setTimeout(() => {
+            if (document.body.contains(spinBtn) && spinBtn.dataset.kiboLoading) {
+              spinBtn.style.opacity = '0.82';
+              spinBtn.innerHTML = '<span class="kibo-spinner"></span>Đang xử lý...';
+            }
+          }, 120);
         }
         const p = origFetch.call(this, input, init);
         if (spinBtn) {
           p.finally(() => {
+            if (spinTimer) clearTimeout(spinTimer);
             if (document.body.contains(spinBtn) && spinBtn.dataset.kiboLoading) {
               spinBtn.innerHTML = spinBtn.dataset.kiboOrigHtml || spinBtn.innerHTML;
               spinBtn.disabled = (spinBtn.dataset.kiboOrigDisabled === '1');
@@ -77,6 +83,17 @@ $currentUser = $_SESSION['user'] ?? null;
         }
         return p;
       };
+      document.addEventListener('submit', function(ev) {
+        if (ev.defaultPrevented) return;
+        const form = ev.target;
+        const submitBtn = ev.submitter || (form && form.querySelector ? form.querySelector('button[type="submit"], input[type="submit"]') : null);
+        if (submitBtn && submitBtn.tagName === 'BUTTON' && !submitBtn.dataset.kiboLoading) {
+          submitBtn.dataset.kiboLoading = '1';
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.82';
+          submitBtn.innerHTML = '<span class="kibo-spinner"></span>Đang xử lý...';
+        }
+      }, false);
     })();
   </script>
 </head>

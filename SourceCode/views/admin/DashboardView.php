@@ -149,18 +149,24 @@ if (!empty($_GET['live_json'])) {
         }
         const isSilent = url.indexOf('admin_poll_summary') !== -1 || url.indexOf('live_json=1') !== -1;
         let spinBtn = null;
-        if (method === 'POST' && !isSilent && lastBtn && (Date.now() - lastBtnTs) <= 250 && document.body && document.body.contains(lastBtn) && !lastBtn.dataset.kiboLoading) {
+        let spinTimer = null;
+        if (!isSilent && lastBtn && (Date.now() - lastBtnTs) <= 300 && document.body && document.body.contains(lastBtn) && !lastBtn.dataset.kiboLoading) {
           spinBtn = lastBtn;
           spinBtn.dataset.kiboLoading = '1';
           spinBtn.dataset.kiboOrigHtml = spinBtn.innerHTML;
           spinBtn.dataset.kiboOrigDisabled = spinBtn.disabled ? '1' : '0';
           spinBtn.disabled = true;
-          spinBtn.style.opacity = '0.82';
-          spinBtn.innerHTML = '<span class="kibo-spinner"></span>Đang xử lý...';
+          spinTimer = setTimeout(() => {
+            if (document.body.contains(spinBtn) && spinBtn.dataset.kiboLoading) {
+              spinBtn.style.opacity = '0.82';
+              spinBtn.innerHTML = '<span class="kibo-spinner"></span>Đang xử lý...';
+            }
+          }, 120);
         }
         const p = origFetch.call(this, input, init);
         if (spinBtn) {
           p.finally(() => {
+            if (spinTimer) clearTimeout(spinTimer);
             if (document.body.contains(spinBtn) && spinBtn.dataset.kiboLoading) {
               spinBtn.innerHTML = spinBtn.dataset.kiboOrigHtml || spinBtn.innerHTML;
               spinBtn.disabled = (spinBtn.dataset.kiboOrigDisabled === '1');
