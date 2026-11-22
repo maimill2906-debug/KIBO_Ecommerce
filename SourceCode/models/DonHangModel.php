@@ -111,10 +111,31 @@ class DonHangModel {
                         ORDER BY dh.ngaydathang DESC";
                 $rows = $db->query($sql)->fetchAll();
                 if ($rows && count($rows) > 0) {
+                    $orderIds = array_column($rows, 'madonhang');
+                    $itemsByOrder = [];
+                    if (!empty($orderIds)) {
+                        $placeholders = implode(',', array_fill(0, count($orderIds), '?'));
+                        $itemSql = "SELECT ctdh.madonhang, ctdh.soluong, ctdh.dongia, bt.tenbienthe, sp.tensp
+                                    FROM chi_tiet_don_hang ctdh
+                                    JOIN bien_the bt ON ctdh.mabienthe = bt.mabienthe
+                                    JOIN san_pham sp ON bt.masp = sp.masp
+                                    WHERE ctdh.madonhang IN ({$placeholders})";
+                        $itemStmt = $db->prepare($itemSql);
+                        $itemStmt->execute($orderIds);
+                        foreach ($itemStmt->fetchAll() as $ir) {
+                            $itemsByOrder[$ir['madonhang']][] = [
+                                'name' => $ir['tensp'],
+                                'variant' => $ir['tenbienthe'],
+                                'qty' => (int)$ir['soluong'],
+                                'price' => (float)$ir['dongia']
+                            ];
+                        }
+                    }
+
                     $mapped = [];
                     foreach ($rows as $r) {
                         $maDH = $r['madonhang'];
-                        $items = self::getOrderItems($maDH, $db);
+                        $items = $itemsByOrder[$maDH] ?? [];
                         $statusRaw = $r['trangthaidonhang'];
                         $statusText = ($statusRaw === 'Giao thành công') ? 'Giao hàng thành công' : 
                                       (($statusRaw === 'Đang giao') ? 'Đang giao hàng' : $statusRaw);
