@@ -201,7 +201,7 @@ if ($isValidCode) {
                 <p style="margin: 4px 0 0; color: #2c1a0e; font-size: 13px; font-weight: 700;">📦 Mã vận đơn: <span style="background: #f5efe8; padding: 2px 6px; border-radius: 3px;"><?= htmlspecialchars($orderData['mavandon']) ?></span></p>
               <?php endif; ?>
               <?php if (!empty($isOwner) && in_array($orderData['status'], ['Chờ xác nhận', 'Chờ đóng gói'], true)): ?>
-                <?php $isTrackingPaid = (($orderData['paymentStatus'] ?? '') === 'Thành công'); ?>
+                <?php $isTrackingPaid = in_array(($orderData['paymentStatus'] ?? ''), ['Thành công', 'Đã thanh toán', 'Thanh toán thành công'], true); ?>
                 <div style="margin-top: 10px;">
                   <button type="button" onclick='cancelTrackingOrder(<?= json_encode($orderData["code"]) ?>, <?= $isTrackingPaid ? "true" : "false" ?>, <?= json_encode($orderData["rawPhone"] ?? "") ?>)' style="padding: 6px 14px; border: 1px solid #c8c8c8; background: #ffffff; color: #333333; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;">
                     Hủy đơn hàng
@@ -513,6 +513,9 @@ async function submitTrackingCancelOrder(orderId, refundBank) {
       window.location.href = 'index.php?action=tracking&order=' + encodeURIComponent(orderId);
     } else {
       await kiboAlert(data.message || 'Không thể hủy đơn hàng.', 'Thông báo');
+      if ((data.message || '').indexOf('Tên ngân hàng') !== -1) {
+        cancelTrackingOrder(orderId, true, trackingCancelPhone);
+      }
     }
   } catch (err) {
     await kiboAlert('Lỗi kết nối khi gửi yêu cầu hủy đơn.', 'Thông báo');
